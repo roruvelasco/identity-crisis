@@ -25,6 +25,7 @@ package com.identitycrisis.server;
 // 11. Runtime.getRuntime().addShutdownHook(...)  → calls server.shutdown()
 // 12. server.start()  — blocks on accept loop
 public class ServerApp {
+    private static final Logger LOG = new Logger("ServerApp");
     public static void main(String[] args) { /* see implementation */ }
     private static int parsePort(String[] args) { /* parse args[0], fallback to GameConfig.SERVER_PORT */ }
 }
@@ -126,6 +127,7 @@ import java.net.Socket;
 
 // One connected client. Reader thread reads messages and routes them.
 public class ClientConnection implements Runnable {
+    private static final Logger LOG = new Logger("ClientConnection");
     private final int clientId;
     private final Socket socket;
     private final DataInputStream  in;

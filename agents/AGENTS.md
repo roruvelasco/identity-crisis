@@ -245,7 +245,7 @@ identity-crisis/
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <javafx.version>21.0.2</javafx.version>
+        <javafx.version>21.0.5</javafx.version>
     </properties>
 
     <dependencies>
@@ -282,7 +282,7 @@ identity-crisis/
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>
                 <configuration>
-                    <mainClass>com.identitycrisis.client/com.identitycrisis.client.ClientApp</mainClass>
+                    <mainClass>com.identitycrisis/com.identitycrisis.client.ClientApp</mainClass>
                 </configuration>
             </plugin>
         </plugins>
@@ -309,18 +309,16 @@ module com.identitycrisis {
 ### 15.3 Running
 
 ```bash
-# Build
-mvn clean compile
+# Both server + client in one command (recommended)
+make dev
 
-# Run server
-mvn exec:java -Dexec.mainClass="com.identitycrisis.server.ServerApp"
-
-# Run client (in a separate terminal)
-mvn javafx:run
-
-# Or run client with explicit main class
-mvn exec:java -Dexec.mainClass="com.identitycrisis.client.ClientApp"
+# Individual targets
+make build    # mvn clean compile
+make server   # mvn exec:java@server
+make client   # mvn javafx:run
 ```
+
+`make dev` runs `dev.sh` which: builds → forks server in background → starts client in foreground → kills server on exit (Ctrl+C or client window closed).
 ## 14. Scene Flow
 
 ```

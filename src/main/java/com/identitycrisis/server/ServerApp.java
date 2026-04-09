@@ -42,9 +42,11 @@ import com.identitycrisis.shared.util.Logger;
  */
 public class ServerApp {
 
+    private static final Logger LOG = new Logger("ServerApp");
+
     public static void main(String[] args) {
         int port = parsePort(args);
-        Logger.info("Identity Crisis Server — starting on port " + port);
+        LOG.info("Identity Crisis Server — starting on port " + port);
 
         // ── 1. Foundation ────────────────────────────────────────────────────
         GameState gameState = new GameState();
@@ -79,7 +81,7 @@ public class ServerApp {
 
         // ── 11. JVM shutdown hook — clean socket teardown on Ctrl+C ──────────
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            Logger.info("Shutdown signal received — stopping server gracefully.");
+            LOG.info("Shutdown signal received — stopping server gracefully.");
             server.shutdown();
         }, "server-shutdown-hook"));
 
@@ -98,7 +100,7 @@ public class ServerApp {
                 }
                 return p;
             } catch (NumberFormatException e) {
-                Logger.warn("Invalid port argument '" + args[0] + "', using default.");
+                LOG.warn("Invalid port argument '" + args[0] + "', using default.");
             }
         }
         return GameConfig.SERVER_PORT;

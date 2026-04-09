@@ -2,7 +2,10 @@ package com.identitycrisis.server.net;
 
 import com.identitycrisis.server.game.LobbyManager;
 import com.identitycrisis.server.game.ServerGameLoop;
+import com.identitycrisis.shared.util.Logger;
+import java.io.IOException;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -30,6 +33,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * {@link ClientConnection#send(byte[])} which is internally {@code synchronized}.
  */
 public class GameServer {
+
+    private static final Logger LOG = new Logger("GameServer");
 
     private final int port;
     private final List<ClientConnection> clients = new CopyOnWriteArrayList<>();
@@ -80,15 +85,31 @@ public class GameServer {
                 "GameServer.start() called before router/lobbyManager were injected. " +
                 "Check ServerApp.main() composition order.");
         }
-        // TODO: implement accept loop
-        // while (true):
-        //   Socket socket = serverSocket.accept();
-        //   int id = nextClientId.getAndIncrement();
-        //   ClientConnection conn = new ClientConnection(id, socket, router);
-        //   clients.add(conn);
-        //   Thread t = new Thread(conn, "client-conn-" + id);
-        //   t.setDaemon(true);
-        //   t.start();
+        try {
+            serverSocket = new ServerSocket(port);
+            LOG.info("Server listening on port " + port);
+            LOG.info("[HEALTH OK] Identity Crisis server is up and waiting for players.");
+            while (!serverSocket.isClosed()) {
+                Socket socket = serverSocket.accept();
+                int id = nextClientId.getAndIncrement();
+                try {
+                    ClientConnection conn = new ClientConnection(id, socket, router);
+                    clients.add(conn);
+                    Thread t = new Thread(conn, "client-conn-" + id);
+                    t.setDaemon(true);
+                    t.start();
+                    LOG.info("Client " + id + " connected from " + socket.getInetAddress());
+                } catch (IOException e) {
+                    LOG.error("Failed to set up client connection " + id, e);
+                }
+            }
+        } catch (IOException e) {
+            if (serverSocket != null && serverSocket.isClosed()) {
+                LOG.info("Server socket closed — shutting down.");
+            } else {
+                LOG.error("Server error", e);
+            }
+        }
     }
 
     /** Called when lobby signals all ready. Starts the game loop on a named thread. */

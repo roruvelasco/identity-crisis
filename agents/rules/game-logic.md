@@ -317,7 +317,7 @@ SafeZoneManager.generateClientSafeZones(clientId, fakeChaosActive):
     result.add(gameState.getTrueSafeZone())  // always include the real one
     
     if (fakeChaosActive):
-        Random rng = new Random(clientId * roundNumber)  // per-client seed
+        Random rng = new Random(Objects.hash(clientId, roundNumber))  // per-client, collision-free seed
         for i in 0..FAKE_SAFE_ZONE_COUNT-1:
             decoyPos = randomSafePosition()  // random, not overlapping true zone
             result.add(new SafeZone(decoyPos, SAFE_ZONE_RADIUS))

@@ -29,6 +29,8 @@ import java.net.Socket;
  */
 public class ClientConnection implements Runnable {
 
+    private static final Logger LOG = new Logger("ClientConnection");
+
     private final int clientId;
     private final Socket socket;
     private final DataInputStream  in;
@@ -68,7 +70,7 @@ public class ClientConnection implements Runnable {
             }
         } catch (IOException e) {
             if (connected) {
-                Logger.warn("Client " + clientId + " disconnected: " + e.getMessage());
+                LOG.warn("Client " + clientId + " disconnected: " + e.getMessage());
             }
         } finally {
             disconnect();
@@ -89,7 +91,7 @@ public class ClientConnection implements Runnable {
             out.write(data);
             out.flush();
         } catch (IOException e) {
-            Logger.warn("Failed to send to client " + clientId + ": " + e.getMessage());
+            LOG.warn("Failed to send to client " + clientId + ": " + e.getMessage());
             disconnect();
         }
     }

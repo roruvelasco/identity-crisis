@@ -39,18 +39,28 @@ public class GameTimer {
 ```
 
 ### 5.3 `shared/util/Logger.java`
+
+> **Usage convention:** `Logger` is **instance-based** (not static). Every class
+> that needs logging declares one `private static final` field:
+> ```java
+> private static final Logger LOG = new Logger("ClassName");
+> ```
+> Never call `Logger.info(...)` directly — there are no static methods.
+> This was the root cause of a compile error caught during initial build.
+
 ```java
 package com.identitycrisis.shared.util;
 
 // Minimal tagged logger. Wraps System.out/err with [TAG] prefixes.
 public class Logger {
+    private static final boolean DEBUG = false;
     private final String tag;
     public Logger(String tag) { }
     public void info(String msg) { }
     public void warn(String msg) { }
     public void error(String msg) { }
     public void error(String msg, Throwable t) { }
-    public void debug(String msg) { /* only prints if static DEBUG flag is true */ }
+    public void debug(String msg) { /* only prints if DEBUG is true */ }
 }
 ```
 
@@ -206,6 +216,9 @@ public final class GameConfig {
     public static final double CARRY_RANGE = 32.0;
     public static final double THROW_SPEED = 400.0;
     public static final double THROW_STUN_SECONDS = 0.5;
+
+    // Input Queue
+    public static final int MAX_QUEUED_INPUTS = 120;
 
     // Chaos Events
     public static final double CHAOS_EVENT_MIN_DELAY = 3.0;

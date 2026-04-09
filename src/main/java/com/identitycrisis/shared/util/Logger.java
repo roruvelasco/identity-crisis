@@ -9,14 +9,17 @@ public class Logger {
 
     public Logger(String tag) { this.tag = tag; }
 
-    public void info(String msg) { }
+    public void info(String msg)  { System.out.println("[INFO][" + tag + "] " + msg); }
 
-    public void warn(String msg) { }
+    public void warn(String msg)  { System.out.println("[WARN][" + tag + "] " + msg); }
 
-    public void error(String msg) { }
+    public void error(String msg) { System.err.println("[ERROR][" + tag + "] " + msg); }
 
-    public void error(String msg, Throwable t) { }
+    public void error(String msg, Throwable t) {
+        System.err.println("[ERROR][" + tag + "] " + msg);
+        t.printStackTrace(System.err);
+    }
 
     /** Only prints if static DEBUG flag is true. */
-    public void debug(String msg) { }
+    public void debug(String msg) { if (DEBUG) System.out.println("[DEBUG][" + tag + "] " + msg); }
 }

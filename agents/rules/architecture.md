@@ -128,7 +128,7 @@ CLIENT:
 ### 8.7 Critical Concurrency Notes
 
 1. **Server input queue:** Use `ConcurrentLinkedQueue` — network threads enqueue, game loop thread dequeues. No locks needed.
-2. **Server output:** `ClientConnection.getOutputStream()` must be `synchronized` because the game loop thread writes snapshots while the main thread might write lobby state.
+2. **Server output:** All writes go through `ClientConnection.send(byte[])` (synchronized). `getOutputStream()` is deprecated and throws `UnsupportedOperationException` — do not use it.
 3. **Client LocalGameState:** Use volatile fields for primitive/reference swaps. For `List<Player>`, create a new list each update and swap the reference atomically (volatile reference assignment is atomic in Java).
 4. **Never touch JavaFX scene graph from non-FX threads.** Use `Platform.runLater()` for UI callbacks from the network reader thread
 
