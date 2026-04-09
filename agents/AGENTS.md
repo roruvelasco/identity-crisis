@@ -54,6 +54,74 @@ This document is the **sole source of truth** for the implementing LLM. It conta
 | Serialization | Manual binary protocol | Full control, no ObjectInputStream security issues |
 | Game loop | Custom tick loop on server; `AnimationTimer` on client | Spec mandates custom loop |
 | Module system | JPMS (`module-info.java`) | Required for JavaFX 21 |
+| Dependency injection | **Manual constructor DI (no framework)** | See §2b below |
+
+## 2b. Dependency Injection Architecture
+
+> **Rule:** No DI framework (no Spring, Guice, or Dagger). Manual constructor injection
+> from a single Composition Root. This is JPMS-compatible, zero-dependency, and
+> sufficient for this project's ~60-class surface area.
+
+### Composition Root
+`ServerApp.main()` is the **sole** place where collaborating server objects are
+created with `new`. Every other class receives its dependencies via constructor
+or setter parameter — never by calling `new` on another class internally.
+
+### Constructor Injection (preferred)
+Used everywhere dependencies do **not** form a cycle:
+```
+SafeZoneManager(GameState)
+ChaosEventManager(GameState)
+CarryManager(GameState)
+EliminationManager(GameState)
+RoundManager(GameState, SafeZoneManager, ChaosEventManager, EliminationManager)
+ServerGameLoop(GameServer, GameContext, PhysicsEngine, CollisionDetector)
+```
+
+### Setter Injection (circular reference only)
+`GameServer`, `ClientMessageRouter`, and `LobbyManager` form a three-way circular
+reference. Break it with setter injection from the Composition Root:
+```java
+GameServer server         = new GameServer(port);          // step 1
+ClientMessageRouter router = new ClientMessageRouter(server); // step 2
+LobbyManager lobbyMgr     = new LobbyManager(server);        // step 3
+server.setRouter(router);           // step 4 — resolve cycle
+server.setLobbyManager(lobbyMgr);   // step 4
+```
+`GameServer.start()` throws `IllegalStateException` if setters were not called.
+
+### GameContext Record
+Groups all six game-manager collaborators into one value-object so
+`ServerGameLoop` has a clean 4-argument constructor instead of 9:
+```java
+public record GameContext(
+    GameState gameState,
+    SafeZoneManager safeZoneManager,
+    ChaosEventManager chaosEventManager,
+    CarryManager carryManager,
+    EliminationManager eliminationManager,
+    RoundManager roundManager
+) {}
+```
+
+### Critical Rules for Implementing Agents
+1. **Never instantiate a collaborator inside another collaborator.** If class A needs
+   class B, add B as a constructor parameter to A and wire it in `ServerApp.main()`.
+2. **All socket writes go through `ClientConnection.send(byte[])`** (synchronized).
+   `getOutputStream()` is deprecated and throws — do not use it.
+3. **Stop the game loop with `ServerGameLoop.stop()`**, never `Thread.interrupt()` —
+   interrupt closes the socket streams abruptly.
+4. **Input queue cap:** `enqueueInput()` silently drops if
+   `inputQueue.size() >= GameConfig.MAX_QUEUED_INPUTS` (120).
+5. **Named threads:** game loop thread = `"server-game-loop"` (non-daemon);
+   client reader threads = `"client-conn-<id>"` (daemon).
+6. **Shutdown hook:** `ServerApp` registers a JVM shutdown hook that calls
+   `server.shutdown()` — this closes sockets and stops the loop on Ctrl+C.
+7. **Keep docs in sync.** Whenever a bug is fixed or an architectural decision
+   changes (method signatures, wiring order, new files, threading rules, protocol
+   changes, etc.), update **every affected `.md` file** in `agents/` and
+   `agents/rules/` before finishing the task. The markdown files are the source of
+   truth for future agents — stale docs cause the same bugs to reappear.
 
 ## 4. Directory & File Tree
 
@@ -106,6 +174,7 @@ identity-crisis/
 │   │       │   │   └── ClientMessageRouter.java
 │   │       │   ├── game/
 │   │       │   │   ├── ServerGameLoop.java     (Runnable)
+│   │       │   │   ├── GameContext.java         (record — game manager bundle for DI)
 │   │       │   │   ├── GameState.java
 │   │       │   │   ├── RoundManager.java
 │   │       │   │   ├── SafeZoneManager.java

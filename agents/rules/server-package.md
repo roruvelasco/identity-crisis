@@ -2,22 +2,41 @@
 
 > `com.identitycrisis.server` — Headless authoritative game server. No JavaFX dependency. Runs from `main()`.
 
-### 6.1 `server/ServerApp.java`
+### 6.1 `server/ServerApp.java` — Composition Root
+
+> **This is the ONLY place that calls `new` on collaborating objects.**
+> All other classes receive their dependencies via constructor or setter injection.
+> Do NOT add `new PhysicsEngine()` or similar inside game/net classes — wire them here.
+
 ```java
 package com.identitycrisis.server;
 
-// Entry point. Usage: java com.identitycrisis.server.ServerApp [port]
+// Composition Root — wiring order:
+// 1. GameState
+// 2. Game managers (injected with GameState): szm, cem, cm, em, rm
+// 3. Physics utilities: pe, cd
+// 4. GameContext(gameState, szm, cem, cm, em, rm)
+// 5. GameServer(port)           — port only; router/lobby/loop set via setters
+// 6. ClientMessageRouter(server)
+// 7. LobbyManager(server)
+// 8. server.setRouter(router); server.setLobbyManager(lobbyMgr);
+// 9. ServerGameLoop(server, ctx, pe, cd)
+// 10. server.setGameLoop(loop)
+// 11. Runtime.getRuntime().addShutdownHook(...)  → calls server.shutdown()
+// 12. server.start()  — blocks on accept loop
 public class ServerApp {
-    public static void main(String[] args) {
-        // 1. Parse optional port (default: GameConfig.SERVER_PORT)
-        // 2. Create GameServer
-        // 3. Start listening (blocking on main thread or spawn listener)
-        // 4. When lobby fills + all ready → create and start ServerGameLoop
-    }
+    public static void main(String[] args) { /* see implementation */ }
+    private static int parsePort(String[] args) { /* parse args[0], fallback to GameConfig.SERVER_PORT */ }
 }
 ```
 
 ### 6.2 `server/net/GameServer.java`
+
+> **Setter injection** is used for `router`, `lobbyManager`, and `gameLoop` because
+> these three form a circular reference that cannot be resolved by constructor injection
+> alone. The Composition Root (§6.1) calls all three setters before `start()`.
+> `start()` throws `IllegalStateException` if setters were skipped.
+
 ```java
 package com.identitycrisis.server.net;
 
@@ -25,40 +44,79 @@ import com.identitycrisis.server.game.*;
 import java.net.ServerSocket;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 
 // TCP server. Manages connections, lobby, game start.
 public class GameServer {
-    private ServerSocket serverSocket;
+    private final int port;
     private final List<ClientConnection> clients = new CopyOnWriteArrayList<>();
-    private LobbyManager lobbyManager;
-    private ServerGameLoop gameLoop;
+    private final AtomicInteger nextClientId = new AtomicInteger(1);
+    private ServerSocket serverSocket;
+
+    // Setter-injected (circular ref trio — set by Composition Root before start())
     private ClientMessageRouter router;
+    private LobbyManager        lobbyManager;
+    private ServerGameLoop      gameLoop;
 
-    public GameServer(int port) { }
+    public GameServer(int port) { this.port = port; }
 
-    // Accept connections. Blocks or runs on own thread.
-    public void start() { }
+    // Setter injection — called from ServerApp.main() before start()
+    public void setRouter(ClientMessageRouter router) { }
+    public void setLobbyManager(LobbyManager lobbyManager) { }
+    public void setGameLoop(ServerGameLoop gameLoop) { }
 
-    // Called when lobby signals all ready.
+    // Validates setters were called, then blocks accepting connections.
+    // Each accepted socket → new ClientConnection on a named daemon thread.
+    public void start() { /* throws IllegalStateException if router/lobbyManager null */ }
+
+    // Starts ServerGameLoop on named non-daemon thread "server-game-loop".
     public void startGame() { }
 
-    // Remove disconnected client.
     public void removeClient(ClientConnection client) { }
 
-    // Broadcast raw bytes to ALL clients.
+    // All writes go through ClientConnection.send() (synchronized)
     public void broadcastToAll(byte[] data) { }
-
-    // Send to specific client.
     public void sendToClient(ClientConnection client, byte[] data) { }
 
-    public List<ClientConnection> getClients() { }
-    public LobbyManager getLobbyManager() { }
-    public ServerGameLoop getGameLoop() { }
+    // Stops game loop, disconnects all clients, closes ServerSocket
     public void shutdown() { }
+
+    public List<ClientConnection> getClients()     { return clients; }
+    public LobbyManager          getLobbyManager() { return lobbyManager; }
+    public ServerGameLoop        getGameLoop()      { return gameLoop; }
+    public int                   getPort()          { return port; }
 }
 ```
 
+### 6.2b `server/game/GameContext.java` — Manager bundle record
+
+> Groups all six game managers into one value-object passed to `ServerGameLoop`.
+> This avoids a 9-parameter constructor and keeps the type system explicit about
+> what each class needs.
+
+```java
+package com.identitycrisis.server.game;
+
+// Value-object used as single constructor arg to ServerGameLoop.
+// All fields are set once by the Composition Root; never mutated after that.
+public record GameContext(
+        GameState          gameState,
+        SafeZoneManager    safeZoneManager,
+        ChaosEventManager  chaosEventManager,
+        CarryManager       carryManager,
+        EliminationManager eliminationManager,
+        RoundManager       roundManager
+) { }
+```
+
 ### 6.3 `server/net/ClientConnection.java`
+
+> **IMPORTANT:** All writes to this client's socket **must** go through
+> `send(byte[])`, which is `synchronized`. Do NOT expose or call `getOutputStream()`
+> directly — it will cause interleaved/corrupted frames under concurrent writes
+> (game loop thread vs. lobby/main thread). `getOutputStream()` is deprecated and
+> throws `UnsupportedOperationException` to enforce this contract.
+
 ```java
 package com.identitycrisis.server.net;
 
@@ -70,16 +128,16 @@ import java.net.Socket;
 public class ClientConnection implements Runnable {
     private final int clientId;
     private final Socket socket;
-    private final DataInputStream in;
-    private final DataOutputStream out;
-    private final MessageEncoder encoder;
-    private final MessageDecoder decoder;
+    private final DataInputStream  in;
+    private final DataOutputStream out;   // never exposed directly
+    private final MessageEncoder   encoder;
+    private final MessageDecoder   decoder;
     private final ClientMessageRouter router;
     private volatile boolean connected;
     private String displayName;
 
     public ClientConnection(int clientId, Socket socket,
-                            ClientMessageRouter router) { }
+                            ClientMessageRouter router) throws IOException { }
 
     @Override
     public void run() {
@@ -87,13 +145,19 @@ public class ClientConnection implements Runnable {
         //   router.route(this, type, decoder)
     }
 
-    public int getClientId() { }
-    public String getDisplayName() { }
-    public void setDisplayName(String name) { }
-    public MessageEncoder getEncoder() { }
-    public DataOutputStream getOutputStream() { }
-    public boolean isConnected() { }
-    public void disconnect() { }
+    // ── Synchronized write — ONLY way to send data to this client ────────────
+    public synchronized void send(byte[] data) { /* out.write(data); out.flush(); */ }
+
+    public int            getClientId()    { return clientId; }
+    public String         getDisplayName() { return displayName; }
+    public void           setDisplayName(String name) { }
+    public MessageEncoder getEncoder()     { return encoder; }
+    public boolean        isConnected()    { return connected; }
+    public void           disconnect()     { /* connected=false; socket.close(); */ }
+
+    /** @deprecated Use send(byte[]) instead. Throws UnsupportedOperationException. */
+    @Deprecated
+    public DataOutputStream getOutputStream() { throw new UnsupportedOperationException(); }
 }
 ```
 
@@ -123,53 +187,72 @@ public class ClientMessageRouter {
 ```
 
 ### 6.5 `server/game/ServerGameLoop.java`
+
+> **Full constructor injection.** Receives `GameServer`, `GameContext`, `PhysicsEngine`,
+> and `CollisionDetector` — never creates them internally.
+> `enqueueInput()` silently drops if the queue exceeds `GameConfig.MAX_QUEUED_INPUTS`
+> to prevent memory DoS from misbehaving clients.
+> Call `stop()` (not `Thread.interrupt()`) to halt the loop cleanly.
+
 ```java
 package com.identitycrisis.server.game;
 
 import com.identitycrisis.server.net.GameServer;
 import com.identitycrisis.server.physics.*;
+import com.identitycrisis.shared.model.GameConfig;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 // Authoritative game loop. Runs on its own thread at fixed tick rate.
-// Each tick: collect inputs → update state → broadcast per-client snapshots.
+// Each tick: processInputs → update(dt) → broadcastState → sleepUntilNextTick
 public class ServerGameLoop implements Runnable {
-    private final GameServer server;
-    private final GameState gameState;
-    private final PhysicsEngine physics;
-    private final CollisionDetector collisions;
-    private final RoundManager roundManager;
-    private final SafeZoneManager safeZoneManager;
-    private final ChaosEventManager chaosEventManager;
-    private final CarryManager carryManager;
-    private final EliminationManager eliminationManager;
+
+    // ── Injected (never created here) ─────────────────────────────────────
+    private final GameServer         server;
+    private final GameContext        ctx;        // all six game managers
+    private final PhysicsEngine      physics;
+    private final CollisionDetector  collisions;
+
+    // ── Owned internals ───────────────────────────────────────────────────
     private final ConcurrentLinkedQueue<QueuedInput> inputQueue;
     private volatile boolean running;
 
-    public ServerGameLoop(GameServer server, GameState initialState) { }
+    /** All deps injected by Composition Root (ServerApp.main). Never call new here. */
+    public ServerGameLoop(GameServer server, GameContext ctx,
+                          PhysicsEngine physics, CollisionDetector collisions) { }
 
     @Override
     public void run() {
-        // Fixed timestep loop:
-        // while (running):
-        //   processInputs()
-        //   update(dt)
-        //   broadcastState()
-        //   sleepUntilNextTick()
+        // running = true;
+        // while (running): processInputs(); update(dt); broadcastState(); sleep();
     }
 
     private void processInputs() { }
-    private void update(double dt) { }
-    private void broadcastState() {
-        // For EACH client: build personalized GameStateSnapshot
-        // (different safeZones list, different controlledPlayerId)
-        // Encode and send via GameServer.sendToClient()
+
+    private void update(double dt) {
+        // physics.step(ctx.gameState(), dt);
+        // collisions.resolve(ctx.gameState());
+        // ctx.roundManager().tick(dt);
+        // ctx.safeZoneManager().updateOccupancy();
+        // ctx.carryManager().tick(dt);
+        // ctx.chaosEventManager().tick(dt);
     }
 
-    // Thread-safe: called from network threads.
-    public void enqueueInput(int clientId, boolean[] inputFlags) { }
-    public void stop() { }
+    private void broadcastState() {
+        // For EACH client: build personalized GameStateSnapshot
+        // (different safeZones list via SafeZoneManager.generateClientSafeZones,
+        //  different controlledPlayerId after CONTROL_SWAP chaos event)
+        // Encode and send via server.sendToClient(client, encoded)
+    }
 
-    // Inner class for queued input
+    /**
+     * Thread-safe — called from ClientConnection reader threads.
+     * Drops silently if queue.size() >= GameConfig.MAX_QUEUED_INPUTS.
+     */
+    public void enqueueInput(int clientId, boolean[] inputFlags) { }
+
+    /** Signal the loop to exit cleanly. Do NOT use Thread.interrupt(). */
+    public void stop() { running = false; }
+
     public record QueuedInput(int clientId, boolean[] flags) { }
 }
 ```

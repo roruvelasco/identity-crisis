@@ -35,6 +35,11 @@
 3. **Tick-based server** (60 tps): read inputs → update state → broadcast.
 4. **Frame-based client** (~60 fps via AnimationTimer): poll input → send → render latest snapshot.
 5. **Separation:** `shared` has zero dependency on `client`/`server`. Both depend only on `shared`.
+6. **Manual constructor DI / Composition Root.** `ServerApp.main()` is the only place
+   `new` is called on collaborating objects. Every other class receives dependencies via
+   its constructor or (for the circular trio: `GameServer`/`ClientMessageRouter`/`LobbyManager`)
+   via setter injection. No DI framework — incompatible with JPMS + spec constraints.
+   See §2b in `AGENTS.md` for the full wiring order and critical rules.
 
 ## 8. Network Protocol Specification
 

@@ -45,4 +45,8 @@ public final class GameConfig {
     public static final int WINDOW_WIDTH = 1280;
     public static final int WINDOW_HEIGHT = 720;
     public static final String WINDOW_TITLE = "Identity Crisis";
+
+    // Server robustness
+    /** Max pending inputs per client connection before silently dropping. */
+    public static final int MAX_QUEUED_INPUTS = 120; // 2 seconds at 60 tps
 }

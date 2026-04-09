@@ -13,7 +13,12 @@ public class RoundManager {
     private EliminationManager eliminationManager;
 
     public RoundManager(GameState gs, SafeZoneManager szm,
-                        ChaosEventManager cem, EliminationManager em) { }
+                        ChaosEventManager cem, EliminationManager em) {
+        this.gameState          = gs;
+        this.safeZoneManager    = szm;
+        this.chaosEventManager  = cem;
+        this.eliminationManager = em;
+    }
 
     public void tick(double dt) { }
 
