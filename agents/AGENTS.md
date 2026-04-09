@@ -87,8 +87,15 @@ ClientMessageRouter router = new ClientMessageRouter(server); // step 2
 LobbyManager lobbyMgr     = new LobbyManager(server);        // step 3
 server.setRouter(router);           // step 4 — resolve cycle
 server.setLobbyManager(lobbyMgr);   // step 4
+lobbyMgr.setGameState(gameState);   // step 5 — lobby needs GameState to populate players on start
 ```
 `GameServer.start()` throws `IllegalStateException` if setters were not called.
+
+### Backend Implementation Guide
+See **`agents/BACKEND_IMPL.md`** for a step-by-step implementation guide covering
+every stub method in the backend — from shared foundation through a fully working
+game loop with player connections. That document is self-contained and ordered so
+an LLM can implement each step without cross-referencing other files.
 
 ### GameContext Record
 Groups all six game-manager collaborators into one value-object so

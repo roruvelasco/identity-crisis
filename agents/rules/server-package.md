@@ -517,8 +517,15 @@ import com.identitycrisis.server.net.GameServer;
 // Pre-game lobby. Accepts players, tracks readiness, signals start.
 public class LobbyManager {
     private GameServer server;
+    private GameState gameState;  // setter-injected by Composition Root
 
     public LobbyManager(GameServer server) { }
+
+    // Setter injection — called from ServerApp.main() after GameState is created.
+    // LobbyManager needs GameState to populate the player list and controlMap
+    // when the game starts (all ready).
+    public void setGameState(GameState gs) { this.gameState = gs; }
+
     public void handleJoin(ClientConnection client, String displayName) { }
     public void handleReady(ClientConnection client) { }
     public boolean canStartGame() { }
