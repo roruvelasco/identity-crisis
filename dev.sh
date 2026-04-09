@@ -2,15 +2,15 @@
 set -e
 
 echo "[dev] Building..."
-mvn clean compile -q
+./mvnw clean compile -q
 
 echo "[dev] Starting server..."
-mvn exec:java@server &
+./mvnw exec:java@server &
 SERVER_PID=$!
 
 trap "echo '[dev] Stopping server...'; kill $SERVER_PID 2>/dev/null; wait $SERVER_PID 2>/dev/null" EXIT INT TERM
 
 echo "[dev] Starting client..."
-mvn javafx:run
+./mvnw javafx:run
 
 wait $SERVER_PID 2>/dev/null || true

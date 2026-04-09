@@ -4,10 +4,10 @@ dev:
 	@bash dev.sh
 
 build:
-	mvn clean compile
+	./mvnw clean compile
 
 server:
-	mvn exec:java@server
+	./mvnw exec:java@server
 
 client:
-	mvn javafx:run
+	./mvnw javafx:run
