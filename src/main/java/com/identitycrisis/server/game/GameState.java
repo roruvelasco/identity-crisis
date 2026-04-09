@@ -19,6 +19,8 @@ public class GameState {
     private double chaosEventTimer;
     private Map<Integer, Integer> controlMap; // clientId → controlledPlayerId
     private List<CarryState> activeCarries;
+    private final List<Integer> pendingEliminationIds = new ArrayList<>();
+    private int pendingGameOverWinnerId = -1;
 
     /**
      * Initializes all collections and sets safe defaults so no field is ever
@@ -66,4 +68,9 @@ public class GameState {
     public Map<Integer, Integer> getControlMap() { return controlMap; }
     public List<CarryState> getActiveCarries() { return activeCarries; }
     public int getAliveCount() { return getAlivePlayers().size(); }
+
+    public List<Integer> getPendingEliminationIds() { return pendingEliminationIds; }
+    public void clearPendingEliminationIds() { pendingEliminationIds.clear(); }
+    public int getPendingGameOverWinnerId() { return pendingGameOverWinnerId; }
+    public void setPendingGameOverWinnerId(int id) { this.pendingGameOverWinnerId = id; }
 }

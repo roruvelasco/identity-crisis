@@ -6,6 +6,7 @@ import com.identitycrisis.shared.model.GameConfig;
 import com.identitycrisis.shared.model.Player;
 import com.identitycrisis.shared.model.RoundPhase;
 import com.identitycrisis.shared.net.MessageEncoder;
+import com.identitycrisis.shared.util.Vector2D;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -19,26 +20,43 @@ public class LobbyManager {
     private final GameServer server;
     private final Set<Integer> readyClientIds = new HashSet<>();
     private GameState gameState;
+    private SafeZoneManager safeZoneManager;
+    private boolean gameStarted = false;
 
     public LobbyManager(GameServer server) { this.server = server; }
 
     /** Setter injection — called from ServerApp.main() after GameState is created. */
     public void setGameState(GameState gs) { this.gameState = gs; }
 
+    /** Setter injection — called from ServerApp.main() so lobby can spawn round-1 safe zone. */
+    public void setSafeZoneManager(SafeZoneManager szm) { this.safeZoneManager = szm; }
+
     public void handleJoin(ClientConnection client, String displayName) {
         client.setDisplayName(displayName);
         broadcastLobbyState();
     }
 
-    public void handleReady(ClientConnection client) {
+    public synchronized void handleReady(ClientConnection client) {
+        if (gameStarted) return;
         readyClientIds.add(client.getClientId());
         broadcastLobbyState();
         if (canStartGame()) {
-            for (ClientConnection c : server.getClients()) {
+            gameStarted = true;
+            List<ClientConnection> clients = server.getClients();
+            double cx = gameState.getArena().getWidth()  / 2.0;
+            double cy = gameState.getArena().getHeight() / 2.0;
+            int n = clients.size();
+            for (int i = 0; i < n; i++) {
+                ClientConnection c = clients.get(i);
                 Player p = new Player(c.getClientId(), c.getDisplayName());
+                double angle = 2 * Math.PI * i / n;
+                p.setPosition(new Vector2D(
+                    cx + GameConfig.SPAWN_RADIUS * Math.cos(angle),
+                    cy + GameConfig.SPAWN_RADIUS * Math.sin(angle)));
                 gameState.getPlayers().add(p);
                 gameState.getControlMap().put(c.getClientId(), c.getClientId());
             }
+            safeZoneManager.spawnSafeZone();
             gameState.setPhase(RoundPhase.COUNTDOWN);
             gameState.setRoundNumber(1);
             gameState.setRoundTimer(GameConfig.COUNTDOWN_SECONDS);

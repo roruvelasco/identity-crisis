@@ -55,6 +55,7 @@ public class CarryManager {
         carrier.setCarryingPlayerId(-1);
         carried.setState(PlayerState.ALIVE);
         carried.setCarriedByPlayerId(-1);
+        carried.setStunTimer(GameConfig.THROW_STUN_SECONDS);
 
         gameState.getActiveCarries().removeIf(cs -> cs.carrierPlayerId() == carrierPlayerId);
     }

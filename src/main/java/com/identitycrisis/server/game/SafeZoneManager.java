@@ -28,10 +28,20 @@ public class SafeZoneManager {
     }
 
     private Vector2D randomSafePosition() {
+        return randomSafePosition(this.rng);
+    }
+
+    private Vector2D randomSafePosition(Random r) {
         double margin = GameConfig.SAFE_ZONE_MIN_MARGIN;
-        double x = margin + rng.nextDouble() * (gameState.getArena().getWidth()  - 2 * margin);
-        double y = margin + rng.nextDouble() * (gameState.getArena().getHeight() - 2 * margin);
-        return new Vector2D(x, y);
+        double w = gameState.getArena().getWidth();
+        double h = gameState.getArena().getHeight();
+        int maxRetries = 10;
+        for (int i = 0; i < maxRetries; i++) {
+            double x = margin + r.nextDouble() * (w - 2 * margin);
+            double y = margin + r.nextDouble() * (h - 2 * margin);
+            return new Vector2D(x, y); // no obstacles defined yet; retry logic ready
+        }
+        return new Vector2D(w / 2, h / 2);
     }
 
     public void updateOccupancy() {
@@ -60,11 +70,8 @@ public class SafeZoneManager {
         if (trueSafeZone != null) result.add(trueSafeZone);
         if (fakeChaosActive) {
             Random clientRng = new Random(Objects.hash(clientId, gameState.getRoundNumber()));
-            double margin = GameConfig.SAFE_ZONE_MIN_MARGIN;
             for (int i = 0; i < GameConfig.FAKE_SAFE_ZONE_COUNT; i++) {
-                double x = margin + clientRng.nextDouble() * (gameState.getArena().getWidth()  - 2 * margin);
-                double y = margin + clientRng.nextDouble() * (gameState.getArena().getHeight() - 2 * margin);
-                result.add(new SafeZone(new Vector2D(x, y), GameConfig.SAFE_ZONE_RADIUS));
+                result.add(new SafeZone(randomSafePosition(clientRng), GameConfig.SAFE_ZONE_RADIUS));
             }
             Collections.shuffle(result, clientRng);
         }

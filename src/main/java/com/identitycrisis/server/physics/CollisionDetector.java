@@ -4,6 +4,7 @@ import com.identitycrisis.server.game.GameState;
 import com.identitycrisis.shared.model.Arena;
 import com.identitycrisis.shared.model.GameConfig;
 import com.identitycrisis.shared.model.Player;
+import com.identitycrisis.shared.model.PlayerState;
 import com.identitycrisis.shared.util.Vector2D;
 import java.util.List;
 
@@ -36,6 +37,7 @@ public class CollisionDetector {
     }
 
     private void resolvePlayerCollision(Player a, Player b) {
+        if (a.getState() == PlayerState.CARRIED || b.getState() == PlayerState.CARRIED) return;
         double minDist = GameConfig.PLAYER_RADIUS * 2;
         double dist = a.getPosition().distanceTo(b.getPosition());
         if (dist < minDist && dist > 0.001) {

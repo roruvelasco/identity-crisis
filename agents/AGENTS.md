@@ -85,9 +85,10 @@ reference. Break it with setter injection from the Composition Root:
 GameServer server         = new GameServer(port);          // step 1
 ClientMessageRouter router = new ClientMessageRouter(server); // step 2
 LobbyManager lobbyMgr     = new LobbyManager(server);        // step 3
-server.setRouter(router);           // step 4 — resolve cycle
-server.setLobbyManager(lobbyMgr);   // step 4
-lobbyMgr.setGameState(gameState);   // step 5 — lobby needs GameState to populate players on start
+server.setRouter(router);              // step 4 — resolve cycle
+server.setLobbyManager(lobbyMgr);      // step 4
+lobbyMgr.setGameState(gameState);      // step 5 — lobby needs GameState to populate players on start
+lobbyMgr.setSafeZoneManager(szm);      // step 5 — lobby spawns safe zone for round 1
 ```
 `GameServer.start()` throws `IllegalStateException` if setters were not called.
 
@@ -150,6 +151,12 @@ public record GameContext(
    `ServerGameLoop.cleanupClient(clientId)`, which calls
    `CarryManager.releaseCarry(playerId)`. Do not skip this or a carried player
    will be permanently stuck when the carrier disconnects.
+   `ClientConnection.run()` calls `server.removeClient(this)` in its `finally` block — this is how the chain is triggered.
+13. **`LobbyManager.handleReady()` must be `synchronized`** — it is called from
+   multiple `ClientConnection` reader threads simultaneously. Without the lock,
+   two `C_READY` messages racing in can both pass `canStartGame()` and call
+   `server.startGame()` twice, spawning two game-loop threads. The `gameStarted`
+   boolean guard inside the synchronized method is the idempotency check.
 10. **`Player` must be constructed with `new Player(id, name)`** — never with
     `new Player()` (no such constructor). Carry IDs default to `-1` (not `0`).
     `Player.equals()` / `hashCode()` are keyed on `playerId`.

@@ -35,9 +35,9 @@ public class ClientConnection implements Runnable {
     private final Socket socket;
     private final DataInputStream  in;
     private final DataOutputStream out;
-    private final MessageEncoder   encoder;
     private final MessageDecoder   decoder;
     private final ClientMessageRouter router;
+    private final GameServer server;
     private volatile boolean connected;
     private String displayName;
 
@@ -48,13 +48,14 @@ public class ClientConnection implements Runnable {
      * @throws IOException if stream creation fails (socket already closed, etc.)
      */
     public ClientConnection(int clientId, Socket socket,
-                            ClientMessageRouter router) throws IOException {
+                            ClientMessageRouter router,
+                            GameServer server) throws IOException {
         this.clientId  = clientId;
         this.socket    = socket;
         this.router    = router;
+        this.server    = server;
         this.in        = new DataInputStream(socket.getInputStream());
         this.out       = new DataOutputStream(socket.getOutputStream());
-        this.encoder   = new MessageEncoder(out);
         this.decoder   = new MessageDecoder(in);
         this.connected = true;
     }
@@ -74,6 +75,7 @@ public class ClientConnection implements Runnable {
             }
         } finally {
             disconnect();
+            server.removeClient(this);
         }
     }
 

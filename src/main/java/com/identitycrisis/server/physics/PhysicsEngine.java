@@ -17,10 +17,13 @@ public class PhysicsEngine {
     public void step(GameState state, double dt) {
         for (Player p : state.getAlivePlayers()) {
             if (p.getState() == PlayerState.CARRIED) continue;
+            if (p.getStunTimer() > 0) {
+                p.setStunTimer(Math.max(0, p.getStunTimer() - dt));
+            }
             Vector2D pos = p.getPosition().add(p.getVelocity().multiply(dt));
             p.setPosition(pos);
-            if (p.getVelocity().magnitude() > 0.1) {
-                p.setVelocity(p.getVelocity().multiply(0.95));
+            if (p.getVelocity().magnitude() > GameConfig.VELOCITY_STOP_THRESHOLD) {
+                p.setVelocity(p.getVelocity().multiply(GameConfig.VELOCITY_DAMPING));
             } else {
                 p.setVelocity(Vector2D.zero());
             }
@@ -33,7 +36,8 @@ public class PhysicsEngine {
         Player p = state.getPlayerById(playerId);
         if (p == null || p.getState() == PlayerState.ELIMINATED
                       || p.getState() == PlayerState.SPECTATING
-                      || p.getState() == PlayerState.CARRIED) return;
+                      || p.getState() == PlayerState.CARRIED
+                      || p.getStunTimer() > 0) return;
 
         double speed = GameConfig.PLAYER_SPEED;
         if (p.getState() == PlayerState.CARRYING) speed *= 0.6;

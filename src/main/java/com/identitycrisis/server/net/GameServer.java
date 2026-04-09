@@ -93,7 +93,7 @@ public class GameServer {
                 Socket socket = serverSocket.accept();
                 int id = nextClientId.getAndIncrement();
                 try {
-                    ClientConnection conn = new ClientConnection(id, socket, router);
+                    ClientConnection conn = new ClientConnection(id, socket, router, this);
                     clients.add(conn);
                     Thread t = new Thread(conn, "client-conn-" + id);
                     t.setDaemon(true);

@@ -20,6 +20,7 @@ package com.identitycrisis.server;
 // 6. ClientMessageRouter(server)
 // 7. LobbyManager(server)
 // 8. server.setRouter(router); server.setLobbyManager(lobbyMgr);
+//    lobbyMgr.setGameState(gameState); lobbyMgr.setSafeZoneManager(szm);
 // 9. ServerGameLoop(server, ctx, pe, cd)
 // 10. server.setGameLoop(loop)
 // 11. Runtime.getRuntime().addShutdownHook(...)  → calls server.shutdown()
@@ -84,7 +85,7 @@ public class GameServer {
                 Socket socket = serverSocket.accept();
                 int id = nextClientId.getAndIncrement();
                 try {
-                    ClientConnection conn = new ClientConnection(id, socket, router);
+                    ClientConnection conn = new ClientConnection(id, socket, router, this);
                     clients.add(conn);
                     Thread t = new Thread(conn, "client-conn-" + id);
                     t.setDaemon(true);
@@ -173,20 +174,22 @@ public class ClientConnection implements Runnable {
     private final int clientId;
     private final Socket socket;
     private final DataInputStream  in;
-    private final DataOutputStream out;   // never exposed directly
-    private final MessageEncoder   encoder;
+    private final DataOutputStream out;   // never exposed directly — use send(byte[])
     private final MessageDecoder   decoder;
     private final ClientMessageRouter router;
+    private final GameServer server;      // for removeClient() on disconnect
     private volatile boolean connected;
     private String displayName;
 
     public ClientConnection(int clientId, Socket socket,
-                            ClientMessageRouter router) throws IOException { }
+                            ClientMessageRouter router,
+                            GameServer server) throws IOException { }
 
     @Override
     public void run() {
-        // while (connected): type = decoder.readNextType();
-        //   router.route(this, type, decoder)
+        // try { while (connected): type = decoder.readNextType(); router.route(this, type, decoder) }
+        // catch (IOException) { ... }
+        // finally { disconnect(); server.removeClient(this); }
     }
 
     // ── Synchronized write — ONLY way to send data to this client ────────────
@@ -517,17 +520,21 @@ import com.identitycrisis.server.net.GameServer;
 // Pre-game lobby. Accepts players, tracks readiness, signals start.
 public class LobbyManager {
     private GameServer server;
-    private GameState gameState;  // setter-injected by Composition Root
+    private GameState gameState;           // setter-injected
+    private SafeZoneManager safeZoneManager; // setter-injected
+    private boolean gameStarted = false;
 
     public LobbyManager(GameServer server) { }
 
     // Setter injection — called from ServerApp.main() after GameState is created.
-    // LobbyManager needs GameState to populate the player list and controlMap
-    // when the game starts (all ready).
     public void setGameState(GameState gs) { this.gameState = gs; }
 
+    // Setter injection — so lobby can spawn the round-1 safe zone.
+    public void setSafeZoneManager(SafeZoneManager szm) { this.safeZoneManager = szm; }
+
     public void handleJoin(ClientConnection client, String displayName) { }
-    public void handleReady(ClientConnection client) { }
+    // synchronized — prevents double startGame() if two C_READY messages race
+    public synchronized void handleReady(ClientConnection client) { }
     public boolean canStartGame() { }
     public void broadcastLobbyState() { }
 }

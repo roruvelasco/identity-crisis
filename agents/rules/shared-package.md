@@ -140,6 +140,7 @@ public class Player {
     private boolean inSafeZone;
     private int carriedByPlayerId;     // -1 if not carried
     private int carryingPlayerId;      // -1 if not carrying
+    private double stunTimer;          // > 0 while throw-stunned; decremented by PhysicsEngine.step()
 
     // Primary constructor — sets carry IDs to -1 (NOT 0) and all refs to safe defaults.
     public Player(int playerId, String displayName) {
@@ -173,6 +174,8 @@ public class Player {
     public void setCarriedByPlayerId(int id) { }
     public int getCarryingPlayerId() { }
     public void setCarryingPlayerId(int id) { }
+    public double getStunTimer() { }
+    public void setStunTimer(double t) { }
 
     // equals/hashCode keyed on playerId — server copy equals client copy of same player.
     @Override public boolean equals(Object o) {
@@ -248,6 +251,11 @@ public final class GameConfig {
     public static final double CARRY_RANGE = 32.0;
     public static final double THROW_SPEED = 400.0;
     public static final double THROW_STUN_SECONDS = 0.5;
+
+    // Physics (used by PhysicsEngine — named constants, not magic numbers)
+    public static final double VELOCITY_DAMPING = 0.95;        // per-tick damping factor
+    public static final double VELOCITY_STOP_THRESHOLD = 0.1;  // below this → zero velocity
+    public static final double SPAWN_RADIUS = 200.0;           // radial spawn spread (px)
 
     // Input Queue
     public static final int MAX_QUEUED_INPUTS = 120;

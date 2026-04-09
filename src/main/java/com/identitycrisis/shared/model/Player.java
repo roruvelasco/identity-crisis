@@ -18,6 +18,7 @@ public class Player {
     private boolean inSafeZone;
     private int carriedByPlayerId;      // -1 if not carried
     private int carryingPlayerId;       // -1 if not carrying
+    private double stunTimer;           // > 0 while throw-stunned
 
     /**
      * Primary constructor. Sets all fields to safe defaults:
@@ -34,6 +35,7 @@ public class Player {
         this.inSafeZone        = false;
         this.carriedByPlayerId = -1;
         this.carryingPlayerId  = -1;
+        this.stunTimer         = 0.0;
     }
 
     public int getPlayerId() { return playerId; }
@@ -54,6 +56,8 @@ public class Player {
     public void setCarriedByPlayerId(int id) { this.carriedByPlayerId = id; }
     public int getCarryingPlayerId() { return carryingPlayerId; }
     public void setCarryingPlayerId(int id) { this.carryingPlayerId = id; }
+    public double getStunTimer() { return stunTimer; }
+    public void setStunTimer(double t) { this.stunTimer = t; }
 
     /**
      * Two {@code Player} instances are equal when they represent the same

@@ -3,6 +3,8 @@ package com.identitycrisis.server.game;
 import com.identitycrisis.shared.model.GameConfig;
 import com.identitycrisis.shared.model.Player;
 import com.identitycrisis.shared.model.RoundPhase;
+import com.identitycrisis.shared.util.Vector2D;
+import java.util.List;
 
 /**
  * Drives the round state machine.
@@ -31,7 +33,6 @@ public class RoundManager {
             case COUNTDOWN -> {
                 gameState.setRoundTimer(gameState.getRoundTimer() - dt);
                 if (gameState.getRoundTimer() <= 0) {
-                    safeZoneManager.spawnSafeZone();
                     transitionTo(RoundPhase.ACTIVE);
                     gameState.setRoundTimer(GameConfig.ROUND_DURATION_SECONDS);
                     chaosEventManager.resetForNewRound();
@@ -46,7 +47,8 @@ public class RoundManager {
             }
 
             case ROUND_END -> {
-                eliminationManager.evaluateEliminations();
+                List<Integer> eliminated = eliminationManager.evaluateEliminations();
+                gameState.getPendingEliminationIds().addAll(eliminated);
                 transitionTo(RoundPhase.ELIMINATION);
                 gameState.setRoundTimer(GameConfig.ELIMINATION_DISPLAY_SECONDS);
             }
@@ -55,6 +57,7 @@ public class RoundManager {
                 gameState.setRoundTimer(gameState.getRoundTimer() - dt);
                 if (gameState.getRoundTimer() <= 0) {
                     if (eliminationManager.isGameOver()) {
+                        gameState.setPendingGameOverWinnerId(eliminationManager.getWinnerId());
                         transitionTo(RoundPhase.GAME_OVER);
                     } else {
                         gameState.setRoundNumber(gameState.getRoundNumber() + 1);
@@ -72,16 +75,21 @@ public class RoundManager {
     private void transitionTo(RoundPhase phase) { gameState.setPhase(phase); }
 
     private void startNewRound() {
-        for (Player p : gameState.getAlivePlayers()) {
-            p.setInSafeZone(false);
+        safeZoneManager.spawnSafeZone();
+        List<Player> alive = gameState.getAlivePlayers();
+        double cx = gameState.getArena().getWidth()  / 2.0;
+        double cy = gameState.getArena().getHeight() / 2.0;
+        for (int i = 0; i < alive.size(); i++) {
+            double angle = 2 * Math.PI * i / alive.size();
+            double x = cx + GameConfig.SPAWN_RADIUS * Math.cos(angle);
+            double y = cy + GameConfig.SPAWN_RADIUS * Math.sin(angle);
+            alive.get(i).setPosition(new Vector2D(x, y));
+            alive.get(i).setVelocity(Vector2D.zero());
+            alive.get(i).setInSafeZone(false);
         }
     }
 
     public boolean isWarmupRound() {
         return gameState.getRoundNumber() <= GameConfig.WARMUP_ROUNDS;
-    }
-
-    private boolean shouldEndGame() {
-        return eliminationManager.isGameOver();
     }
 }

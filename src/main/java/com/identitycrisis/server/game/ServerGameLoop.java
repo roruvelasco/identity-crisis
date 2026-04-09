@@ -116,16 +116,48 @@ public class ServerGameLoop implements Runnable {
     private void update(double dt) {
         physics.step(ctx.gameState(), dt);
         collisions.resolve(ctx.gameState());
-        ctx.roundManager().tick(dt);
-        ctx.safeZoneManager().updateOccupancy();
         ctx.carryManager().tick(dt);
+        ctx.safeZoneManager().updateOccupancy();
         ctx.chaosEventManager().tick(dt);
+        ctx.roundManager().tick(dt);
     }
 
     private void broadcastState() {
         GameState gs = ctx.gameState();
         List<Player> allPlayers = gs.getPlayers();
         boolean fakeSafeZones = ctx.chaosEventManager().isFakeSafeZonesActive();
+
+        // Send dedicated S_PLAYER_ELIMINATED messages for this tick's eliminations
+        List<Integer> eliminated = List.copyOf(gs.getPendingEliminationIds());
+        gs.clearPendingEliminationIds();
+        if (!eliminated.isEmpty()) {
+            for (Integer pid : eliminated) {
+                Player ep = gs.getPlayerById(pid);
+                String eName = ep != null ? ep.getDisplayName() : "?";
+                try {
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    MessageEncoder enc = new MessageEncoder(new DataOutputStream(baos));
+                    enc.encodePlayerEliminated(pid, eName);
+                    enc.flush();
+                    server.broadcastToAll(baos.toByteArray());
+                } catch (IOException e) { /* continue */ }
+            }
+        }
+
+        // Send S_GAME_OVER once when winner is known
+        int winnerId = gs.getPendingGameOverWinnerId();
+        if (winnerId != -1) {
+            gs.setPendingGameOverWinnerId(-1);
+            Player winner = gs.getPlayerById(winnerId);
+            String winnerName = winner != null ? winner.getDisplayName() : "?";
+            try {
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                MessageEncoder enc = new MessageEncoder(new DataOutputStream(baos));
+                enc.encodeGameOver(winnerId, winnerName);
+                enc.flush();
+                server.broadcastToAll(baos.toByteArray());
+            } catch (IOException e) { /* continue */ }
+        }
 
         for (ClientConnection client : server.getClients()) {
             int clientId = client.getClientId();

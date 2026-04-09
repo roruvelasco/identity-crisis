@@ -35,6 +35,11 @@ public final class GameConfig {
     public static final double THROW_SPEED = 400.0;
     public static final double THROW_STUN_SECONDS = 0.5;
 
+    // Physics
+    public static final double VELOCITY_DAMPING = 0.95;
+    public static final double VELOCITY_STOP_THRESHOLD = 0.1;
+    public static final double SPAWN_RADIUS = 200.0;
+
     // Chaos Events
     public static final double CHAOS_EVENT_MIN_DELAY = 3.0;
     public static final double CHAOS_EVENT_MAX_DELAY = 8.0;
@@ -45,6 +50,7 @@ public final class GameConfig {
     public static final int WINDOW_WIDTH = 1280;
     public static final int WINDOW_HEIGHT = 720;
     public static final String WINDOW_TITLE = "Identity Crisis";
+
 
     // Server robustness
     /** Max pending inputs per client connection before silently dropping. */
