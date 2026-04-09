@@ -10,7 +10,7 @@ import com.identitycrisis.shared.model.ChaosEventType;
  */
 public class ChaosEventManager {
 
-    private GameState gameState;
+    private final GameState gameState;
     private double scheduledTriggerTime;
     private double elapsedInRound;
 

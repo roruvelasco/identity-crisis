@@ -7,10 +7,10 @@ package com.identitycrisis.server.game;
  */
 public class RoundManager {
 
-    private GameState gameState;
-    private SafeZoneManager safeZoneManager;
-    private ChaosEventManager chaosEventManager;
-    private EliminationManager eliminationManager;
+    private final GameState gameState;
+    private final SafeZoneManager safeZoneManager;
+    private final ChaosEventManager chaosEventManager;
+    private final EliminationManager eliminationManager;
 
     public RoundManager(GameState gs, SafeZoneManager szm,
                         ChaosEventManager cem, EliminationManager em) {

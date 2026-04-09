@@ -72,18 +72,18 @@ public class ServerGameLoop implements Runnable {
     @Override
     public void run() {
         running = true;
-        long previousTime = System.nanoTime();
+        // Fixed timestep: dt is always 1/TICK_RATE regardless of actual wall-clock time.
+        // This keeps physics and round timers deterministic across machines and load spikes.
+        final double dt = 1.0 / GameConfig.TICK_RATE;
 
         while (running) {
-            long currentTime = System.nanoTime();
-            double dt = (currentTime - previousTime) / 1_000_000_000.0;
-            previousTime = currentTime;
+            long tickStart = System.nanoTime();
 
             processInputs();
             update(dt);
             broadcastState();
 
-            sleepUntilNextTick(currentTime);
+            sleepUntilNextTick(tickStart);
         }
     }
 
@@ -136,12 +136,18 @@ public class ServerGameLoop implements Runnable {
     }
 
     /**
-     * Signals the game loop to exit cleanly after the current tick completes.
-     * Safe to call from any thread. Do NOT use {@code Thread.interrupt()} —
-     * it closes sockets abruptly.
+     * Signal the loop to exit cleanly. Do NOT use Thread.interrupt().
      */
-    public void stop() {
-        running = false;
+    public void stop() { running = false; }
+
+    /**
+     * Releases any game-state resources held for the given client.
+     * Called by {@link com.identitycrisis.server.net.GameServer#removeClient} when
+     * a client disconnects so the carried/carrying player is not permanently stuck.
+     * Safe to call from any thread — delegates to {@link CarryManager#releaseCarry}.
+     */
+    public void cleanupClient(int clientId) {
+        ctx.carryManager().releaseCarry(clientId);
     }
 
     // ── Inner types ───────────────────────────────────────────────────────────

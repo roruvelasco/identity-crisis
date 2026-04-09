@@ -116,10 +116,17 @@ public record CarryState(int carrierPlayerId, int carriedPlayerId) { }
 ```
 
 ### 5.8 `shared/model/Player.java`
+
+> **Always construct with `new Player(id, name)`** — there is no no-arg constructor.
+> Carry IDs default to `-1`, **not `0`** (0 is a valid player ID).
+> `equals()` / `hashCode()` are keyed on `playerId` so server-side and
+> client-side copies of the same player compare equal.
+
 ```java
 package com.identitycrisis.shared.model;
 
 import com.identitycrisis.shared.util.Vector2D;
+import java.util.Objects;
 
 // Shared player data transferred over the network.
 // Server holds authoritative copy; client holds rendered copy.
@@ -133,6 +140,19 @@ public class Player {
     private boolean inSafeZone;
     private int carriedByPlayerId;     // -1 if not carried
     private int carryingPlayerId;      // -1 if not carrying
+
+    // Primary constructor — sets carry IDs to -1 (NOT 0) and all refs to safe defaults.
+    public Player(int playerId, String displayName) {
+        this.playerId          = playerId;
+        this.displayName       = displayName;
+        this.position          = Vector2D.zero();
+        this.velocity          = Vector2D.zero();
+        this.state             = PlayerState.ALIVE;
+        this.facingDirection   = 2; // 2 = down
+        this.inSafeZone        = false;
+        this.carriedByPlayerId = -1;
+        this.carryingPlayerId  = -1;
+    }
 
     // Full getters and setters for every field
     public int getPlayerId() { }
@@ -153,6 +173,14 @@ public class Player {
     public void setCarriedByPlayerId(int id) { }
     public int getCarryingPlayerId() { }
     public void setCarryingPlayerId(int id) { }
+
+    // equals/hashCode keyed on playerId — server copy equals client copy of same player.
+    @Override public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Player other)) return false;
+        return playerId == other.playerId;
+    }
+    @Override public int hashCode() { return Objects.hash(playerId); }
 }
 ```
 

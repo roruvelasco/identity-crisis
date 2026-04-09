@@ -1,6 +1,8 @@
 package com.identitycrisis.server.game;
 
 import com.identitycrisis.shared.model.*;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -17,6 +19,22 @@ public class GameState {
     private double chaosEventTimer;
     private Map<Integer, Integer> controlMap; // clientId → controlledPlayerId
     private List<CarryState> activeCarries;
+
+    /**
+     * Initializes all collections and sets safe defaults so no field is ever
+     * {@code null} when the game managers first access it.
+     */
+    public GameState() {
+        this.players          = new ArrayList<>();
+        this.arena            = Arena.loadDefault();
+        this.phase            = RoundPhase.LOBBY;
+        this.roundNumber      = 0;
+        this.roundTimer       = 0.0;
+        this.activeChaosEvent = ChaosEventType.NONE;
+        this.chaosEventTimer  = 0.0;
+        this.controlMap       = new HashMap<>();
+        this.activeCarries    = new ArrayList<>();
+    }
 
     public List<Player> getPlayers() { throw new UnsupportedOperationException("stub"); }
     public List<Player> getAlivePlayers() { throw new UnsupportedOperationException("stub"); }

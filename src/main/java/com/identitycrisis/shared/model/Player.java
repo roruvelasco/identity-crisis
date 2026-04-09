@@ -1,6 +1,7 @@
 package com.identitycrisis.shared.model;
 
 import com.identitycrisis.shared.util.Vector2D;
+import java.util.Objects;
 
 /**
  * Shared player data transferred over the network.
@@ -17,6 +18,23 @@ public class Player {
     private boolean inSafeZone;
     private int carriedByPlayerId;      // -1 if not carried
     private int carryingPlayerId;       // -1 if not carrying
+
+    /**
+     * Primary constructor. Sets all fields to safe defaults:
+     * carry IDs are {@code -1} (not {@code 0}, which is a valid player ID),
+     * position and velocity start at the origin, state starts as {@code ALIVE}.
+     */
+    public Player(int playerId, String displayName) {
+        this.playerId          = playerId;
+        this.displayName       = displayName;
+        this.position          = Vector2D.zero();
+        this.velocity          = Vector2D.zero();
+        this.state             = PlayerState.ALIVE;
+        this.facingDirection   = 2; // 2 = down
+        this.inSafeZone        = false;
+        this.carriedByPlayerId = -1;
+        this.carryingPlayerId  = -1;
+    }
 
     public int getPlayerId() { throw new UnsupportedOperationException("stub"); }
     public void setPlayerId(int id) { }
@@ -36,4 +54,21 @@ public class Player {
     public void setCarriedByPlayerId(int id) { }
     public int getCarryingPlayerId() { throw new UnsupportedOperationException("stub"); }
     public void setCarryingPlayerId(int id) { }
+
+    /**
+     * Two {@code Player} instances are equal when they represent the same
+     * logical player, identified by {@code playerId}. This is correct for
+     * comparing server-side vs client-side copies of the same player.
+     */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Player other)) return false;
+        return playerId == other.playerId;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(playerId);
+    }
 }

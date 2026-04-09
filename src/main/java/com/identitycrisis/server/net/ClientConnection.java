@@ -109,11 +109,32 @@ public class ClientConnection implements Runnable {
 
     // ── Accessors ─────────────────────────────────────────────────────────────
 
-    public int            getClientId()    { return clientId; }
-    public String         getDisplayName() { return displayName; }
-    public void           setDisplayName(String name) { this.displayName = name; }
-    public MessageEncoder getEncoder()     { return encoder; }
-    public boolean        isConnected()    { return connected; }
+    public int     getClientId()    { return clientId; }
+    public String  getDisplayName() { return displayName; }
+    public void    setDisplayName(String name) { this.displayName = name; }
+    public boolean isConnected()    { return connected; }
+
+    /**
+     * @deprecated Do NOT use this method. Calling encoder methods directly writes
+     *             to the raw socket stream without acquiring the synchronization lock
+     *             held by {@link #send(byte[])}, which causes interleaved/corrupted
+     *             frames under concurrent writes (game loop thread vs. lobby thread).
+     *
+     * <p><b>Correct pattern:</b>
+     * <pre>
+     *   ByteArrayOutputStream baos = new ByteArrayOutputStream();
+     *   MessageEncoder enc = new MessageEncoder(new DataOutputStream(baos));
+     *   enc.encodeGameState(...);
+     *   enc.flush();
+     *   client.send(baos.toByteArray());
+     * </pre>
+     */
+    @Deprecated
+    public MessageEncoder getEncoder() {
+        throw new UnsupportedOperationException(
+            "Direct encoder access bypasses send() synchronization. " +
+            "Encode to a ByteArrayOutputStream and pass byte[] to send() instead.");
+    }
 
     /**
      * @deprecated Do NOT use this method. Call {@link #send(byte[])} instead.

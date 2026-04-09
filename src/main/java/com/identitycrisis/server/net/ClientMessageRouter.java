@@ -9,7 +9,7 @@ import com.identitycrisis.shared.net.MessageType;
  */
 public class ClientMessageRouter {
 
-    private GameServer server;
+    private final GameServer server;
 
     public ClientMessageRouter(GameServer server) { this.server = server; }
 

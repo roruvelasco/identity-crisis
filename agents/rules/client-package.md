@@ -2,21 +2,32 @@
 
 > `com.identitycrisis.client` — JavaFX client. Depends on `shared`. Sends input, receives state, renders.
 
-### 7.1 `client/ClientApp.java`
+### 7.1 `client/ClientApp.java` — Client Composition Root
+
+> **This is the client-side Composition Root**, mirroring `ServerApp.main()` on the
+> server. It is the only place that creates `SceneManager`. Everything else
+> (`GameClient`, `LocalGameState`, `InputManager`) is wired inside `SceneManager`
+> when the player navigates to the lobby or game scene.
+
 ```java
 package com.identitycrisis.client;
 
+import com.identitycrisis.client.scene.SceneManager;
+import com.identitycrisis.shared.model.GameConfig;
 import javafx.application.Application;
 import javafx.stage.Stage;
 
-// JavaFX Application entry point.
+// JavaFX Application entry point and client-side Composition Root.
 public class ClientApp extends Application {
     @Override
     public void start(Stage primaryStage) {
-        // 1. Configure stage (title, size, non-resizable)
-        // 2. Create SceneManager with the stage
-        // 3. Show MenuScene
-        // 4. primaryStage.show()
+        primaryStage.setTitle(GameConfig.WINDOW_TITLE);
+        primaryStage.setWidth(GameConfig.WINDOW_WIDTH);
+        primaryStage.setHeight(GameConfig.WINDOW_HEIGHT);
+        primaryStage.setResizable(false);
+        SceneManager sceneManager = new SceneManager(primaryStage);
+        sceneManager.showMenu();
+        primaryStage.show();
     }
     public static void main(String[] args) { launch(args); }
 }
@@ -242,6 +253,15 @@ public class ClientGameLoop extends AnimationTimer {
 ```
 
 ### 7.8 `client/render/Renderer.java`
+
+> **DI exception (approved):** `Renderer` creates its five sub-renderers
+> (`ArenaRenderer`, `PlayerRenderer`, `SafeZoneRenderer`, `HudRenderer`,
+> `ChatRenderer`) internally. This is the one deliberate deviation from the
+> "never instantiate a collaborator" rule. Rationale: the constructor signature
+> is fixed to `(Canvas, SpriteManager)` by the spec, and these sub-renderers are
+> 1:1 owned children of `Renderer` that are never shared with any other class.
+> All sub-renderer fields are `final`.
+
 ```java
 package com.identitycrisis.client.render;
 
@@ -254,11 +274,11 @@ import javafx.scene.canvas.GraphicsContext;
 public class Renderer {
     private final Canvas canvas;
     private final GraphicsContext gc;
-    private final ArenaRenderer arenaRenderer;
-    private final PlayerRenderer playerRenderer;
-    private final SafeZoneRenderer safeZoneRenderer;
-    private final HudRenderer hudRenderer;
-    private final ChatRenderer chatRenderer;
+    private final ArenaRenderer arenaRenderer;      // owned child — see DI exception above
+    private final PlayerRenderer playerRenderer;    // owned child
+    private final SafeZoneRenderer safeZoneRenderer;// owned child
+    private final HudRenderer hudRenderer;          // owned child
+    private final ChatRenderer chatRenderer;        // owned child
     private final SpriteManager spriteManager;
 
     public Renderer(Canvas canvas, SpriteManager spriteManager) { }

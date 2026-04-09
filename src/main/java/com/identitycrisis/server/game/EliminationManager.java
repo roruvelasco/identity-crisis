@@ -10,7 +10,7 @@ import java.util.List;
  */
 public class EliminationManager {
 
-    private GameState gameState;
+    private final GameState gameState;
 
     public EliminationManager(GameState gameState) { this.gameState = gameState; }
 

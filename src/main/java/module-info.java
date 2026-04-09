@@ -7,5 +7,7 @@ module com.identitycrisis {
     exports com.identitycrisis.server;
     exports com.identitycrisis.shared.model;
     exports com.identitycrisis.shared.net;
+    exports com.identitycrisis.shared.net.client;
+    exports com.identitycrisis.shared.net.server;
     exports com.identitycrisis.shared.util;
 }

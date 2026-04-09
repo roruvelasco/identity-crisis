@@ -122,9 +122,15 @@ public class GameServer {
         gameThread.start();
     }
 
-    /** Remove a disconnected client from the active list. */
+    /**
+     * Removes a disconnected client from the active list and cleans up any
+     * carry state involving that client's player so no other player gets stuck.
+     */
     public void removeClient(ClientConnection client) {
         clients.remove(client);
+        if (gameLoop != null) {
+            gameLoop.cleanupClient(client.getClientId());
+        }
     }
 
     /** Broadcast raw bytes to ALL connected clients. */

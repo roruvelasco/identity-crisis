@@ -107,8 +107,22 @@ public record GameContext(
 ### Critical Rules for Implementing Agents
 1. **Never instantiate a collaborator inside another collaborator.** If class A needs
    class B, add B as a constructor parameter to A and wire it in `ServerApp.main()`.
+   **Exception:** `Renderer` creates its five sub-renderers (`ArenaRenderer`,
+   `PlayerRenderer`, `SafeZoneRenderer`, `HudRenderer`, `ChatRenderer`) internally
+   because the spec fixes the constructor signature to `(Canvas, SpriteManager)` and
+   these sub-renderers are 1:1 owned children never shared with any other class.
 2. **All socket writes go through `ClientConnection.send(byte[])`** (synchronized).
-   `getOutputStream()` is deprecated and throws — do not use it.
+   `getOutputStream()` **and** `getEncoder()` are both deprecated and throw
+   `UnsupportedOperationException` — do not use them.
+   **Encoding pattern:** encode to a `ByteArrayOutputStream`, then pass `byte[]` to
+   `send()`. Example:
+   ```java
+   ByteArrayOutputStream baos = new ByteArrayOutputStream();
+   MessageEncoder enc = new MessageEncoder(new DataOutputStream(baos));
+   enc.encodeGameState(...);
+   enc.flush();
+   client.send(baos.toByteArray());
+   ```
 3. **Stop the game loop with `ServerGameLoop.stop()`**, never `Thread.interrupt()` —
    interrupt closes the socket streams abruptly.
 4. **Input queue cap:** `enqueueInput()` silently drops if
@@ -122,6 +136,19 @@ public record GameContext(
    changes, etc.), update **every affected `.md` file** in `agents/` and
    `agents/rules/` before finishing the task. The markdown files are the source of
    truth for future agents — stale docs cause the same bugs to reappear.
+8. **Server game loop uses fixed `dt = 1.0 / GameConfig.TICK_RATE`** — never
+   wall-clock delta. Variable delta defeats determinism and makes round timers
+   machine-dependent. See `ServerGameLoop.run()`.
+9. **Disconnect cleanup:** `GameServer.removeClient()` calls
+   `ServerGameLoop.cleanupClient(clientId)`, which calls
+   `CarryManager.releaseCarry(playerId)`. Do not skip this or a carried player
+   will be permanently stuck when the carrier disconnects.
+10. **`Player` must be constructed with `new Player(id, name)`** — never with
+    `new Player()` (no such constructor). Carry IDs default to `-1` (not `0`).
+    `Player.equals()` / `hashCode()` are keyed on `playerId`.
+11. **`GameState` must be constructed with `new GameState()`** which initializes
+    all collections. Never assume fields are non-null without calling the constructor.
+12. **Tests:** Add JUnit 5 tests for any pure logic class. Run with `./mvnw test`.
 
 ## 4. Directory & File Tree
 
@@ -321,6 +348,8 @@ module com.identitycrisis {
     exports com.identitycrisis.server;
     exports com.identitycrisis.shared.model;
     exports com.identitycrisis.shared.net;
+    exports com.identitycrisis.shared.net.client;
+    exports com.identitycrisis.shared.net.server;
     exports com.identitycrisis.shared.util;
 }
 ```

@@ -9,7 +9,7 @@ package com.identitycrisis.server.game;
  */
 public class CarryManager {
 
-    private GameState gameState;
+    private final GameState gameState;
 
     public CarryManager(GameState gameState) { this.gameState = gameState; }
 
@@ -18,6 +18,13 @@ public class CarryManager {
     public void throwCarried(int carrierPlayerId) { }
 
     public void tick(double dt) { }
+
+    /**
+     * Releases any carry relationship that involves {@code playerId} — either as
+     * carrier or as the carried player. Called when a client disconnects mid-carry
+     * to prevent the other player from being permanently stuck.
+     */
+    public void releaseCarry(int playerId) { }
 
     private int findNearestCarryTarget(int carrierPlayerId) { throw new UnsupportedOperationException("stub"); }
 }

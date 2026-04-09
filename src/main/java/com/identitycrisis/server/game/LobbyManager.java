@@ -6,7 +6,7 @@ import com.identitycrisis.server.net.GameServer;
 /** Pre-game lobby. Accepts players, tracks readiness, signals start. */
 public class LobbyManager {
 
-    private GameServer server;
+    private final GameServer server;
 
     public LobbyManager(GameServer server) { this.server = server; }
 

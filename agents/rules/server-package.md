@@ -105,7 +105,13 @@ public class GameServer {
         t.start();
     }
 
-    public void removeClient(ClientConnection client) { clients.remove(client); }
+    // Removes client AND releases any carry state involving that client's player.
+    public void removeClient(ClientConnection client) {
+        clients.remove(client);
+        if (gameLoop != null) {
+            gameLoop.cleanupClient(client.getClientId());
+        }
+    }
 
     // All writes go through ClientConnection.send() (synchronized)
     public void broadcastToAll(byte[] data) { for (ClientConnection c : clients) c.send(data); }
@@ -186,16 +192,29 @@ public class ClientConnection implements Runnable {
     // ── Synchronized write — ONLY way to send data to this client ────────────
     public synchronized void send(byte[] data) { /* out.write(data); out.flush(); */ }
 
-    public int            getClientId()    { return clientId; }
-    public String         getDisplayName() { return displayName; }
-    public void           setDisplayName(String name) { }
-    public MessageEncoder getEncoder()     { return encoder; }
-    public boolean        isConnected()    { return connected; }
-    public void           disconnect()     { /* connected=false; socket.close(); */ }
+    public int     getClientId()    { return clientId; }
+    public String  getDisplayName() { return displayName; }
+    public void    setDisplayName(String name) { }
+    public boolean isConnected()    { return connected; }
+    public void    disconnect()     { /* connected=false; socket.close(); */ }
 
-    /** @deprecated Use send(byte[]) instead. Throws UnsupportedOperationException. */
+    /**
+     * @deprecated Use send(byte[]) instead. Throws UnsupportedOperationException.
+     * Direct stream access bypasses the synchronization lock.
+     */
     @Deprecated
     public DataOutputStream getOutputStream() { throw new UnsupportedOperationException(); }
+
+    /**
+     * @deprecated Calling encoder methods directly bypasses the send() lock.
+     * Encode to a ByteArrayOutputStream and pass byte[] to send() instead:
+     *   ByteArrayOutputStream baos = new ByteArrayOutputStream();
+     *   MessageEncoder enc = new MessageEncoder(new DataOutputStream(baos));
+     *   enc.encodeXxx(...); enc.flush();
+     *   client.send(baos.toByteArray());
+     */
+    @Deprecated
+    public MessageEncoder getEncoder() { throw new UnsupportedOperationException(); }
 }
 ```
 
@@ -260,8 +279,16 @@ public class ServerGameLoop implements Runnable {
 
     @Override
     public void run() {
-        // running = true;
-        // while (running): processInputs(); update(dt); broadcastState(); sleep();
+        running = true;
+        // Fixed timestep — dt is always 1/TICK_RATE. Never use wall-clock delta here.
+        final double dt = 1.0 / GameConfig.TICK_RATE;
+        while (running) {
+            long tickStart = System.nanoTime();
+            processInputs();
+            update(dt);
+            broadcastState();
+            sleepUntilNextTick(tickStart);
+        }
     }
 
     private void processInputs() { }
@@ -291,6 +318,14 @@ public class ServerGameLoop implements Runnable {
     /** Signal the loop to exit cleanly. Do NOT use Thread.interrupt(). */
     public void stop() { running = false; }
 
+    /**
+     * Releases carry state for the given clientId on disconnect.
+     * Called by GameServer.removeClient() — do not call Thread.interrupt().
+     */
+    public void cleanupClient(int clientId) {
+        ctx.carryManager().releaseCarry(clientId);
+    }
+
     public record QueuedInput(int clientId, boolean[] flags) { }
 }
 ```
@@ -300,6 +335,8 @@ public class ServerGameLoop implements Runnable {
 package com.identitycrisis.server.game;
 
 import com.identitycrisis.shared.model.*;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -315,6 +352,20 @@ public class GameState {
     private double chaosEventTimer;
     private Map<Integer, Integer> controlMap;  // clientId → controlledPlayerId
     private List<CarryState> activeCarries;
+
+    // Constructor initialises all collections and sets safe defaults so no field
+    // is ever null when the game managers first access it.
+    public GameState() {
+        this.players          = new ArrayList<>();
+        this.arena            = Arena.loadDefault();
+        this.phase            = RoundPhase.LOBBY;
+        this.roundNumber      = 0;
+        this.roundTimer       = 0.0;
+        this.activeChaosEvent = ChaosEventType.NONE;
+        this.chaosEventTimer  = 0.0;
+        this.controlMap       = new HashMap<>();
+        this.activeCarries    = new ArrayList<>();
+    }
 
     public List<Player> getPlayers() { }
     public List<Player> getAlivePlayers() { }
@@ -429,6 +480,8 @@ public class CarryManager {
     public boolean tryCarry(int carrierPlayerId) { }
     public void throwCarried(int carrierPlayerId) { }
     public void tick(double dt) { }
+    // Called by ServerGameLoop.cleanupClient() on disconnect to un-stick players.
+    public void releaseCarry(int playerId) { }
     private int findNearestCarryTarget(int carrierPlayerId) { }
 }
 ```

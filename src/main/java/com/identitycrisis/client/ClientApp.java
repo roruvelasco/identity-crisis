@@ -1,35 +1,31 @@
 package com.identitycrisis.client;
 
+import com.identitycrisis.client.scene.SceneManager;
+import com.identitycrisis.shared.model.GameConfig;
 import javafx.application.Application;
-import javafx.geometry.Pos;
-import javafx.scene.Scene;
-import javafx.scene.control.Label;
-import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 
-/** JavaFX Application entry point. */
+/**
+ * JavaFX Application entry point and <strong>client-side Composition Root</strong>.
+ *
+ * <p>This is the only place on the client that creates top-level collaborating
+ * objects. {@link SceneManager} is constructed here with the {@link Stage}, then
+ * asked to show the first scene. Everything else ({@code GameClient},
+ * {@code LocalGameState}, {@code InputManager}) is wired inside
+ * {@code SceneManager} when the player navigates to the lobby or game scene.
+ */
 public class ClientApp extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        Label status = new Label("[HEALTH OK] Identity Crisis client is up.");
-        status.setTextFill(Color.LIMEGREEN);
-        status.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
-
-        Label hint = new Label("GUI is rendering. SceneManager not yet wired.");
-        hint.setTextFill(Color.LIGHTGRAY);
-        hint.setStyle("-fx-font-size: 13px;");
-
-        VBox root = new VBox(12, status, hint);
-        root.setAlignment(Pos.CENTER);
-        root.setStyle("-fx-background-color: #1a1a2e;");
-
-        primaryStage.setTitle("Identity Crisis");
-        primaryStage.setWidth(1280);
-        primaryStage.setHeight(720);
+        primaryStage.setTitle(GameConfig.WINDOW_TITLE);
+        primaryStage.setWidth(GameConfig.WINDOW_WIDTH);
+        primaryStage.setHeight(GameConfig.WINDOW_HEIGHT);
         primaryStage.setResizable(false);
-        primaryStage.setScene(new Scene(root));
+
+        SceneManager sceneManager = new SceneManager(primaryStage);
+        sceneManager.showMenu();
+
         primaryStage.show();
     }
 
