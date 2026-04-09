@@ -159,14 +159,19 @@ switch (gameState.getPhase()):
 
 ### 11.1 Scheduling
 
-Each round during ACTIVE phase, **one** chaos event is scheduled:
+Each round during ACTIVE phase, **exactly one** chaos event is scheduled:
 
 ```
 scheduledTriggerTime = random(CHAOS_EVENT_MIN_DELAY, CHAOS_EVENT_MAX_DELAY)
 elapsedInRound = 0
 ```
 
-When `elapsedInRound >= scheduledTriggerTime`, the event fires.
+When `elapsedInRound >= scheduledTriggerTime`, the event fires **and**
+`scheduledTriggerTime` is immediately set to `Double.MAX_VALUE` so the condition
+can never be true again in the same round. `resetForNewRound()` assigns a fresh
+random value at the start of each round. Without this sentinel, the tick after
+the event expires would re-fire a new event instantly (since `elapsedInRound`
+was never reset and is already ≥ the original trigger time).
 
 ### 11.2 Event Types and Their Implementation
 

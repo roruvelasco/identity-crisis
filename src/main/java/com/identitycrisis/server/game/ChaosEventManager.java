@@ -57,6 +57,10 @@ public class ChaosEventManager {
             if (event == ChaosEventType.CONTROL_SWAP) {
                 applyControlSwap();
             }
+            // Prevent re-triggering within the same round. elapsedInRound continues
+            // to grow but can never exceed MAX_VALUE again until resetForNewRound()
+            // picks a fresh scheduledTriggerTime for the next round.
+            scheduledTriggerTime = Double.MAX_VALUE;
         }
     }
 

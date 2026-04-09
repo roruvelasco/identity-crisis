@@ -856,6 +856,10 @@ public class ChaosEventManager {
             if (event == ChaosEventType.CONTROL_SWAP) {
                 applyControlSwap();
             }
+            // One event per round. After firing, push the threshold to MAX_VALUE so
+            // elapsedInRound can never exceed it again this round. resetForNewRound()
+            // picks a fresh random scheduledTriggerTime at the start of each round.
+            scheduledTriggerTime = Double.MAX_VALUE;
         }
     }
 
