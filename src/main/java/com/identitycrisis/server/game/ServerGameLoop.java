@@ -4,7 +4,6 @@ import com.identitycrisis.server.net.ClientConnection;
 import com.identitycrisis.server.net.GameServer;
 import com.identitycrisis.server.physics.CollisionDetector;
 import com.identitycrisis.server.physics.PhysicsEngine;
-import com.identitycrisis.shared.model.ChaosEventType;
 import com.identitycrisis.shared.model.GameConfig;
 import com.identitycrisis.shared.model.Player;
 import com.identitycrisis.shared.model.SafeZone;
@@ -104,10 +103,11 @@ public class ServerGameLoop implements Runnable {
         while ((qi = inputQueue.poll()) != null) {
             Map<Integer, Integer> controlMap = ctx.gameState().getControlMap();
             int controlledPlayer = controlMap.getOrDefault(qi.clientId(), qi.clientId());
-            boolean reversed = (ctx.gameState().getActiveChaosEvent() == ChaosEventType.REVERSED_CONTROLS);
+            // REVERSED_CONTROLS inversion is handled client-side (ClientGameLoop.applyChaosModifications).
+            // The server receives already-inverted input and must not invert again.
             boolean[] f = qi.flags();
             physics.applyInput(ctx.gameState(), controlledPlayer,
-                               f[0], f[1], f[2], f[3], reversed);
+                               f[0], f[1], f[2], f[3], false);
             if (f[4]) ctx.carryManager().tryCarry(controlledPlayer);
             if (f[5]) ctx.carryManager().throwCarried(controlledPlayer);
         }
@@ -243,6 +243,11 @@ public class ServerGameLoop implements Runnable {
      */
     public void cleanupClient(int clientId) {
         ctx.carryManager().releaseCarry(clientId);
+        // Prune controlMap so no living client remains swapped onto the disconnected
+        // player's character. Mirrors the same pruning done in EliminationManager.
+        Map<Integer, Integer> cm = ctx.gameState().getControlMap();
+        cm.remove(clientId);
+        cm.replaceAll((cid, controlled) -> controlled.equals(clientId) ? cid : controlled);
     }
 
     // ── Inner types ───────────────────────────────────────────────────────────

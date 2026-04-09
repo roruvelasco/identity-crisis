@@ -12,8 +12,9 @@ while (running):
     while (!inputQueue.isEmpty()):
         QueuedInput qi = inputQueue.poll()
         int controlledPlayer = gameState.getControlMap().get(qi.clientId)
-        boolean reversed = (gameState.getActiveChaosEvent() == REVERSED_CONTROLS)
-        physics.applyInput(gameState, controlledPlayer, qi.flags, reversed)
+        // REVERSED_CONTROLS inversion is applied client-side (applyChaosModifications).
+        // Server always passes false — double-inverting would cancel the effect. (AGENTS.md rule 20)
+        physics.applyInput(gameState, controlledPlayer, qi.flags, false)
     
     // 2. UPDATE
     double dt = 1.0 / TICK_RATE   // fixed dt, not wall-clock delta
@@ -114,12 +115,23 @@ switch (gameState.getPhase()):
     case ACTIVE:
         gameState.setRoundTimer(gameState.getRoundTimer() - dt)
         if timer <= 0:
+            // MUST clear chaos event before transitioning — tick() early-returns
+            // for non-ACTIVE phases and will never clear it otherwise. Without
+            // this, isFakeSafeZonesActive() stays true through inter-round phases.
+            chaosEventManager.clearActiveEvent()
             transitionTo(ROUND_END)
     
     case ROUND_END:
-        // Immediate evaluation
+        // One-tick transient state — evaluates eliminations then immediately
+        // advances to ELIMINATION on the same tick. transitionTo() changes the
+        // phase, so this block executes exactly once per round-end transition.
+        // Do NOT add timers or blocking logic here without also adding an
+        // idempotency guard — re-entry would call evaluateEliminations() again
+        // and eliminate extra players.
+        // Accumulate into pendingEliminationIds so broadcastState() can send
+        // S_PLAYER_ELIMINATED messages without the state machine touching the network.
         List<Integer> eliminated = eliminationManager.evaluateEliminations()
-        // Send PlayerEliminated messages
+        gameState.getPendingEliminationIds().addAll(eliminated)
         transitionTo(ELIMINATION)
         gameState.setRoundTimer(ELIMINATION_DISPLAY_SECONDS)
     
@@ -127,8 +139,9 @@ switch (gameState.getPhase()):
         gameState.setRoundTimer(gameState.getRoundTimer() - dt)
         if timer <= 0:
             if eliminationManager.isGameOver():
+                // Write winner into GameState for broadcastState() to send S_GAME_OVER once.
+                gameState.setPendingGameOverWinnerId(eliminationManager.getWinnerId())
                 transitionTo(GAME_OVER)
-                // Send GameOver message
             else:
                 // Next round
                 gameState.setRoundNumber(gameState.getRoundNumber() + 1)
@@ -164,8 +177,10 @@ When `elapsedInRound >= scheduledTriggerTime`, the event fires.
 
 #### F07: `CONTROL_SWAP`
 - **Server:** `ChaosEventManager.applyControlSwap()` shuffles `gameState.getControlMap()`. Each client now maps to a different player ID. The shuffle must ensure **no client controls its own player** (derangement).
+- **Guard:** `applyControlSwap()` must return early if `controlMap.size() <= 1` — a derangement is impossible for a single element and the `do/while` loop would spin forever.
 - **Client:** Receives `controlledPlayerId` in `S_GAME_STATE` or `S_CONTROL_SWAP`. Client input is still sent normally, but the server applies it to the swapped player. Client renderer should highlight which player it now controls.
 - **Duration:** `CHAOS_EVENT_DURATION` seconds. On expiry, `revertControlSwap()` restores identity mapping.
+- **Note:** `controlMap` only contains entries for **alive, connected** players. `EliminationManager.eliminatePlayer()` and `ServerGameLoop.cleanupClient()` both prune it, so dead/disconnected players are never included in the derangement shuffle.
 
 #### F08: `FAKE_SAFE_ZONES`
 - **Server:** Sets chaos flag. In `broadcastState()`, calls `safeZoneManager.generateClientSafeZones(clientId, true)` which returns `1 true + FAKE_SAFE_ZONE_COUNT decoys` in random order.

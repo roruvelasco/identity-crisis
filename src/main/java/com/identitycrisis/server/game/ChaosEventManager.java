@@ -73,6 +73,10 @@ public class ChaosEventManager {
         Map<Integer, Integer> map = gameState.getControlMap();
         List<Integer> clientIds  = new ArrayList<>(map.keySet());
         List<Integer> playerIds  = new ArrayList<>(map.values());
+        // A derangement (no fixed point) is impossible with ≤1 element — the loop
+        // would spin forever. Guard here; in practice this means only 1 player is
+        // left (game should already be GAME_OVER), or controlMap wasn't pruned.
+        if (clientIds.size() <= 1) return;
         do {
             Collections.shuffle(playerIds, rng);
         } while (hasFixedPoint(clientIds, playerIds));

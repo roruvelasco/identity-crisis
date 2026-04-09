@@ -329,11 +329,16 @@ public class ServerGameLoop implements Runnable {
     public void stop() { running = false; }
 
     /**
-     * Releases carry state for the given clientId on disconnect.
+     * Releases carry state for the given clientId on disconnect and prunes
+     * controlMap so no living client remains swapped onto the disconnected
+     * player's character.
      * Called by GameServer.removeClient() — do not call Thread.interrupt().
      */
     public void cleanupClient(int clientId) {
         ctx.carryManager().releaseCarry(clientId);
+        Map<Integer, Integer> cm = ctx.gameState().getControlMap();
+        cm.remove(clientId);
+        cm.replaceAll((cid, controlled) -> controlled.equals(clientId) ? cid : controlled);
     }
 
     public record QueuedInput(int clientId, boolean[] flags) { }
@@ -346,9 +351,10 @@ package com.identitycrisis.server.game;
 
 import com.identitycrisis.shared.model.*;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;   // NOT HashMap — see AGENTS.md rule 19
+import java.util.concurrent.CopyOnWriteArrayList;
 
 // Single authoritative game state. Modified only by ServerGameLoop.
 public class GameState {
@@ -360,21 +366,24 @@ public class GameState {
     private double roundTimer;
     private ChaosEventType activeChaosEvent;
     private double chaosEventTimer;
-    private Map<Integer, Integer> controlMap;  // clientId → controlledPlayerId
+    private Map<Integer, Integer> controlMap;  // clientId → controlledPlayerId (ConcurrentHashMap)
     private List<CarryState> activeCarries;
+    // Deferred one-shot event fields — written by RoundManager, drained by broadcastState().
+    private final List<Integer> pendingEliminationIds = new ArrayList<>();
+    private int pendingGameOverWinnerId = -1;
 
     // Constructor initialises all collections and sets safe defaults so no field
     // is ever null when the game managers first access it.
     public GameState() {
-        this.players          = new ArrayList<>();
+        this.players          = new CopyOnWriteArrayList<>(); // cross-thread safe
         this.arena            = Arena.loadDefault();
         this.phase            = RoundPhase.LOBBY;
         this.roundNumber      = 0;
         this.roundTimer       = 0.0;
         this.activeChaosEvent = ChaosEventType.NONE;
         this.chaosEventTimer  = 0.0;
-        this.controlMap       = new HashMap<>();
-        this.activeCarries    = new ArrayList<>();
+        this.controlMap       = new ConcurrentHashMap<>(); // cross-thread safe (rule 19)
+        this.activeCarries    = new CopyOnWriteArrayList<>(); // cross-thread safe
     }
 
     public List<Player> getPlayers() { }
@@ -396,6 +405,11 @@ public class GameState {
     public Map<Integer, Integer> getControlMap() { }
     public List<CarryState> getActiveCarries() { }
     public int getAliveCount() { }
+    // Pending-event accessors (game loop thread only)
+    public List<Integer> getPendingEliminationIds() { }
+    public void clearPendingEliminationIds() { }
+    public int  getPendingGameOverWinnerId() { }
+    public void setPendingGameOverWinnerId(int id) { }
 }
 ```
 
@@ -419,7 +433,7 @@ public class RoundManager {
     private void transitionTo(RoundPhase phase) { }
     private void startNewRound() { }
     public boolean isWarmupRound() { }
-    private boolean shouldEndGame() { }
+    // Note: shouldEndGame() is intentionally removed — use EliminationManager.isGameOver() directly.
 }
 ```
 
@@ -514,6 +528,9 @@ public class EliminationManager {
     // before setting ELIMINATED — prevents partner from being permanently stuck.
     public EliminationManager(GameState gameState, CarryManager carryManager) { }
     public List<Integer> evaluateEliminations() { }
+    // eliminatePlayer: releaseCarry → setState(ELIMINATED) → setInSafeZone(false)
+    //   → cm.remove(playerId)  [remove their own entry]
+    //   → cm.replaceAll(...)   [restore any client CONTROL_SWAP'd onto them to self-control]
     private void eliminatePlayer(int playerId) { }
     public boolean isGameOver() { }
     public int getWinnerId() { }

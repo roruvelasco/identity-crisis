@@ -2,15 +2,15 @@ package com.identitycrisis.server.game;
 
 import com.identitycrisis.shared.model.*;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /** Single authoritative game state. Modified only by ServerGameLoop. */
 public class GameState {
 
-    private List<Player> players;
+    private List<Player> players; // CopyOnWriteArrayList — safe for cross-thread read/write
     private Arena arena;
     private SafeZone trueSafeZone;
     private int roundNumber;
@@ -28,14 +28,14 @@ public class GameState {
      * {@code null} when the game managers first access it.
      */
     public GameState() {
-        this.players          = new ArrayList<>();
+        this.players          = new CopyOnWriteArrayList<>();
         this.arena            = Arena.loadDefault();
         this.phase            = RoundPhase.LOBBY;
         this.roundNumber      = 0;
         this.roundTimer       = 0.0;
         this.activeChaosEvent = ChaosEventType.NONE;
         this.chaosEventTimer  = 0.0;
-        this.controlMap       = new HashMap<>();
+        this.controlMap       = new ConcurrentHashMap<>();
         this.activeCarries    = new CopyOnWriteArrayList<>();
     }
 

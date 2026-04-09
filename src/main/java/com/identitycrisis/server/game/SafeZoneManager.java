@@ -35,13 +35,11 @@ public class SafeZoneManager {
         double margin = GameConfig.SAFE_ZONE_MIN_MARGIN;
         double w = gameState.getArena().getWidth();
         double h = gameState.getArena().getHeight();
-        int maxRetries = 10;
-        for (int i = 0; i < maxRetries; i++) {
-            double x = margin + r.nextDouble() * (w - 2 * margin);
-            double y = margin + r.nextDouble() * (h - 2 * margin);
-            return new Vector2D(x, y); // no obstacles defined yet; retry logic ready
-        }
-        return new Vector2D(w / 2, h / 2);
+        // When obstacle support is added, replace this with a retry loop that
+        // checks arena.isWall(x, y) and falls back to (w/2, h/2) after N attempts.
+        double x = margin + r.nextDouble() * (w - 2 * margin);
+        double y = margin + r.nextDouble() * (h - 2 * margin);
+        return new Vector2D(x, y);
     }
 
     public void updateOccupancy() {

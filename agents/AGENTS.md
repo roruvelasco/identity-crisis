@@ -148,20 +148,23 @@ public record GameContext(
    wall-clock delta. Variable delta defeats determinism and makes round timers
    machine-dependent. See `ServerGameLoop.run()`.
 9. **Disconnect cleanup:** `GameServer.removeClient()` calls
-   `ServerGameLoop.cleanupClient(clientId)`, which calls
-   `CarryManager.releaseCarry(playerId)`. Do not skip this or a carried player
-   will be permanently stuck when the carrier disconnects.
-   `ClientConnection.run()` calls `server.removeClient(this)` in its `finally` block — this is how the chain is triggered.
+   `ServerGameLoop.cleanupClient(clientId)`, which (a) calls
+   `CarryManager.releaseCarry(playerId)` to free carry state, and (b) **prunes
+   `controlMap`** — removes the disconnected client's entry and redirects any
+   living client currently swapped to control that player back to self-control.
+   `ClientConnection.run()` calls `server.removeClient(this)` in its `finally`
+   block — this is how the chain is triggered.
 13. **`LobbyManager.handleReady()` AND `handleJoin()` must both be `synchronized`** —
    both are called from `ClientConnection` reader threads. `handleReady()` writes to
    `readyClientIds`; `handleJoin()` reads it via `broadcastLobbyState()`. Racing on a
    plain `HashSet` causes silent corruption. The `gameStarted` boolean guard inside
    `handleReady()` is the double-startGame idempotency check.
-14. **`GameState.activeCarries` is a `CopyOnWriteArrayList`**, not a plain `ArrayList`.**
-   `CarryManager.tick()` iterates it on the game loop thread; `CarryManager.releaseCarry()`
-   may be called from a `ClientConnection` reader thread via the disconnect chain
-   (`removeClient → cleanupClient → releaseCarry`). Plain `ArrayList` would cause
-   `ConcurrentModificationException` or silent corruption.
+14. **`GameState.players` and `GameState.activeCarries` are both `CopyOnWriteArrayList`**,
+   not plain `ArrayList`s. `activeCarries` is iterated by `CarryManager.tick()` on the
+   game loop thread while `CarryManager.releaseCarry()` may modify it from a
+   `ClientConnection` reader thread via the disconnect chain. `players` is written by
+   `LobbyManager.handleReady()` on a reader thread before the loop starts, but
+   using `CopyOnWriteArrayList` makes this safe by type rather than only by control flow.
 15. **`GameServer` rejects TCP connections after game starts.** `startGame()` sets
    `volatile boolean gameInProgress = true`. The accept loop checks this flag and
    closes the socket immediately (with `continue`) before creating a `ClientConnection`.
@@ -176,6 +179,39 @@ public record GameContext(
 11. **`GameState` must be constructed with `new GameState()`** which initializes
     all collections. Never assume fields are non-null without calling the constructor.
 12. **Tests:** Add JUnit 5 tests for any pure logic class. Run with `./mvnw test`.
+    A `MessageCodecTest` covering all message types round-trip exists at
+    `src/test/java/com/identitycrisis/shared/net/MessageCodecTest.java`.
+17. **`controlMap` must be pruned on player elimination and client disconnect.**
+    `EliminationManager.eliminatePlayer()` removes the eliminated player's
+    `controlMap` entry (`cm.remove(playerId)`) and uses `cm.replaceAll(...)` to
+    restore any living client that was CONTROL_SWAP'd onto the eliminated player
+    back to self-control. `ServerGameLoop.cleanupClient()` does the same for
+    disconnected clients. Failing to prune allows dead players to participate in
+    future `CONTROL_SWAP` derangement shuffles and can permanently assign a living
+    client to control an immovable character.
+18. **`ChaosEventManager.applyControlSwap()` must guard against ≤1 entries in
+    `controlMap`.** A derangement (no element maps to itself) is mathematically
+    impossible for a single-element list — the `do/while` shuffle loop would spin
+    forever. Add `if (clientIds.size() <= 1) return;` before the loop. Correct
+    pruning (rule 17) means this should rarely trigger, but the guard is required
+    for robustness against edge-case race conditions.
+19. **`GameState.controlMap` must be a `ConcurrentHashMap`**, not a plain `HashMap`.
+    The map is read and written by two distinct threads simultaneously: the game loop
+    thread (in `processInputs`, `broadcastState`, and `ChaosEventManager`) AND the
+    `ClientConnection` reader thread (via the disconnect chain
+    `ClientConnection.run() finally → GameServer.removeClient() → ServerGameLoop.cleanupClient()`).
+    A plain `HashMap` under concurrent modification causes undefined behaviour including
+    lost entries and infinite loops. `ConcurrentHashMap.replaceAll()` is also safe,
+    unlike `HashMap.replaceAll()` under concurrent access.
+20. **`REVERSED_CONTROLS` inversion is client-side only.**
+    `ClientGameLoop.applyChaosModifications()` swaps `up↔down` and `left↔right` in
+    the `InputSnapshot` **before** the input is sent to the server. The server receives
+    already-inverted bytes and must process them as-is — `ServerGameLoop.processInputs()`
+    always passes `reversedControls=false` to `PhysicsEngine.applyInput()`.
+    **Double-inverting (client + server) would cancel the effect and make
+    `REVERSED_CONTROLS` a no-op.** The `reversedControls` parameter of `applyInput()`
+    is kept in the method signature for potential future use but must not be set to
+    `true` from the game loop.
 
 ## 4. Directory & File Tree
 

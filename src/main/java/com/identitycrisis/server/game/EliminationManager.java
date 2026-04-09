@@ -7,6 +7,7 @@ import com.identitycrisis.shared.model.SafeZone;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Evaluates eliminations at round end.
@@ -65,6 +66,15 @@ public class EliminationManager {
             carryManager.releaseCarry(playerId); // frees partner; may temporarily set p to ALIVE
             p.setState(PlayerState.ELIMINATED);  // override — eliminated wins
             p.setInSafeZone(false);
+            // Prune controlMap so the eliminated player can no longer control anyone,
+            // and any living client currently CONTROL_SWAP'd onto this player is restored
+            // to self-control. Without this, applyControlSwap() would include dead
+            // players in the derangement shuffle, potentially assigning a living client
+            // to control an eliminated (immovable) player.
+            Map<Integer, Integer> cm = gameState.getControlMap();
+            cm.remove(playerId);
+            cm.replaceAll((clientId, controlled) ->
+                controlled.equals(playerId) ? clientId : controlled);
         }
     }
 

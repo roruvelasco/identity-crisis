@@ -30,6 +30,7 @@ public class CollisionDetector {
     }
 
     private void resolveWallCollision(Player p, Arena arena) {
+        if (p.getState() == PlayerState.CARRIED) return; // position locked by CarryManager
         double r = GameConfig.PLAYER_RADIUS;
         double x = Math.max(r, Math.min(p.getPosition().x(), arena.getWidth() - r));
         double y = Math.max(r, Math.min(p.getPosition().y(), arena.getHeight() - r));

@@ -47,6 +47,12 @@ public class RoundManager {
                 }
             }
 
+            // ROUND_END is a one-tick transient state: evaluate eliminations then
+            // immediately advance to ELIMINATION. This block executes exactly once
+            // per round-end transition because transitionTo() changes the phase on
+            // the same tick. Do NOT add timers or blocking logic here without also
+            // adding an idempotency guard — re-entry would call evaluateEliminations()
+            // again and eliminate extra players.
             case ROUND_END -> {
                 List<Integer> eliminated = eliminationManager.evaluateEliminations();
                 gameState.getPendingEliminationIds().addAll(eliminated);

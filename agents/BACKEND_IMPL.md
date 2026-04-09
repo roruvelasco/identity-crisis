@@ -141,6 +141,28 @@ public int getAliveCount() { return getAlivePlayers().size(); }
 
 All other getters → `return field;`, all setters → `this.field = value;`.
 
+**Important — `controlMap` type:** Use `ConcurrentHashMap`, not `HashMap`. The map is
+accessed by both the game loop thread and `ClientConnection` reader threads (via the
+disconnect chain). See AGENTS.md rule 19.
+
+**Extra fields for deferred event broadcasting:** `GameState` also holds two fields that
+`RoundManager` writes and `ServerGameLoop.broadcastState()` reads to send one-shot
+messages without coupling the round state machine to the network layer:
+
+```java
+// Accumulates elimination IDs for the current tick; drained by broadcastState().
+private final List<Integer> pendingEliminationIds = new ArrayList<>();
+private int pendingGameOverWinnerId = -1;
+
+public List<Integer> getPendingEliminationIds() { return pendingEliminationIds; }
+public void clearPendingEliminationIds()        { pendingEliminationIds.clear(); }
+public int  getPendingGameOverWinnerId()         { return pendingGameOverWinnerId; }
+public void setPendingGameOverWinnerId(int id)   { this.pendingGameOverWinnerId = id; }
+```
+
+`pendingEliminationIds` uses a plain `ArrayList` (not COW) because it is only ever
+written and read by the single game loop thread.
+
 ### 1F. `MessageType.fromTag(byte)`
 **File:** `src/main/java/com/identitycrisis/shared/net/MessageType.java`
 
@@ -698,14 +720,23 @@ public class SafeZoneManager {
 ### 5B. `EliminationManager`
 **File:** `src/main/java/com/identitycrisis/server/game/EliminationManager.java`
 
+`CarryManager` is injected so `eliminatePlayer()` can release carry state on the partner
+before setting `ELIMINATED` — prevents the partner from being permanently stuck.
+`eliminatePlayer()` also **prunes `controlMap`** so dead players are never included in a
+future `CONTROL_SWAP` derangement and no living client remains swapped onto an eliminated player.
+
 ```java
 import com.identitycrisis.shared.model.*;
 import java.util.*;
 
 public class EliminationManager {
     private final GameState gameState;
+    private final CarryManager carryManager;
 
-    public EliminationManager(GameState gameState) { this.gameState = gameState; }
+    public EliminationManager(GameState gameState, CarryManager carryManager) {
+        this.gameState    = gameState;
+        this.carryManager = carryManager;
+    }
 
     public List<Integer> evaluateEliminations() {
         List<Integer> eliminated = new ArrayList<>();
@@ -751,8 +782,15 @@ public class EliminationManager {
     private void eliminatePlayer(int playerId) {
         Player p = gameState.getPlayerById(playerId);
         if (p != null) {
-            p.setState(PlayerState.ELIMINATED);
+            carryManager.releaseCarry(playerId); // frees partner; may temporarily set p to ALIVE
+            p.setState(PlayerState.ELIMINATED);  // override — eliminated wins
             p.setInSafeZone(false);
+            // Prune controlMap: remove their entry and restore any client that was
+            // CONTROL_SWAP'd onto this player back to self-control.
+            Map<Integer, Integer> cm = gameState.getControlMap();
+            cm.remove(playerId);
+            cm.replaceAll((clientId, controlled) ->
+                controlled.equals(playerId) ? clientId : controlled);
         }
     }
 
@@ -918,6 +956,10 @@ public class CarryManager {
         carrier.setCarryingPlayerId(-1);
         carried.setState(PlayerState.ALIVE);
         carried.setCarriedByPlayerId(-1);
+        // Stun the thrown player so throw velocity is preserved for THROW_STUN_SECONDS
+        // before they can override it with directional input. PhysicsEngine.applyInput()
+        // skips the player while stunTimer > 0; step() decays the velocity via damping.
+        carried.setStunTimer(GameConfig.THROW_STUN_SECONDS);
 
         gameState.getActiveCarries().removeIf(
             cs -> cs.carrierPlayerId() == carrierPlayerId);
@@ -1029,12 +1071,22 @@ public class RoundManager {
             case ACTIVE -> {
                 gameState.setRoundTimer(gameState.getRoundTimer() - dt);
                 if (gameState.getRoundTimer() <= 0) {
+                    // Clear chaos event BEFORE transitioning — ChaosEventManager.tick()
+                    // early-returns for non-ACTIVE phases and will never clear it otherwise.
+                    // Without this, isFakeSafeZonesActive() stays true through ROUND_END,
+                    // ELIMINATION, and COUNTDOWN, sending decoy zones in inter-round snapshots.
+                    chaosEventManager.clearActiveEvent();
                     transitionTo(RoundPhase.ROUND_END);
                 }
             }
 
+            // ROUND_END is a one-tick transient state that executes exactly once per
+            // round-end transition. Collect eliminated IDs into GameState.pendingEliminationIds
+            // so ServerGameLoop.broadcastState() can send S_PLAYER_ELIMINATED messages for
+            // this tick without the round state machine touching the network layer.
             case ROUND_END -> {
-                eliminationManager.evaluateEliminations();
+                List<Integer> eliminated = eliminationManager.evaluateEliminations();
+                gameState.getPendingEliminationIds().addAll(eliminated);
                 transitionTo(RoundPhase.ELIMINATION);
                 gameState.setRoundTimer(GameConfig.ELIMINATION_DISPLAY_SECONDS);
             }
@@ -1092,19 +1144,23 @@ private void processInputs() {
     while ((qi = inputQueue.poll()) != null) {
         Map<Integer, Integer> controlMap = ctx.gameState().getControlMap();
         int controlledPlayer = controlMap.getOrDefault(qi.clientId(), qi.clientId());
-        boolean reversed = (ctx.gameState().getActiveChaosEvent() == ChaosEventType.REVERSED_CONTROLS);
+        // REVERSED_CONTROLS inversion is handled client-side (ClientGameLoop.applyChaosModifications
+        // swaps up↔down and left↔right in the InputSnapshot before sending). The server receives
+        // already-inverted bytes and must NOT invert again — double-inverting cancels the effect.
+        // Always pass false; the reversedControls parameter of applyInput() is kept for the
+        // method signature but must never be set true from the game loop. (AGENTS.md rule 20)
         boolean[] f = qi.flags();
         // flags: [0]=up, [1]=down, [2]=left, [3]=right, [4]=carry, [5]=throw
         physics.applyInput(ctx.gameState(), controlledPlayer,
-                           f[0], f[1], f[2], f[3], reversed);
+                           f[0], f[1], f[2], f[3], false);
         if (f[4]) ctx.carryManager().tryCarry(controlledPlayer);
         if (f[5]) ctx.carryManager().throwCarried(controlledPlayer);
     }
 }
 ```
 
-Add import: `import com.identitycrisis.shared.model.ChaosEventType;`
-and `import java.util.Map;`
+Add import: `import java.util.Map;`
+(`ChaosEventType` is NOT needed here — the reversal check was removed, see above.)
 
 ### 6B. `ServerGameLoop.broadcastState()`
 
