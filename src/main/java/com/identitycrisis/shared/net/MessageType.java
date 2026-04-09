@@ -28,5 +28,10 @@ public enum MessageType {
     public byte getTag() { return tag; }
 
     /** Loop or map lookup. */
-    public static MessageType fromTag(byte tag) { throw new UnsupportedOperationException("stub"); }
+    public static MessageType fromTag(byte tag) {
+        for (MessageType t : values()) {
+            if (t.tag == tag) return t;
+        }
+        throw new IllegalArgumentException("Unknown message tag: 0x" + String.format("%02X", tag));
+    }
 }

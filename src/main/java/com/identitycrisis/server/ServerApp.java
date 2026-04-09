@@ -74,6 +74,7 @@ public class ServerApp {
         LobbyManager        lobbyMgr   = new LobbyManager(server);
         server.setRouter(router);
         server.setLobbyManager(lobbyMgr);
+        lobbyMgr.setGameState(gameState);
 
         // ── 9-10. Game loop — fully constructor-injected ──────────────────────
         ServerGameLoop loop = new ServerGameLoop(server, ctx, pe, cd);

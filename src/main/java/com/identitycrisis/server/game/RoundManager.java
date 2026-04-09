@@ -1,5 +1,9 @@
 package com.identitycrisis.server.game;
 
+import com.identitycrisis.shared.model.GameConfig;
+import com.identitycrisis.shared.model.Player;
+import com.identitycrisis.shared.model.RoundPhase;
+
 /**
  * Drives the round state machine.
  * LOBBY → COUNTDOWN → ACTIVE → ROUND_END → ELIMINATION → COUNTDOWN → ...
@@ -20,13 +24,64 @@ public class RoundManager {
         this.eliminationManager = em;
     }
 
-    public void tick(double dt) { }
+    public void tick(double dt) {
+        switch (gameState.getPhase()) {
+            case LOBBY -> { /* LobbyManager handles this externally */ }
 
-    private void transitionTo(/* RoundPhase */) { }
+            case COUNTDOWN -> {
+                gameState.setRoundTimer(gameState.getRoundTimer() - dt);
+                if (gameState.getRoundTimer() <= 0) {
+                    safeZoneManager.spawnSafeZone();
+                    transitionTo(RoundPhase.ACTIVE);
+                    gameState.setRoundTimer(GameConfig.ROUND_DURATION_SECONDS);
+                    chaosEventManager.resetForNewRound();
+                }
+            }
 
-    private void startNewRound() { }
+            case ACTIVE -> {
+                gameState.setRoundTimer(gameState.getRoundTimer() - dt);
+                if (gameState.getRoundTimer() <= 0) {
+                    transitionTo(RoundPhase.ROUND_END);
+                }
+            }
 
-    public boolean isWarmupRound() { throw new UnsupportedOperationException("stub"); }
+            case ROUND_END -> {
+                eliminationManager.evaluateEliminations();
+                transitionTo(RoundPhase.ELIMINATION);
+                gameState.setRoundTimer(GameConfig.ELIMINATION_DISPLAY_SECONDS);
+            }
 
-    private boolean shouldEndGame() { throw new UnsupportedOperationException("stub"); }
+            case ELIMINATION -> {
+                gameState.setRoundTimer(gameState.getRoundTimer() - dt);
+                if (gameState.getRoundTimer() <= 0) {
+                    if (eliminationManager.isGameOver()) {
+                        transitionTo(RoundPhase.GAME_OVER);
+                    } else {
+                        gameState.setRoundNumber(gameState.getRoundNumber() + 1);
+                        startNewRound();
+                        transitionTo(RoundPhase.COUNTDOWN);
+                        gameState.setRoundTimer(GameConfig.COUNTDOWN_SECONDS);
+                    }
+                }
+            }
+
+            case GAME_OVER -> { /* Game is done */ }
+        }
+    }
+
+    private void transitionTo(RoundPhase phase) { gameState.setPhase(phase); }
+
+    private void startNewRound() {
+        for (Player p : gameState.getAlivePlayers()) {
+            p.setInSafeZone(false);
+        }
+    }
+
+    public boolean isWarmupRound() {
+        return gameState.getRoundNumber() <= GameConfig.WARMUP_ROUNDS;
+    }
+
+    private boolean shouldEndGame() {
+        return eliminationManager.isGameOver();
+    }
 }

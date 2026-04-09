@@ -1,9 +1,19 @@
 package com.identitycrisis.server.game;
 
+import com.identitycrisis.server.net.ClientConnection;
 import com.identitycrisis.server.net.GameServer;
 import com.identitycrisis.server.physics.CollisionDetector;
 import com.identitycrisis.server.physics.PhysicsEngine;
+import com.identitycrisis.shared.model.ChaosEventType;
 import com.identitycrisis.shared.model.GameConfig;
+import com.identitycrisis.shared.model.Player;
+import com.identitycrisis.shared.model.SafeZone;
+import com.identitycrisis.shared.net.MessageEncoder;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
@@ -90,8 +100,17 @@ public class ServerGameLoop implements Runnable {
     // ── Private tick helpers ─────────────────────────────────────────────────
 
     private void processInputs() {
-        // Drain the queue: apply each pending input to the authoritative GameState
-        // via PhysicsEngine.applyInput().
+        QueuedInput qi;
+        while ((qi = inputQueue.poll()) != null) {
+            Map<Integer, Integer> controlMap = ctx.gameState().getControlMap();
+            int controlledPlayer = controlMap.getOrDefault(qi.clientId(), qi.clientId());
+            boolean reversed = (ctx.gameState().getActiveChaosEvent() == ChaosEventType.REVERSED_CONTROLS);
+            boolean[] f = qi.flags();
+            physics.applyInput(ctx.gameState(), controlledPlayer,
+                               f[0], f[1], f[2], f[3], reversed);
+            if (f[4]) ctx.carryManager().tryCarry(controlledPlayer);
+            if (f[5]) ctx.carryManager().throwCarried(controlledPlayer);
+        }
     }
 
     private void update(double dt) {
@@ -104,9 +123,53 @@ public class ServerGameLoop implements Runnable {
     }
 
     private void broadcastState() {
-        // For EACH client: build personalized GameStateSnapshot
-        // (different safeZones list, different controlledPlayerId after swap).
-        // Encode and send via server.sendToClient(client, encoded).
+        GameState gs = ctx.gameState();
+        List<Player> allPlayers = gs.getPlayers();
+        boolean fakeSafeZones = ctx.chaosEventManager().isFakeSafeZonesActive();
+
+        for (ClientConnection client : server.getClients()) {
+            int clientId = client.getClientId();
+            int controlledPlayerId = gs.getControlMap().getOrDefault(clientId, clientId);
+
+            List<SafeZone> zones = ctx.safeZoneManager().generateClientSafeZones(clientId, fakeSafeZones);
+
+            MessageEncoder.PlayerNetData[] playerData =
+                new MessageEncoder.PlayerNetData[allPlayers.size()];
+            for (int i = 0; i < allPlayers.size(); i++) {
+                Player p = allPlayers.get(i);
+                playerData[i] = new MessageEncoder.PlayerNetData(
+                    p.getPlayerId(), p.getDisplayName(),
+                    p.getPosition().x(), p.getPosition().y(),
+                    p.getVelocity().x(), p.getVelocity().y(),
+                    (byte) p.getState().ordinal(), p.getFacingDirection(),
+                    p.isInSafeZone(), p.getCarriedByPlayerId(), p.getCarryingPlayerId()
+                );
+            }
+
+            MessageEncoder.SafeZoneNetData[] zoneData =
+                new MessageEncoder.SafeZoneNetData[zones.size()];
+            for (int i = 0; i < zones.size(); i++) {
+                SafeZone z = zones.get(i);
+                zoneData[i] = new MessageEncoder.SafeZoneNetData(
+                    z.position().x(), z.position().y(), z.radius());
+            }
+
+            try {
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                MessageEncoder enc = new MessageEncoder(new DataOutputStream(baos));
+                enc.encodeGameState(
+                    gs.getRoundNumber(), gs.getRoundTimer(),
+                    (byte) gs.getPhase().ordinal(),
+                    (byte) gs.getActiveChaosEvent().ordinal(),
+                    gs.getChaosEventTimer(), controlledPlayerId,
+                    playerData, zoneData
+                );
+                enc.flush();
+                server.sendToClient(client, baos.toByteArray());
+            } catch (IOException e) {
+                // Client may have disconnected — send() handles this gracefully
+            }
+        }
     }
 
     private void sleepUntilNextTick(long tickStartNs) {

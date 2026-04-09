@@ -28,6 +28,8 @@ com/identitycrisis/server/game/ServerGameLoop.class
 com/identitycrisis/shared/model/PlayerState.class
 com/identitycrisis/shared/model/ChaosEventType.class
 com/identitycrisis/shared/net/MessageDecoder$PlayerNetData.class
+com/identitycrisis/server/net/ClientMessageRouter$1.class
+com/identitycrisis/server/game/RoundManager$1.class
 com/identitycrisis/shared/net/MessageDecoder$ChatData.class
 com/identitycrisis/client/scene/HowToPlayScene.class
 com/identitycrisis/shared/net/server/GameStateSnapshot.class

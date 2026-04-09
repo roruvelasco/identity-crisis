@@ -7,13 +7,20 @@ public class Arena {
     private double height;
     // Obstacle rectangles loaded from map definition
 
-    public double getWidth() { throw new UnsupportedOperationException("stub"); }
+    public double getWidth() { return width; }
 
-    public double getHeight() { throw new UnsupportedOperationException("stub"); }
+    public double getHeight() { return height; }
 
     /** Check bounds + obstacles. */
-    public boolean isWall(double x, double y) { throw new UnsupportedOperationException("stub"); }
+    public boolean isWall(double x, double y) {
+        return x < 0 || y < 0 || x >= width || y >= height;
+    }
 
     /** Hardcoded or file-loaded arena. */
-    public static Arena loadDefault() { throw new UnsupportedOperationException("stub"); }
+    public static Arena loadDefault() {
+        Arena a = new Arena();
+        a.width  = GameConfig.ARENA_WIDTH;
+        a.height = GameConfig.ARENA_HEIGHT;
+        return a;
+    }
 }

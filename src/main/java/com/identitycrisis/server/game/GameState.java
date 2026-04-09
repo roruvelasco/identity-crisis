@@ -36,23 +36,34 @@ public class GameState {
         this.activeCarries    = new ArrayList<>();
     }
 
-    public List<Player> getPlayers() { throw new UnsupportedOperationException("stub"); }
-    public List<Player> getAlivePlayers() { throw new UnsupportedOperationException("stub"); }
-    public Player getPlayerById(int id) { throw new UnsupportedOperationException("stub"); }
-    public Arena getArena() { throw new UnsupportedOperationException("stub"); }
-    public SafeZone getTrueSafeZone() { throw new UnsupportedOperationException("stub"); }
-    public void setTrueSafeZone(SafeZone zone) { }
-    public int getRoundNumber() { throw new UnsupportedOperationException("stub"); }
-    public void setRoundNumber(int n) { }
-    public RoundPhase getPhase() { throw new UnsupportedOperationException("stub"); }
-    public void setPhase(RoundPhase phase) { }
-    public double getRoundTimer() { throw new UnsupportedOperationException("stub"); }
-    public void setRoundTimer(double t) { }
-    public ChaosEventType getActiveChaosEvent() { throw new UnsupportedOperationException("stub"); }
-    public void setActiveChaosEvent(ChaosEventType type) { }
-    public double getChaosEventTimer() { throw new UnsupportedOperationException("stub"); }
-    public void setChaosEventTimer(double t) { }
-    public Map<Integer, Integer> getControlMap() { throw new UnsupportedOperationException("stub"); }
-    public List<CarryState> getActiveCarries() { throw new UnsupportedOperationException("stub"); }
-    public int getAliveCount() { throw new UnsupportedOperationException("stub"); }
+    public List<Player> getPlayers() { return players; }
+    public List<Player> getAlivePlayers() {
+        return players.stream()
+            .filter(p -> p.getState() == PlayerState.ALIVE
+                      || p.getState() == PlayerState.CARRYING
+                      || p.getState() == PlayerState.CARRIED)
+            .toList();
+    }
+    public Player getPlayerById(int id) {
+        return players.stream()
+            .filter(p -> p.getPlayerId() == id)
+            .findFirst()
+            .orElse(null);
+    }
+    public Arena getArena() { return arena; }
+    public SafeZone getTrueSafeZone() { return trueSafeZone; }
+    public void setTrueSafeZone(SafeZone zone) { this.trueSafeZone = zone; }
+    public int getRoundNumber() { return roundNumber; }
+    public void setRoundNumber(int n) { this.roundNumber = n; }
+    public RoundPhase getPhase() { return phase; }
+    public void setPhase(RoundPhase phase) { this.phase = phase; }
+    public double getRoundTimer() { return roundTimer; }
+    public void setRoundTimer(double t) { this.roundTimer = t; }
+    public ChaosEventType getActiveChaosEvent() { return activeChaosEvent; }
+    public void setActiveChaosEvent(ChaosEventType type) { this.activeChaosEvent = type; }
+    public double getChaosEventTimer() { return chaosEventTimer; }
+    public void setChaosEventTimer(double t) { this.chaosEventTimer = t; }
+    public Map<Integer, Integer> getControlMap() { return controlMap; }
+    public List<CarryState> getActiveCarries() { return activeCarries; }
+    public int getAliveCount() { return getAlivePlayers().size(); }
 }

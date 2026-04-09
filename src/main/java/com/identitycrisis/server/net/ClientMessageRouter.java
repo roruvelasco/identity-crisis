@@ -1,7 +1,12 @@
 package com.identitycrisis.server.net;
 
+import com.identitycrisis.server.game.ServerGameLoop;
 import com.identitycrisis.shared.net.MessageDecoder;
+import com.identitycrisis.shared.net.MessageEncoder;
 import com.identitycrisis.shared.net.MessageType;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 
 /**
  * Routes decoded client messages to server-side handlers.
@@ -15,10 +20,35 @@ public class ClientMessageRouter {
 
     public void route(ClientConnection sender, MessageType type,
                       MessageDecoder decoder) {
-        // switch (type):
-        //   C_JOIN_REQUEST → lobbyManager.handleJoin(sender, ...)
-        //   C_READY        → lobbyManager.handleReady(sender)
-        //   C_PLAYER_INPUT → enqueue into ServerGameLoop
-        //   C_CHAT_SEND    → broadcast chat to all
+        switch (type) {
+            case C_JOIN_REQUEST -> {
+                String name = decoder.decodeJoinRequest();
+                server.getLobbyManager().handleJoin(sender, name);
+            }
+            case C_READY -> {
+                decoder.decodeReady();
+                server.getLobbyManager().handleReady(sender);
+            }
+            case C_PLAYER_INPUT -> {
+                boolean[] flags = decoder.decodePlayerInput();
+                ServerGameLoop loop = server.getGameLoop();
+                if (loop != null) {
+                    loop.enqueueInput(sender.getClientId(), flags);
+                }
+            }
+            case C_CHAT_SEND -> {
+                String text = decoder.decodeChatSend();
+                try {
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    MessageEncoder enc = new MessageEncoder(new DataOutputStream(baos));
+                    enc.encodeChatBroadcast(sender.getDisplayName(), text);
+                    enc.flush();
+                    server.broadcastToAll(baos.toByteArray());
+                } catch (IOException e) {
+                    // log and continue
+                }
+            }
+            default -> { /* unknown message type — ignore */ }
+        }
     }
 }

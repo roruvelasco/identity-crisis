@@ -115,7 +115,7 @@ SERVER:
   ServerGameLoop ───── single game thread, fixed 60 tps tick loop
   
   Flow: ClientConnection reader → ConcurrentLinkedQueue<QueuedInput> → ServerGameLoop consumes
-        ServerGameLoop → per-client encode → ClientConnection.getOutputStream() (synchronized write)
+        ServerGameLoop → per-client encode → ClientConnection.send(byte[]) (synchronized write)
 
 CLIENT:
   JavaFX Application thread ── UI, scene management

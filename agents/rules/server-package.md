@@ -406,7 +406,7 @@ public class RoundManager {
                         ChaosEventManager cem, EliminationManager em) { }
 
     public void tick(double dt) { }
-    private void transitionTo(/* RoundPhase */) { }
+    private void transitionTo(RoundPhase phase) { }
     private void startNewRound() { }
     public boolean isWarmupRound() { }
     private boolean shouldEndGame() { }
@@ -561,7 +561,7 @@ import com.identitycrisis.server.game.GameState;
 public class CollisionDetector {
     public CollisionDetector() { }
     public void resolve(GameState state) { }
-    private void resolveWallCollision(/* player, arena */) { }
-    private void resolvePlayerCollision(/* playerA, playerB */) { }
+    private void resolveWallCollision(Player p, Arena arena) { }
+    private void resolvePlayerCollision(Player a, Player b) { }
 }
 ```

@@ -6,20 +6,20 @@ public class GameTimer {
     private double remainingSeconds;
     private boolean running;
 
-    public GameTimer(double durationSeconds) { }
+    public GameTimer(double durationSeconds) { this.remainingSeconds = durationSeconds; }
 
-    public void start() { }
+    public void start() { running = true; }
 
-    public void stop() { }
+    public void stop() { running = false; }
 
-    public void reset(double durationSeconds) { }
+    public void reset(double durationSeconds) { this.remainingSeconds = durationSeconds; running = false; }
 
     /** Subtract delta, clamp to 0. */
-    public void tick(double deltaSeconds) { }
+    public void tick(double deltaSeconds) { if (running) remainingSeconds = Math.max(0, remainingSeconds - deltaSeconds); }
 
-    public boolean isExpired() { throw new UnsupportedOperationException("stub"); }
+    public boolean isExpired() { return remainingSeconds <= 0; }
 
-    public double getRemaining() { throw new UnsupportedOperationException("stub"); }
+    public double getRemaining() { return remainingSeconds; }
 
-    public boolean isRunning() { throw new UnsupportedOperationException("stub"); }
+    public boolean isRunning() { return running; }
 }

@@ -36,24 +36,24 @@ public class Player {
         this.carryingPlayerId  = -1;
     }
 
-    public int getPlayerId() { throw new UnsupportedOperationException("stub"); }
-    public void setPlayerId(int id) { }
-    public String getDisplayName() { throw new UnsupportedOperationException("stub"); }
-    public void setDisplayName(String name) { }
-    public Vector2D getPosition() { throw new UnsupportedOperationException("stub"); }
-    public void setPosition(Vector2D pos) { }
-    public Vector2D getVelocity() { throw new UnsupportedOperationException("stub"); }
-    public void setVelocity(Vector2D vel) { }
-    public PlayerState getState() { throw new UnsupportedOperationException("stub"); }
-    public void setState(PlayerState state) { }
-    public int getFacingDirection() { throw new UnsupportedOperationException("stub"); }
-    public void setFacingDirection(int dir) { }
-    public boolean isInSafeZone() { throw new UnsupportedOperationException("stub"); }
-    public void setInSafeZone(boolean val) { }
-    public int getCarriedByPlayerId() { throw new UnsupportedOperationException("stub"); }
-    public void setCarriedByPlayerId(int id) { }
-    public int getCarryingPlayerId() { throw new UnsupportedOperationException("stub"); }
-    public void setCarryingPlayerId(int id) { }
+    public int getPlayerId() { return playerId; }
+    public void setPlayerId(int id) { this.playerId = id; }
+    public String getDisplayName() { return displayName; }
+    public void setDisplayName(String name) { this.displayName = name; }
+    public Vector2D getPosition() { return position; }
+    public void setPosition(Vector2D pos) { this.position = pos; }
+    public Vector2D getVelocity() { return velocity; }
+    public void setVelocity(Vector2D vel) { this.velocity = vel; }
+    public PlayerState getState() { return state; }
+    public void setState(PlayerState state) { this.state = state; }
+    public int getFacingDirection() { return facingDirection; }
+    public void setFacingDirection(int dir) { this.facingDirection = dir; }
+    public boolean isInSafeZone() { return inSafeZone; }
+    public void setInSafeZone(boolean val) { this.inSafeZone = val; }
+    public int getCarriedByPlayerId() { return carriedByPlayerId; }
+    public void setCarriedByPlayerId(int id) { this.carriedByPlayerId = id; }
+    public int getCarryingPlayerId() { return carryingPlayerId; }
+    public void setCarryingPlayerId(int id) { this.carryingPlayerId = id; }
 
     /**
      * Two {@code Player} instances are equal when they represent the same
