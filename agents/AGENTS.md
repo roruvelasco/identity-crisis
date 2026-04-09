@@ -128,7 +128,12 @@ public record GameContext(
 ```
 identity-crisis/
 ├── pom.xml
+├── Makefile
+├── dev.sh
 ├── README.md
+├── .mvn/
+│   └── wrapper/
+│       └── maven-wrapper.properties  (locks Maven to 3.9.14)
 ├── src/main/
 │   ├── java/
 │   │   ├── module-info.java
@@ -278,6 +283,20 @@ identity-crisis/
                 </configuration>
             </plugin>
             <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>server</id>
+                        <goals><goal>java</goal></goals>
+                        <configuration>
+                            <mainClass>com.identitycrisis.server.ServerApp</mainClass>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
                 <groupId>org.openjfx</groupId>
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>
@@ -306,19 +325,33 @@ module com.identitycrisis {
 }
 ```
 
-### 15.3 Running
+### 15.3 Maven Wrapper
+
+The project uses `./mvnw` (Maven Wrapper) to lock the Maven version to **3.9.14**.
+All commands below use `./mvnw` — never plain `mvn`.
+Commit `.mvn/` to ensure every collaborator uses the same version.
+
+### 15.4 Running
 
 ```bash
 # Both server + client in one command (recommended)
 make dev
 
 # Individual targets
-make build    # mvn clean compile
-make server   # mvn exec:java@server
-make client   # mvn javafx:run
+make build    # ./mvnw clean compile
+make server   # ./mvnw exec:java@server
+make client   # ./mvnw javafx:run
 ```
 
 `make dev` runs `dev.sh` which: builds → forks server in background → starts client in foreground → kills server on exit (Ctrl+C or client window closed).
+
+Expected health-check output on `make dev`:
+```
+[INFO][ServerApp] Identity Crisis Server — starting on port 5137
+[INFO][GameServer] Server listening on port 5137
+[INFO][GameServer] [HEALTH OK] Identity Crisis server is up and waiting for players.
+```
+Client opens a 1280×720 window with a green `[HEALTH OK]` label until `SceneManager` is wired.
 ## 14. Scene Flow
 
 ```

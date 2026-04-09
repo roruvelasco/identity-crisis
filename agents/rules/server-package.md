@@ -42,13 +42,17 @@ public class ServerApp {
 package com.identitycrisis.server.net;
 
 import com.identitycrisis.server.game.*;
+import com.identitycrisis.shared.util.Logger;
+import java.io.IOException;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
 // TCP server. Manages connections, lobby, game start.
 public class GameServer {
+    private static final Logger LOG = new Logger("GameServer");
     private final int port;
     private final List<ClientConnection> clients = new CopyOnWriteArrayList<>();
     private final AtomicInteger nextClientId = new AtomicInteger(1);
@@ -62,25 +66,57 @@ public class GameServer {
     public GameServer(int port) { this.port = port; }
 
     // Setter injection — called from ServerApp.main() before start()
-    public void setRouter(ClientMessageRouter router) { }
-    public void setLobbyManager(LobbyManager lobbyManager) { }
-    public void setGameLoop(ServerGameLoop gameLoop) { }
+    public void setRouter(ClientMessageRouter router) { this.router = router; }
+    public void setLobbyManager(LobbyManager lm)     { this.lobbyManager = lm; }
+    public void setGameLoop(ServerGameLoop loop)      { this.gameLoop = loop; }
 
-    // Validates setters were called, then blocks accepting connections.
+    // Opens ServerSocket, logs health check, then blocks on accept loop.
     // Each accepted socket → new ClientConnection on a named daemon thread.
-    public void start() { /* throws IllegalStateException if router/lobbyManager null */ }
+    // throws IllegalStateException if router/lobbyManager not injected.
+    public void start() {
+        if (router == null || lobbyManager == null)
+            throw new IllegalStateException("router/lobbyManager not injected");
+        try {
+            serverSocket = new ServerSocket(port);
+            LOG.info("Server listening on port " + port);
+            LOG.info("[HEALTH OK] Identity Crisis server is up and waiting for players.");
+            while (!serverSocket.isClosed()) {
+                Socket socket = serverSocket.accept();
+                int id = nextClientId.getAndIncrement();
+                try {
+                    ClientConnection conn = new ClientConnection(id, socket, router);
+                    clients.add(conn);
+                    Thread t = new Thread(conn, "client-conn-" + id);
+                    t.setDaemon(true);
+                    t.start();
+                    LOG.info("Client " + id + " connected from " + socket.getInetAddress());
+                } catch (IOException e) { LOG.error("Failed client " + id, e); }
+            }
+        } catch (IOException e) {
+            if (serverSocket != null && serverSocket.isClosed()) LOG.info("Server socket closed.");
+            else LOG.error("Server error", e);
+        }
+    }
 
     // Starts ServerGameLoop on named non-daemon thread "server-game-loop".
-    public void startGame() { }
+    public void startGame() {
+        Thread t = new Thread(gameLoop, "server-game-loop");
+        t.setDaemon(false);
+        t.start();
+    }
 
-    public void removeClient(ClientConnection client) { }
+    public void removeClient(ClientConnection client) { clients.remove(client); }
 
     // All writes go through ClientConnection.send() (synchronized)
-    public void broadcastToAll(byte[] data) { }
-    public void sendToClient(ClientConnection client, byte[] data) { }
+    public void broadcastToAll(byte[] data) { for (ClientConnection c : clients) c.send(data); }
+    public void sendToClient(ClientConnection client, byte[] data) { client.send(data); }
 
     // Stops game loop, disconnects all clients, closes ServerSocket
-    public void shutdown() { }
+    public void shutdown() {
+        if (gameLoop != null) gameLoop.stop();
+        for (ClientConnection c : clients) c.disconnect();
+        try { if (serverSocket != null) serverSocket.close(); } catch (IOException ignored) {}
+    }
 
     public List<ClientConnection> getClients()     { return clients; }
     public LobbyManager          getLobbyManager() { return lobbyManager; }

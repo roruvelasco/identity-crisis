@@ -1,0 +1,26 @@
+# Maven build output
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Maven Wrapper (jar is auto-downloaded by script)
+.mvn/wrapper/maven-wrapper.jar
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.settings/
+.project
+.classpath
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
