@@ -253,9 +253,10 @@ public final class GameConfig {
     public static final double THROW_STUN_SECONDS = 0.5;
 
     // Physics (used by PhysicsEngine — named constants, not magic numbers)
-    public static final double VELOCITY_DAMPING = 0.95;        // per-tick damping factor
-    public static final double VELOCITY_STOP_THRESHOLD = 0.1;  // below this → zero velocity
-    public static final double SPAWN_RADIUS = 200.0;           // radial spawn spread (px)
+    public static final double VELOCITY_DAMPING = 0.95;            // per-tick damping factor
+    public static final double VELOCITY_STOP_THRESHOLD = 0.1;      // below this → zero velocity
+    public static final double SPAWN_RADIUS = 200.0;               // radial spawn spread (px)
+    public static final double CARRYING_SPEED_MULTIPLIER = 0.6;    // speed penalty while carrying
 
     // Input Queue
     public static final int MAX_QUEUED_INPUTS = 120;

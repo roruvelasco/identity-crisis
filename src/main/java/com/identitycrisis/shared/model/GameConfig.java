@@ -39,6 +39,7 @@ public final class GameConfig {
     public static final double VELOCITY_DAMPING = 0.95;
     public static final double VELOCITY_STOP_THRESHOLD = 0.1;
     public static final double SPAWN_RADIUS = 200.0;
+    public static final double CARRYING_SPEED_MULTIPLIER = 0.6;
 
     // Chaos Events
     public static final double CHAOS_EVENT_MIN_DELAY = 3.0;

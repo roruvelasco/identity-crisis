@@ -73,7 +73,7 @@ Used everywhere dependencies do **not** form a cycle:
 SafeZoneManager(GameState)
 ChaosEventManager(GameState)
 CarryManager(GameState)
-EliminationManager(GameState)
+EliminationManager(GameState, CarryManager)
 RoundManager(GameState, SafeZoneManager, ChaosEventManager, EliminationManager)
 ServerGameLoop(GameServer, GameContext, PhysicsEngine, CollisionDetector)
 ```
@@ -152,11 +152,24 @@ public record GameContext(
    `CarryManager.releaseCarry(playerId)`. Do not skip this or a carried player
    will be permanently stuck when the carrier disconnects.
    `ClientConnection.run()` calls `server.removeClient(this)` in its `finally` block — this is how the chain is triggered.
-13. **`LobbyManager.handleReady()` must be `synchronized`** — it is called from
-   multiple `ClientConnection` reader threads simultaneously. Without the lock,
-   two `C_READY` messages racing in can both pass `canStartGame()` and call
-   `server.startGame()` twice, spawning two game-loop threads. The `gameStarted`
-   boolean guard inside the synchronized method is the idempotency check.
+13. **`LobbyManager.handleReady()` AND `handleJoin()` must both be `synchronized`** —
+   both are called from `ClientConnection` reader threads. `handleReady()` writes to
+   `readyClientIds`; `handleJoin()` reads it via `broadcastLobbyState()`. Racing on a
+   plain `HashSet` causes silent corruption. The `gameStarted` boolean guard inside
+   `handleReady()` is the double-startGame idempotency check.
+14. **`GameState.activeCarries` is a `CopyOnWriteArrayList`**, not a plain `ArrayList`.**
+   `CarryManager.tick()` iterates it on the game loop thread; `CarryManager.releaseCarry()`
+   may be called from a `ClientConnection` reader thread via the disconnect chain
+   (`removeClient → cleanupClient → releaseCarry`). Plain `ArrayList` would cause
+   `ConcurrentModificationException` or silent corruption.
+15. **`GameServer` rejects TCP connections after game starts.** `startGame()` sets
+   `volatile boolean gameInProgress = true`. The accept loop checks this flag and
+   closes the socket immediately (with `continue`) before creating a `ClientConnection`.
+   This prevents ghost clients with no `Player` or `controlMap` entry.
+16. **`ChaosEventManager.clearActiveEvent()` must be called at `ACTIVE → ROUND_END`.**
+   `tick()` early-returns for non-ACTIVE phases and never clears the event on round end.
+   Without the explicit clear, `isFakeSafeZonesActive()` stays true through ROUND_END,
+   ELIMINATION, and COUNTDOWN, sending decoy zones in inter-round snapshots.
 10. **`Player` must be constructed with `new Player(id, name)`** — never with
     `new Player()` (no such constructor). Carry IDs default to `-1` (not `0`).
     `Player.equals()` / `hashCode()` are keyed on `playerId`.

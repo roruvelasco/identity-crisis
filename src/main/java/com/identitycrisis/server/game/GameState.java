@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /** Single authoritative game state. Modified only by ServerGameLoop. */
 public class GameState {
@@ -35,7 +36,7 @@ public class GameState {
         this.activeChaosEvent = ChaosEventType.NONE;
         this.chaosEventTimer  = 0.0;
         this.controlMap       = new HashMap<>();
-        this.activeCarries    = new ArrayList<>();
+        this.activeCarries    = new CopyOnWriteArrayList<>();
     }
 
     public List<Player> getPlayers() { return players; }

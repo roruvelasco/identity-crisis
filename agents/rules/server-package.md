@@ -58,6 +58,7 @@ public class GameServer {
     private final List<ClientConnection> clients = new CopyOnWriteArrayList<>();
     private final AtomicInteger nextClientId = new AtomicInteger(1);
     private ServerSocket serverSocket;
+    private volatile boolean gameInProgress = false; // set true in startGame(); rejects late connections
 
     // Setter-injected (circular ref trio — set by Composition Root before start())
     private ClientMessageRouter router;
@@ -73,6 +74,7 @@ public class GameServer {
 
     // Opens ServerSocket, logs health check, then blocks on accept loop.
     // Each accepted socket → new ClientConnection on a named daemon thread.
+    // Rejects late connections after game starts (gameInProgress == true).
     // throws IllegalStateException if router/lobbyManager not injected.
     public void start() {
         if (router == null || lobbyManager == null)
@@ -84,6 +86,11 @@ public class GameServer {
             while (!serverSocket.isClosed()) {
                 Socket socket = serverSocket.accept();
                 int id = nextClientId.getAndIncrement();
+                if (gameInProgress) {
+                    LOG.warn("Rejecting late connection " + id + " — game already in progress.");
+                    try { socket.close(); } catch (IOException ignored) { }
+                    continue;
+                }
                 try {
                     ClientConnection conn = new ClientConnection(id, socket, router, this);
                     clients.add(conn);
@@ -501,8 +508,11 @@ import java.util.List;
 //   Tiebreak: farthest from zone center among those outside.
 public class EliminationManager {
     private GameState gameState;
+    private CarryManager carryManager;
 
-    public EliminationManager(GameState gameState) { }
+    // CarryManager injected so eliminatePlayer() can release carry state on the partner
+    // before setting ELIMINATED — prevents partner from being permanently stuck.
+    public EliminationManager(GameState gameState, CarryManager carryManager) { }
     public List<Integer> evaluateEliminations() { }
     private void eliminatePlayer(int playerId) { }
     public boolean isGameOver() { }
@@ -532,7 +542,10 @@ public class LobbyManager {
     // Setter injection — so lobby can spawn the round-1 safe zone.
     public void setSafeZoneManager(SafeZoneManager szm) { this.safeZoneManager = szm; }
 
-    public void handleJoin(ClientConnection client, String displayName) { }
+    // synchronized — guards readyClientIds read/write across concurrent reader threads
+    public synchronized void handleJoin(ClientConnection client, String displayName) {
+        // null/empty name falls back to "Player<id>"
+    }
     // synchronized — prevents double startGame() if two C_READY messages race
     public synchronized void handleReady(ClientConnection client) { }
     public boolean canStartGame() { }

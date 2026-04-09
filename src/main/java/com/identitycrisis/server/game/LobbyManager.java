@@ -31,7 +31,10 @@ public class LobbyManager {
     /** Setter injection — called from ServerApp.main() so lobby can spawn round-1 safe zone. */
     public void setSafeZoneManager(SafeZoneManager szm) { this.safeZoneManager = szm; }
 
-    public void handleJoin(ClientConnection client, String displayName) {
+    public synchronized void handleJoin(ClientConnection client, String displayName) {
+        if (displayName == null || displayName.isBlank()) {
+            displayName = "Player" + client.getClientId();
+        }
         client.setDisplayName(displayName);
         broadcastLobbyState();
     }

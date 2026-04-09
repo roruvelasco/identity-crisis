@@ -55,7 +55,7 @@ public class ServerApp {
         SafeZoneManager    szm = new SafeZoneManager(gameState);
         ChaosEventManager  cem = new ChaosEventManager(gameState);
         CarryManager       cm  = new CarryManager(gameState);
-        EliminationManager em  = new EliminationManager(gameState);
+        EliminationManager em  = new EliminationManager(gameState, cm);
         RoundManager       rm  = new RoundManager(gameState, szm, cem, em);
 
         // ── 3. Stateless physics utilities ───────────────────────────────────

@@ -42,6 +42,7 @@ public class RoundManager {
             case ACTIVE -> {
                 gameState.setRoundTimer(gameState.getRoundTimer() - dt);
                 if (gameState.getRoundTimer() <= 0) {
+                    chaosEventManager.clearActiveEvent();
                     transitionTo(RoundPhase.ROUND_END);
                 }
             }

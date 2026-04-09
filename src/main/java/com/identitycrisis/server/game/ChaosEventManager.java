@@ -98,4 +98,13 @@ public class ChaosEventManager {
     public boolean isFakeSafeZonesActive() {
         return gameState.getActiveChaosEvent() == ChaosEventType.FAKE_SAFE_ZONES;
     }
+
+    /** Clears any active chaos event immediately (called at ACTIVE → ROUND_END). */
+    public void clearActiveEvent() {
+        if (gameState.getActiveChaosEvent() == ChaosEventType.CONTROL_SWAP) {
+            revertControlSwap();
+        }
+        gameState.setActiveChaosEvent(ChaosEventType.NONE);
+        gameState.setChaosEventTimer(0);
+    }
 }

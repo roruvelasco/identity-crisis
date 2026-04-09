@@ -40,7 +40,7 @@ public class PhysicsEngine {
                       || p.getStunTimer() > 0) return;
 
         double speed = GameConfig.PLAYER_SPEED;
-        if (p.getState() == PlayerState.CARRYING) speed *= 0.6;
+        if (p.getState() == PlayerState.CARRYING) speed *= GameConfig.CARRYING_SPEED_MULTIPLIER;
 
         boolean u = reversedControls ? down  : up;
         boolean d = reversedControls ? up    : down;

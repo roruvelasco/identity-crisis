@@ -17,8 +17,12 @@ import java.util.List;
 public class EliminationManager {
 
     private final GameState gameState;
+    private final CarryManager carryManager;
 
-    public EliminationManager(GameState gameState) { this.gameState = gameState; }
+    public EliminationManager(GameState gameState, CarryManager carryManager) {
+        this.gameState    = gameState;
+        this.carryManager = carryManager;
+    }
 
     public List<Integer> evaluateEliminations() {
         List<Integer> eliminated = new ArrayList<>();
@@ -58,7 +62,8 @@ public class EliminationManager {
     private void eliminatePlayer(int playerId) {
         Player p = gameState.getPlayerById(playerId);
         if (p != null) {
-            p.setState(PlayerState.ELIMINATED);
+            carryManager.releaseCarry(playerId); // frees partner; may temporarily set p to ALIVE
+            p.setState(PlayerState.ELIMINATED);  // override — eliminated wins
             p.setInSafeZone(false);
         }
     }

@@ -40,6 +40,7 @@ public class GameServer {
     private final List<ClientConnection> clients = new CopyOnWriteArrayList<>();
     private final AtomicInteger nextClientId = new AtomicInteger(1);
     private ServerSocket serverSocket;
+    private volatile boolean gameInProgress = false;
 
     // ── Setter-injected (circular ref trio) ──────────────────────────────────
     private ClientMessageRouter router;
@@ -92,6 +93,11 @@ public class GameServer {
             while (!serverSocket.isClosed()) {
                 Socket socket = serverSocket.accept();
                 int id = nextClientId.getAndIncrement();
+                if (gameInProgress) {
+                    LOG.warn("Rejecting late connection " + id + " — game already in progress.");
+                    try { socket.close(); } catch (IOException ignored) { }
+                    continue;
+                }
                 try {
                     ClientConnection conn = new ClientConnection(id, socket, router, this);
                     clients.add(conn);
@@ -117,6 +123,7 @@ public class GameServer {
         if (gameLoop == null) {
             throw new IllegalStateException("gameLoop not injected before startGame()");
         }
+        gameInProgress = true;
         Thread gameThread = new Thread(gameLoop, "server-game-loop");
         gameThread.setDaemon(false);
         gameThread.start();

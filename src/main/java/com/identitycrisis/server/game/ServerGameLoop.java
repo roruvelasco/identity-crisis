@@ -25,7 +25,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  *   <li>Drain {@link #inputQueue} → apply inputs via {@link PhysicsEngine}.</li>
  *   <li>Step physics ({@link PhysicsEngine#step}) and resolve collisions
  *       ({@link CollisionDetector#resolve}).</li>
- *   <li>Tick game managers in order: round → safe-zone → carry → chaos → elimination.</li>
+ *   <li>Tick game managers in order: carry → safe-zone → chaos → round.</li>
  *   <li>Build a personalized {@code GameStateSnapshot} for every client and
  *       send via {@link GameServer#sendToClient}.</li>
  * </ol>
