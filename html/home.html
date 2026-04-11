@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Identity Crisis - Home</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cinzel+Decorative:wght@400;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,400&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --gold: #c9a84c;
+    --gold-light: #e8c86a;
+    --gold-dark: #8a6a1a;
+    --stone-dark: #1a1a1e;
+    --stone-mid: #2a2a30;
+    --torch-orange: #e8743c;
+    --torch-glow: rgba(232, 116, 60, 0.3);
+    --text-parchment: #e8dfc4;
+    --text-muted: #9a8f7a;
+    --btn-idle: #3b4663;
+    --btn-border: #5a6a90;
+    --btn-highlight: rgba(180, 200, 255, 0.4);
+  }
+
+  body {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background: #0a0a0c;
+    font-family: 'Crimson Pro', serif;
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Cpolygon points='0,0 0,16 4,12 6,18 8,17 6,11 11,11' fill='%23c9a84c'/%3E%3C/svg%3E") 0 0, auto;
+  }
+
+  /* === BACKGROUND === */
+  #bg {
+    position: absolute;
+    inset: 0;
+    background-image: url('yey.jpg');
+    background-size: cover;
+    background-position: center top;
+    z-index: 0;
+  }
+
+  /* Vignette overlay */
+  #vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.7) 100%);
+    z-index: 1;
+  }
+
+  /* Dark gradient bottom */
+  #gradient-bottom {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 55%;
+    background: linear-gradient(to top, rgba(8,8,12,0.97) 0%, rgba(8,8,12,0.8) 50%, transparent 100%);
+    z-index: 2;
+  }
+
+  /* Scanline texture */
+  #scanlines {
+    position: absolute;
+    inset: 0;
+    background-image: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.04) 2px,
+      rgba(0,0,0,0.04) 4px
+    );
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  /* Torch flicker particles */
+  .torch-particle {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--torch-orange);
+    opacity: 0;
+    animation: flicker-particle 2s infinite;
+    z-index: 4;
+  }
+
+  @keyframes flicker-particle {
+    0% { opacity: 0; transform: translateY(0) scale(1); }
+    20% { opacity: 0.8; }
+    100% { opacity: 0; transform: translateY(-40px) scale(0); }
+  }
+
+  /* === MAIN CONTENT === */
+  #main {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding-bottom: 6vh;
+  }
+
+  /* === LOGO === */
+  #logo-area {
+    text-align: center;
+    margin-bottom: 3vh;
+    animation: logo-appear 1.2s ease-out both;
+  }
+
+  @keyframes logo-appear {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  #logo-subtitle {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    color: var(--gold);
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    opacity: 0.85;
+  }
+
+  #logo-title {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(38px, 7vw, 72px);
+    font-weight: 700;
+    color: var(--text-parchment);
+    line-height: 1;
+    text-shadow:
+      0 0 40px rgba(201, 168, 76, 0.6),
+      0 0 80px rgba(201, 168, 76, 0.2),
+      2px 2px 0 rgba(0,0,0,0.8);
+    letter-spacing: 4px;
+    position: relative;
+  }
+
+  /* Gold shimmer line under title */
+  #logo-divider {
+    width: 280px;
+    height: 1px;
+    margin: 10px auto 0;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    position: relative;
+  }
+
+  #logo-divider::before, #logo-divider::after {
+    content: '◆';
+    position: absolute;
+    top: -7px;
+    font-size: 10px;
+    color: var(--gold);
+  }
+
+  #logo-divider::before { left: 50%; transform: translateX(-50%); }
+
+  #logo-tagline {
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    margin-top: 12px;
+  }
+
+  /* === BUTTON CONTAINER === */
+  #buttons {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    animation: btns-appear 1.4s ease-out 0.3s both;
+  }
+
+  @keyframes btns-appear {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* === PIXEL BUTTON (sprite-style) === */
+  .menu-btn {
+    position: relative;
+    width: 240px;
+    height: 52px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--text-parchment);
+    text-transform: uppercase;
+    outline: none;
+    transition: transform 0.08s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* The pixel button "sprite" layer */
+  .menu-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--btn-idle);
+    /* Pixel border effect using box-shadow */
+    box-shadow:
+      /* outer dark border */
+      inset 0 0 0 2px #1a2030,
+      /* inner bright highlight top */
+      inset 0 2px 0 0 var(--btn-highlight),
+      /* bottom shadow */
+      inset 0 -3px 0 0 rgba(0,0,0,0.5),
+      /* outer glow */
+      0 0 12px rgba(90, 106, 144, 0.3);
+    image-rendering: pixelated;
+    transition: all 0.1s ease;
+  }
+
+  /* Pixel corner cutouts */
+  .menu-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(135deg, #0a0a0c 4px, transparent 4px) top left,
+      linear-gradient(225deg, #0a0a0c 4px, transparent 4px) top right,
+      linear-gradient(315deg, #0a0a0c 4px, transparent 4px) bottom right,
+      linear-gradient(45deg,  #0a0a0c 4px, transparent 4px) bottom left;
+    background-size: 8px 8px;
+    background-repeat: no-repeat;
+  }
+
+  .menu-btn span {
+    position: relative;
+    z-index: 1;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  }
+
+  /* Button icon */
+  .menu-btn .btn-icon {
+    position: relative;
+    z-index: 1;
+    margin-right: 10px;
+    font-size: 12px;
+    color: var(--gold);
+  }
+
+  /* HOVER */
+  .menu-btn:hover::before {
+    background: #4a567a;
+    box-shadow:
+      inset 0 0 0 2px #1a2030,
+      inset 0 2px 0 0 rgba(220, 235, 255, 0.5),
+      inset 0 -3px 0 0 rgba(0,0,0,0.5),
+      0 0 20px rgba(120, 150, 200, 0.5);
+  }
+
+  .menu-btn:hover {
+    color: #ffffff;
+  }
+
+  .menu-btn:hover .btn-icon {
+    color: var(--gold-light);
+  }
+
+  /* PRESSED */
+  .menu-btn:active {
+    transform: scale(0.97) translateY(2px);
+  }
+
+  .menu-btn:active::before {
+    background: #2a3348;
+    box-shadow:
+      inset 0 0 0 2px #0a0f1a,
+      inset 0 3px 0 0 rgba(0,0,0,0.4),
+      inset 0 -1px 0 0 rgba(255,255,255,0.1);
+  }
+
+  /* Play button — gold accent */
+  .menu-btn.play-btn::before {
+    background: #4a3a1a;
+    box-shadow:
+      inset 0 0 0 2px #1a0e00,
+      inset 0 2px 0 0 rgba(230, 200, 100, 0.4),
+      inset 0 -3px 0 0 rgba(0,0,0,0.5),
+      0 0 20px rgba(201, 168, 76, 0.4);
+  }
+
+  .menu-btn.play-btn:hover::before {
+    background: #5c4920;
+    box-shadow:
+      inset 0 0 0 2px #1a0e00,
+      inset 0 2px 0 0 rgba(240, 210, 120, 0.5),
+      inset 0 -3px 0 0 rgba(0,0,0,0.5),
+      0 0 30px rgba(201, 168, 76, 0.6);
+  }
+
+  .menu-btn.play-btn {
+    color: var(--gold-light);
+    font-size: 15px;
+  }
+
+  /* === VERSION TAG === */
+  #version {
+    position: absolute;
+    bottom: 16px;
+    right: 20px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: var(--text-muted);
+    opacity: 0.5;
+    z-index: 10;
+  }
+
+  /* === CMSC TAG === */
+  #course-tag {
+    position: absolute;
+    bottom: 16px;
+    left: 20px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: var(--text-muted);
+    opacity: 0.5;
+    z-index: 10;
+  }
+
+  /* Torch glow ambient overlay */
+  .torch-glow-left {
+    position: absolute;
+    left: 5%;
+    top: 30%;
+    width: 120px;
+    height: 200px;
+    background: radial-gradient(ellipse, rgba(232, 116, 60, 0.15) 0%, transparent 70%);
+    z-index: 4;
+    animation: torch-flicker 1.5s ease-in-out infinite alternate;
+    pointer-events: none;
+  }
+
+  .torch-glow-right {
+    position: absolute;
+    right: 8%;
+    top: 25%;
+    width: 120px;
+    height: 200px;
+    background: radial-gradient(ellipse, rgba(232, 116, 60, 0.12) 0%, transparent 70%);
+    z-index: 4;
+    animation: torch-flicker 1.8s ease-in-out infinite alternate-reverse;
+    pointer-events: none;
+  }
+
+  @keyframes torch-flicker {
+    from { opacity: 0.7; transform: scale(1); }
+    to   { opacity: 1.0; transform: scale(1.08); }
+  }
+
+  /* Player count badge */
+  #player-badge {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: var(--gold);
+    background: rgba(0,0,0,0.6);
+    border: 1px solid var(--gold-dark);
+    padding: 5px 10px;
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+    opacity: 0.8;
+  }
+</style>
+</head>
+<body>
+
+<!-- Background dungeon scene -->
+<div id="bg"></div>
+<div class="torch-glow-left"></div>
+<div class="torch-glow-right"></div>
+<div id="vignette"></div>
+<div id="gradient-bottom"></div>
+<div id="scanlines"></div>
+
+<!-- Torch particles -->
+<div class="torch-particle" style="left:8%; top:32%; animation-delay:0s;"></div>
+<div class="torch-particle" style="left:8.5%; top:30%; animation-delay:0.4s;"></div>
+<div class="torch-particle" style="right:10%; top:28%; animation-delay:0.2s;"></div>
+<div class="torch-particle" style="right:9.5%; top:26%; animation-delay:0.7s;"></div>
+
+<!-- Main UI -->
+<div id="main">
+  <div id="logo-area">
+    <div id="logo-title">Identity Crisis</div>
+    <div id="logo-divider"></div>
+    <div id="logo-tagline">Who will survive the arena?</div>
+  </div>
+
+  <div id="player-badge">⚔ 4+ PLAYERS &nbsp;·&nbsp; ARENA BATTLE</div>
+
+  <div id="buttons">
+    <button class="menu-btn play-btn" onclick="window.location.href='loading.html'">
+      <span class="btn-icon">▶</span>
+      <span>Play</span>
+    </button>
+    <button class="menu-btn" onclick="window.location.href='how-to-play.html'">
+      <span class="btn-icon">?</span>
+      <span>How to Play</span>
+    </button>
+    <button class="menu-btn" onclick="window.location.href='about.html'">
+      <span class="btn-icon">✦</span>
+      <span>About</span>
+    </button>
+    <button class="menu-btn" onclick="confirmQuit()">
+      <span class="btn-icon">✕</span>
+      <span>Quit</span>
+    </button>
+  </div>
+</div>
+
+<div id="course-tag">CMSC 137 · AY 2025-2026</div>
+<div id="version">v1.0.0</div>
+
+<script>
+  function confirmQuit() {
+    if (confirm('Exit Identity Crisis?')) window.close();
+  }
+
+  // Add random delay to torch particles
+  document.querySelectorAll('.torch-particle').forEach((p, i) => {
+    p.style.animationDelay = (Math.random() * 2) + 's';
+    p.style.animationDuration = (1.5 + Math.random()) + 's';
+  });
+</script>
+</body>
+</html>

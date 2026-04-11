@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Identity Crisis - Loading</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cinzel+Decorative:wght@400;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,400&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --gold: #c9a84c;
+    --gold-light: #e8c86a;
+    --gold-dark: #8a6a1a;
+    --stone-dark: #0d0d10;
+    --torch-orange: #e8743c;
+    --text-parchment: #e8dfc4;
+    --text-muted: #7a7060;
+  }
+
+  body {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background: var(--stone-dark);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Crimson Pro', serif;
+  }
+
+  /* Stone tile background pattern */
+  #bg-pattern {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+    background-size: 48px 48px;
+    z-index: 0;
+  }
+
+  /* Corner torch glows */
+  .corner-glow {
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(232,116,60,0.12) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 1;
+    animation: torch-pulse 2s ease-in-out infinite alternate;
+  }
+
+  .corner-glow.tl { top: -60px; left: -60px; }
+  .corner-glow.tr { top: -60px; right: -60px; animation-delay: 0.5s; }
+  .corner-glow.bl { bottom: -60px; left: -60px; animation-delay: 1s; }
+  .corner-glow.br { bottom: -60px; right: -60px; animation-delay: 1.5s; }
+
+  @keyframes torch-pulse {
+    from { opacity: 0.6; transform: scale(0.95); }
+    to   { opacity: 1; transform: scale(1.05); }
+  }
+
+  #content {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 560px;
+    padding: 0 24px;
+  }
+
+  /* === ANIMATED CREST === */
+  #crest {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 20px;
+    animation: crest-spin 8s linear infinite;
+    opacity: 0.9;
+  }
+
+  @keyframes crest-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  #title {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(28px, 5vw, 48px);
+    color: var(--text-parchment);
+    text-shadow: 0 0 30px rgba(201,168,76,0.5);
+    letter-spacing: 3px;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+
+  #subtitle {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: var(--gold);
+    letter-spacing: 4px;
+    margin-bottom: 48px;
+    opacity: 0.7;
+  }
+
+  /* === LOADING BAR === */
+  #bar-container {
+    width: 100%;
+    max-width: 400px;
+    margin-bottom: 16px;
+  }
+
+  #bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+
+  #bar-track {
+    width: 100%;
+    height: 20px;
+    background: #1a1a22;
+    border: 1px solid #2a2a36;
+    position: relative;
+    /* pixel cut corners */
+    clip-path: polygon(4px 0%, calc(100% - 4px) 0%, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0% calc(100% - 4px), 0% 4px);
+  }
+
+  #bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--gold-dark), var(--gold), var(--gold-light));
+    transition: width 0.2s ease;
+    position: relative;
+    clip-path: polygon(4px 0%, calc(100% - 2px) 0%, calc(100%) 4px, 100% calc(100% - 4px), calc(100% - 2px) 100%, 2px 100%, 0% calc(100% - 4px), 0% 4px);
+  }
+
+  /* Shine on bar */
+  #bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 4px; right: 4px;
+    height: 6px;
+    background: rgba(255,255,255,0.25);
+  }
+
+  /* Tick marks */
+  .bar-tick {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 1px;
+    background: rgba(255,255,255,0.08);
+  }
+
+  #bar-percent {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: var(--gold);
+  }
+
+  /* === STATUS TEXT === */
+  #status-text {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    height: 20px;
+    text-align: center;
+    margin-top: 4px;
+  }
+
+  /* === TIPS === */
+  #tip-box {
+    margin-top: 48px;
+    border-top: 1px solid rgba(201,168,76,0.15);
+    padding-top: 20px;
+    text-align: center;
+    max-width: 400px;
+  }
+
+  #tip-label {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 6px;
+    color: var(--gold-dark);
+    letter-spacing: 3px;
+    margin-bottom: 10px;
+  }
+
+  #tip-text {
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--text-muted);
+    line-height: 1.6;
+    animation: tip-fade 0.5s ease-out;
+  }
+
+  @keyframes tip-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* Scanline */
+  #scanlines {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    z-index: 9;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div id="bg-pattern"></div>
+<div class="corner-glow tl"></div>
+<div class="corner-glow tr"></div>
+<div class="corner-glow bl"></div>
+<div class="corner-glow br"></div>
+<div id="scanlines"></div>
+
+<div id="content">
+  <!-- Rotating crest SVG -->
+  <svg id="crest" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="40" cy="40" r="38" stroke="#c9a84c" stroke-width="1" opacity="0.3"/>
+    <circle cx="40" cy="40" r="32" stroke="#c9a84c" stroke-width="0.5" opacity="0.2"/>
+    <!-- 8 diamond marks around ring -->
+    <g fill="#c9a84c" opacity="0.7">
+      <polygon points="40,4 42,8 40,12 38,8" />
+      <polygon points="76,40 72,42 68,40 72,38" />
+      <polygon points="40,76 38,72 40,68 42,72" />
+      <polygon points="4,40 8,38 12,40 8,42" />
+      <polygon points="63.6,16.4 62.2,20.8 58,21.8 60.2,17.8" />
+      <polygon points="63.6,63.6 59.6,61.4 58,57.2 62.4,58.6" />
+      <polygon points="16.4,63.6 17.8,59.6 22,58 20.4,62.4" />
+      <polygon points="16.4,16.4 20.4,17.8 22,22 17.8,20.4" />
+    </g>
+    <!-- Center skull/mask icon -->
+    <g transform="translate(28, 24)">
+      <rect x="4" y="0" width="16" height="20" rx="8" fill="none" stroke="#c9a84c" stroke-width="1.5" opacity="0.8"/>
+      <rect x="6" y="7" width="4" height="4" fill="#c9a84c" opacity="0.7"/>
+      <rect x="14" y="7" width="4" height="4" fill="#c9a84c" opacity="0.7"/>
+      <rect x="8" y="15" width="8" height="2" fill="#c9a84c" opacity="0.5"/>
+    </g>
+  </svg>
+
+  <div id="title">Identity Crisis</div>
+  <div id="subtitle">Loading Arena...</div>
+
+  <div id="bar-container">
+    <div id="bar-label">
+      <span>Initializing</span>
+      <span id="bar-percent">0%</span>
+    </div>
+    <div id="bar-track">
+      <div class="bar-tick" style="left:25%"></div>
+      <div class="bar-tick" style="left:50%"></div>
+      <div class="bar-tick" style="left:75%"></div>
+      <div id="bar-fill"></div>
+    </div>
+  </div>
+
+  <div id="status-text">Connecting to server...</div>
+
+  <div id="tip-box">
+    <div id="tip-label">◆ &nbsp; TIP &nbsp; ◆</div>
+    <div id="tip-text" id="tip-text">Carry a teammate to safety — but you can't enter the safe zone while holding them.</div>
+  </div>
+</div>
+
+<script>
+  const statuses = [
+    'Connecting to server...',
+    'Loading arena tiles...',
+    'Spawning players...',
+    'Initializing safe zones...',
+    'Preparing chaos events...',
+    'Syncing game state...',
+    'Ready!'
+  ];
+
+  const tips = [
+    'Carry a teammate to safety — but you can\'t enter the safe zone while holding them.',
+    'When controls are reversed, stay calm. Panic kills faster than the chaos.',
+    'Safe zones shrink each round. Position yourself early.',
+    'The decoy safe zones look identical. Watch other players — or trust your instincts.',
+    'In Round 3+, only n-1 players survive. One must be eliminated.',
+    'You can throw carried players into the safe zone before entering yourself.',
+    'Control swaps are unpredictable. Learn multiple playstyles.'
+  ];
+
+  let progress = 0;
+  let statusIdx = 0;
+  let tipIdx = 0;
+
+  const fill = document.getElementById('bar-fill');
+  const pct = document.getElementById('bar-percent');
+  const status = document.getElementById('status-text');
+  const tipEl = document.getElementById('tip-text');
+  const label = document.querySelector('#bar-label span:first-child');
+
+  function updateTip() {
+    tipEl.style.animation = 'none';
+    tipEl.offsetHeight;
+    tipEl.style.animation = 'tip-fade 0.5s ease-out';
+    tipEl.textContent = tips[tipIdx % tips.length];
+    tipIdx++;
+  }
+
+  setInterval(updateTip, 4000);
+
+  const interval = setInterval(() => {
+    progress += Math.random() * 8 + 2;
+    if (progress >= 100) {
+      progress = 100;
+      clearInterval(interval);
+      status.textContent = 'Ready!';
+      label.textContent = 'Complete';
+      setTimeout(() => {
+        window.location.href = 'home.html';
+      }, 800);
+    }
+
+    fill.style.width = progress + '%';
+    pct.textContent = Math.floor(progress) + '%';
+
+    const idx = Math.floor((progress / 100) * statuses.length);
+    if (idx !== statusIdx && idx < statuses.length) {
+      statusIdx = idx;
+      status.textContent = statuses[idx];
+      label.textContent = statuses[idx].replace('...','');
+    }
+  }, 200);
+</script>
+</body>
+</html>
