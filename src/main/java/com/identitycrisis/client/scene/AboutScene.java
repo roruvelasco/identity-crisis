@@ -350,9 +350,9 @@ public class AboutScene {
         teamGrid.setAlignment(Pos.CENTER);
 
         // Team card 1
-        VBox card1 = createTeamCard("Member 1 · Lead Developer", "Network & Backend", "Server architecture, game state, client-server sync", false);
+        VBox card1 = createTeamCard("Member 1 · Lead Developer", "Ron", "Server architecture, game state, client-server sync", false);
         // Team card 2
-        VBox card2 = createTeamCard("Member 2 · Game Developer", "Gameplay Systems", "Arena logic, chaos events, collision & physics", false);
+        VBox card2 = createTeamCard("Member 2 · Game Developer", "Jiro", "Arena logic, chaos events, collision & physics", false);
         // Team card 3 (highlighted - James)
         VBox card3 = createTeamCard("Member 3 · UI/UX Designer", "James", "Navigation, typography, screens & sprites", true);
 
