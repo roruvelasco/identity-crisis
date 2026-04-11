@@ -480,7 +480,7 @@ public class MenuScene {
     }
 
     private void onPlayClicked() {
-        sceneManager.showLobby();
+        sceneManager.showLoading();
     }
 
     private void onHowToPlayClicked() {

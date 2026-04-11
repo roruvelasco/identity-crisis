@@ -24,6 +24,7 @@ public class SceneManager {
     // Scene controllers
     private MenuScene menuScene;
     private HowToPlayScene howToPlayScene;
+    private LoadingScene loadingScene;
     private LobbyScene lobbyScene;
     private GameScene gameScene;
     private ResultScene resultScene;
@@ -37,6 +38,7 @@ public class SceneManager {
         // Initialize scene controllers
         this.menuScene = new MenuScene(this);
         this.howToPlayScene = new HowToPlayScene(this);
+        this.loadingScene = new LoadingScene(this);
         this.lobbyScene = new LobbyScene(this);
         this.gameScene = new GameScene(this);
         this.resultScene = new ResultScene(this);
@@ -48,6 +50,14 @@ public class SceneManager {
         setupFullscreenHandler(scene);
         primaryStage.setScene(scene);
         primaryStage.setTitle(GameConfig.WINDOW_TITLE + " - Main Menu");
+    }
+
+    public void showLoading() {
+        Scene scene = scenes.computeIfAbsent("loading", k -> loadingScene.createScene());
+        setupFullscreenHandler(scene);
+        primaryStage.setScene(scene);
+        primaryStage.setTitle(GameConfig.WINDOW_TITLE + " - Loading");
+        loadingScene.onEnter();
     }
 
     public void showLobby() {
@@ -160,6 +170,10 @@ public class SceneManager {
 
     public HowToPlayScene getHowToPlayScene() {
         return howToPlayScene;
+    }
+
+    public LoadingScene getLoadingScene() {
+        return loadingScene;
     }
 
     public LobbyScene getLobbyScene() {

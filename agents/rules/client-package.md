@@ -396,6 +396,15 @@ public class SpriteManager {
 ```
 
 ### 7.15 `client/scene/SceneManager.java`
+
+> **Wiring note:** `gameClient`, `localGameState`, and `inputManager` are **not** constructed
+> in `SceneManager`'s constructor. They are injected lazily via setters (see §3 Key Principle 6 —
+> setter injection for collaborators that cannot all be constructed simultaneously).
+> Scene controllers (`MenuScene`, `LobbyScene`, etc.) are eagerly allocated in the constructor
+> because they hold only UI state, not network state.
+>
+> `AboutScene` is an approved addition (static info scene, mirrors `HowToPlayScene`).
+
 ```java
 package com.identitycrisis.client.scene;
 
@@ -407,22 +416,39 @@ import com.identitycrisis.client.input.InputManager;
 // Manages transitions between scenes by swapping Stage's Scene.
 public class SceneManager {
     private Stage primaryStage;
-    private GameClient gameClient;
-    private LocalGameState localGameState;
-    private InputManager inputManager;
+    private GameClient gameClient;        // injected lazily via setter before showLobby()
+    private LocalGameState localGameState;// injected lazily via setter before showLobby()
+    private InputManager inputManager;    // injected lazily via setter before showGame()
+
+    // Scene controllers — eagerly allocated (UI state only, no network deps)
+    private MenuScene menuScene;
+    private HowToPlayScene howToPlayScene;
+    private LobbyScene lobbyScene;
+    private GameScene gameScene;
+    private LoadingScene loadingScene;      // transition screen: Menu → Lobby
+    private ResultScene resultScene;
+    private AboutScene aboutScene;        // approved extra scene
 
     public SceneManager(Stage primaryStage) { }
 
     public void showMenu() { }
+    public void showLoading() { }         // Play clicked → animated loading bar → showLobby()
     public void showLobby() { }
     public void showGame() { }
     public void showResult() { }
     public void showHowToPlay() { }
+    public void showAbout() { }           // approved extra
 
+    // Getters
     public Stage getStage() { }
     public GameClient getGameClient() { }
     public LocalGameState getLocalGameState() { }
     public InputManager getInputManager() { }
+
+    // Setters — called by MenuScene.onPlayClicked() before navigating to lobby/game
+    public void setGameClient(GameClient gameClient) { }
+    public void setLocalGameState(LocalGameState localGameState) { }
+    public void setInputManager(InputManager inputManager) { }
 }
 ```
 
@@ -434,7 +460,7 @@ import javafx.scene.Scene;
 
 // Main menu: Play, How to Play, Quit.
 // Text fields: player name, server IP, port.
-// Play → validate → connect → showLobby()
+// Play → validate → connect → showLoading() → (loading done) → showLobby()
 public class MenuScene {
     private Scene scene;
     private SceneManager sceneManager;
@@ -531,6 +557,27 @@ public class AudioManager {
     public void stopBGM() { }
     public void playSFX(String sfxName) { }
     public void setVolume(double volume) { }
+}
+```
+
+### 7.22 `client/scene/LoadingScene.java`
+```java
+package com.identitycrisis.client.scene;
+
+import javafx.scene.Scene;
+
+// Animated transition screen between Menu and Lobby.
+// Spinning crest, progress bar, status messages, rotating tips.
+// onEnter() starts the animation; transitions to showLobby() on completion.
+// onExit() stops all timelines.
+public class LoadingScene {
+    private Scene scene;
+    private SceneManager sceneManager;
+
+    public LoadingScene(SceneManager sceneManager) { }
+    public Scene getScene() { }
+    public void onEnter() { /* start loadingAnimation + tipRotation; fires showLobby() when done */ }
+    public void onExit() { /* stop loadingAnimation + tipRotation */ }
 }
 ```
 
