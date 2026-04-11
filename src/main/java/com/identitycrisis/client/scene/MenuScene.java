@@ -320,8 +320,8 @@ public class MenuScene {
         Button aboutBtn = createPixelButton("✦  About", false);
         aboutBtn.setOnAction(e -> onAboutClicked());
 
-        // Quit button
-        Button quitBtn = createPixelButton("✕  Quit", false);
+        // Quit button (red gradient variant)
+        Button quitBtn = createQuitButton("✕  Quit");
         quitBtn.setOnAction(e -> onQuitClicked());
 
         buttonsBox.getChildren().addAll(playBtn, howToPlayBtn, aboutBtn, quitBtn);
@@ -368,6 +368,71 @@ public class MenuScene {
             btn.setStyle(
                 "-fx-font-family: 'Cinzel', serif;" +
                 "-fx-font-size: " + (isPlayButton ? "15px" : "14px") + ";" +
+                "-fx-font-weight: 700;" +
+                "-fx-text-fill: " + textColor + ";" +
+                "-fx-background-color: " + bgColor + ";" +
+                "-fx-border-color: " + borderColor + ";" +
+                "-fx-border-width: 2px;" +
+                "-fx-cursor: hand;"
+            );
+        });
+
+        btn.setOnMousePressed(e -> {
+            btn.setScaleX(0.97);
+            btn.setScaleY(0.97);
+            btn.setTranslateY(2);
+        });
+
+        btn.setOnMouseReleased(e -> {
+            btn.setScaleX(1.0);
+            btn.setScaleY(1.0);
+            btn.setTranslateY(0);
+        });
+
+        return btn;
+    }
+
+    private Button createQuitButton(String text) {
+        Button btn = new Button(text);
+        btn.setPrefSize(240, 52);
+        btn.setMinSize(240, 52);
+        btn.setMaxSize(240, 52);
+
+        // Crimson red gradient colors
+        String bgColor = "#5c1a1a";
+        String borderColor = "#2a0a0a";
+        String textColor = "#e8a4a4";
+
+        btn.setStyle(
+            "-fx-font-family: 'Cinzel', serif;" +
+            "-fx-font-size: 14px;" +
+            "-fx-font-weight: 700;" +
+            "-fx-text-fill: " + textColor + ";" +
+            "-fx-background-color: " + bgColor + ";" +
+            "-fx-border-color: " + borderColor + ";" +
+            "-fx-border-width: 2px;" +
+            "-fx-cursor: hand;"
+        );
+
+        // Hover effects
+        btn.setOnMouseEntered(e -> {
+            String hoverBg = "#702020";
+            btn.setStyle(
+                "-fx-font-family: 'Cinzel', serif;" +
+                "-fx-font-size: 14px;" +
+                "-fx-font-weight: 700;" +
+                "-fx-text-fill: white;" +
+                "-fx-background-color: " + hoverBg + ";" +
+                "-fx-border-color: " + borderColor + ";" +
+                "-fx-border-width: 2px;" +
+                "-fx-cursor: hand;"
+            );
+        });
+
+        btn.setOnMouseExited(e -> {
+            btn.setStyle(
+                "-fx-font-family: 'Cinzel', serif;" +
+                "-fx-font-size: 14px;" +
                 "-fx-font-weight: 700;" +
                 "-fx-text-fill: " + textColor + ";" +
                 "-fx-background-color: " + bgColor + ";" +

@@ -129,42 +129,31 @@ public class LobbyScene {
         content.setPadding(new Insets(0, 24, 0, 24));
         content.setMaxWidth(560);
 
-        // Title
-        Label title = new Label("Identity Crisis");
-        title.setStyle(
-            "-fx-font-family: 'Cinzel Decorative', serif;" +
-            "-fx-font-size: 48px;" +
-            "-fx-font-weight: 700;" +
-            "-fx-text-fill: " + TEXT_PARCHMENT + ";"
-        );
-        title.setEffect(new javafx.scene.effect.DropShadow(30, Color.rgb(201, 168, 76, 0.5)));
-        VBox.setMargin(title, new Insets(0, 0, 8, 0));
-
-        // Subtitle — updated text
-        Label subtitle = new Label("Waiting for Players...");
-        subtitle.setStyle(
+        // Enlarged waiting text (title-level weight using Press Start 2P)
+        Label waitingText = new Label("WAITING FOR PLAYERS...");
+        waitingText.setStyle(
             "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 8px;" +
+            "-fx-font-size: 16px;" +
             "-fx-text-fill: " + GOLD + ";" +
             "-fx-letter-spacing: 4px;"
         );
-        subtitle.setOpacity(0.7);
-        VBox.setMargin(subtitle, new Insets(0, 0, 32, 0));
+        waitingText.setEffect(new javafx.scene.effect.DropShadow(30, Color.rgb(201, 168, 76, 0.5)));
+        VBox.setMargin(waitingText, new Insets(0, 0, 32, 0));
 
         // Player donut ring section
         VBox donutSection = createPlayerDonut();
         VBox.setMargin(donutSection, new Insets(0, 0, 0, 0));
 
-        // Start Game button
+        // Start Game button - navigates to GameArena
         Button startBtn = createPixelButton("▶  Start Game");
-        startBtn.setOnAction(e -> sceneManager.showGame());
+        startBtn.setOnAction(e -> sceneManager.showGameArena());
         VBox.setMargin(startBtn, new Insets(20, 0, 0, 0));
 
         // Tip box
         VBox tipBox = createTipBox();
         VBox.setMargin(tipBox, new Insets(28, 0, 0, 0));
 
-        content.getChildren().addAll(title, subtitle, donutSection, startBtn, tipBox);
+        content.getChildren().addAll(waitingText, donutSection, startBtn, tipBox);
         return content;
     }
 

@@ -7,10 +7,10 @@ import javafx.geometry.*;
 import com.identitycrisis.shared.model.GameConfig;
 
 /**
- * Core gameplay view - currently a plain black placeholder.
- * Structure preserved for future game canvas, HUD, and input handling.
+ * Game arena screen - the actual gameplay arena where players compete.
+ * Plain black background with centered placeholder text during development.
  */
-public class GameScene {
+public class GameArena {
 
     private Scene scene;
     private SceneManager sceneManager;
@@ -20,7 +20,7 @@ public class GameScene {
     private static final String GOLD_DARK = "#8a6a1a";
     private static final String STONE_PANEL = "#1c1c26";
 
-    public GameScene(SceneManager sceneManager) {
+    public GameArena(SceneManager sceneManager) {
         this.sceneManager = sceneManager;
     }
 
@@ -30,7 +30,19 @@ public class GameScene {
         root.setStyle("-fx-background-color: black;");
         root.setPrefSize(GameConfig.WINDOW_WIDTH, GameConfig.WINDOW_HEIGHT);
 
-        // Fullscreen button only
+        // Centered placeholder text
+        Label placeholderLabel = new Label("GAME ARENA");
+        placeholderLabel.setStyle(
+            "-fx-font-family: 'Press Start 2P', monospace;" +
+            "-fx-font-size: 16px;" +
+            "-fx-text-fill: " + GOLD + ";" +
+            "-fx-letter-spacing: 4px;"
+        );
+
+        root.getChildren().add(placeholderLabel);
+        StackPane.setAlignment(placeholderLabel, Pos.CENTER);
+
+        // Fullscreen button top-right
         addFullscreenButton(root);
 
         scene = new Scene(root, GameConfig.WINDOW_WIDTH, GameConfig.WINDOW_HEIGHT);
@@ -81,22 +93,16 @@ public class GameScene {
         fullscreenBtn.setOnAction(e -> sceneManager.toggleFullscreen());
 
         StackPane.setAlignment(fullscreenBtn, Pos.TOP_RIGHT);
-        StackPane.setMargin(fullscreenBtn, new Insets(60, 20, 0, 0));
+        StackPane.setMargin(fullscreenBtn, new Insets(20, 20, 0, 0));
         root.getChildren().add(fullscreenBtn);
     }
 
     /**
-     * Called when transitioning to this scene.
-     * Structure preserved for future input handling and game loop.
+     * Called when entering this scene.
+     * Structure preserved for future game initialization.
      */
     public void onEnter() {
-        // Set up input handling for ESC to return to menu
-        scene.setOnKeyPressed(event -> {
-            if (event.getCode() == javafx.scene.input.KeyCode.ESCAPE) {
-                sceneManager.showMenu();
-                event.consume();
-            }
-        });
+        // Future: Initialize game arena, load map, spawn players
     }
 
     /**
@@ -104,7 +110,7 @@ public class GameScene {
      * Structure preserved for future cleanup.
      */
     public void onExit() {
-        // Cleanup placeholder - game loop and resources would be stopped here
+        // Future: Cleanup game resources
     }
 
     // Legacy method for compatibility

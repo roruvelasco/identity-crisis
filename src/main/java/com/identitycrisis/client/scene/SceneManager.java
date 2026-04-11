@@ -26,6 +26,7 @@ public class SceneManager {
     private HowToPlayScene howToPlayScene;
     private LoadingScene loadingScene;
     private LobbyScene lobbyScene;
+    private GameArena gameArena;
     private GameScene gameScene;
     private ResultScene resultScene;
     private AboutScene aboutScene;
@@ -40,6 +41,7 @@ public class SceneManager {
         this.howToPlayScene = new HowToPlayScene(this);
         this.loadingScene = new LoadingScene(this);
         this.lobbyScene = new LobbyScene(this);
+        this.gameArena = new GameArena(this);
         this.gameScene = new GameScene(this);
         this.resultScene = new ResultScene(this);
         this.aboutScene = new AboutScene(this);
@@ -58,6 +60,14 @@ public class SceneManager {
         primaryStage.setScene(scene);
         primaryStage.setTitle(GameConfig.WINDOW_TITLE + " - Loading");
         loadingScene.onEnter();
+    }
+
+    public void showGameArena() {
+        Scene scene = scenes.computeIfAbsent("gamearena", k -> gameArena.createScene());
+        setupFullscreenHandler(scene);
+        primaryStage.setScene(scene);
+        primaryStage.setTitle(GameConfig.WINDOW_TITLE + " - Game Arena");
+        gameArena.onEnter();
     }
 
     public void showLobby() {
@@ -178,6 +188,10 @@ public class SceneManager {
 
     public LobbyScene getLobbyScene() {
         return lobbyScene;
+    }
+
+    public GameArena getGameArena() {
+        return gameArena;
     }
 
     public GameScene getGameScene() {
