@@ -318,13 +318,8 @@
    SCANLINES OVERLAY
    ============================================ */
 .scanlines-overlay {
-    -fx-background-color: repeating-linear-gradient(
-        to bottom,
-        transparent,
-        transparent 2px,
-        rgba(0, 0, 0, 0.03) 2px,
-        rgba(0, 0, 0, 0.03) 4px
-    );
+    /* Use semi-transparent overlay - repeating-linear-gradient not supported in JavaFX */
+    -fx-background-color: rgba(0, 0, 0, 0.015);
     -fx-pointer-events: none;
 }
 

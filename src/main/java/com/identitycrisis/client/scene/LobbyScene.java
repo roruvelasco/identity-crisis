@@ -97,12 +97,8 @@ public class LobbyScene {
     private void addStonePattern(StackPane root) {
         Pane pattern = new Pane();
         pattern.setPrefSize(GameConfig.WINDOW_WIDTH, GameConfig.WINDOW_HEIGHT);
-        pattern.setStyle(
-            "-fx-background-color: " + STONE_DARK + ";" +
-            "-fx-background-image: linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px)," +
-            "linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);" +
-            "-fx-background-size: 48px 48px;"
-        );
+        // Use solid background color - JavaFX doesn't support multiple gradients in background-image
+        pattern.setStyle("-fx-background-color: " + STONE_DARK + ";");
         pattern.setMouseTransparent(true);
         root.getChildren().add(pattern);
     }
@@ -371,9 +367,8 @@ public class LobbyScene {
     private void addScanlines(StackPane root) {
         Pane scanlines = new Pane();
         scanlines.setPrefSize(GameConfig.WINDOW_WIDTH, GameConfig.WINDOW_HEIGHT);
-        scanlines.setStyle(
-            "-fx-background-color: repeating-linear-gradient(to bottom, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);"
-        );
+        // Use semi-transparent overlay instead of repeating-linear-gradient (not supported in JavaFX)
+        scanlines.setStyle("-fx-background-color: rgba(0,0,0,0.015);");
         scanlines.setMouseTransparent(true);
         root.getChildren().add(scanlines);
     }

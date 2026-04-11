@@ -473,9 +473,8 @@ public class MenuScene {
         // Bind to root size for fullscreen
         scanlines.prefWidthProperty().bind(root.widthProperty());
         scanlines.prefHeightProperty().bind(root.heightProperty());
-        scanlines.setStyle(
-            "-fx-background-color: repeating-linear-gradient(to bottom, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px);"
-        );
+        // Use semi-transparent overlay instead of repeating-linear-gradient (not supported in JavaFX)
+        scanlines.setStyle("-fx-background-color: rgba(0,0,0,0.02);");
         scanlines.setMouseTransparent(true);
         root.getChildren().add(scanlines);
     }
