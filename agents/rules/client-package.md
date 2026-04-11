@@ -479,14 +479,31 @@ package com.identitycrisis.client.scene;
 
 import javafx.scene.Scene;
 
-// Waiting room. Shows connected players, ready status, ready button.
-// Transitions to GameScene when server signals game start.
+// Waiting room displayed after LoadingScene completes.
+// UI: "Waiting for Players…" subtitle, dynamic donut ring (N gold slices for N players,
+//      max 8 = GameConfig.MAX_PLAYERS), "X / 8 PLAYERS" counter, "▶ LOBBY FULL ◀"
+//      indicator (shown at capacity), mock [−]/[+] buttons to simulate player count
+//      for testing the donut fill, "▶ Start Game" button (Cinzel gold variant) wired
+//      directly to sceneManager.showGame(), rotating tips section.
+// Note: game start is triggered manually by the Start Game button, not by a server signal.
+//       The real server signal path (S_LOBBY_STATE → onLobbyStateChanged callback) should
+//       call setPlayerCount(int) to drive the donut from live data instead of mock buttons.
 public class LobbyScene {
     private Scene scene;
     private SceneManager sceneManager;
 
     public LobbyScene(SceneManager sceneManager) { }
+    public Scene createScene() { }
     public Scene getScene() { }
+
+    // Lifecycle — called by SceneManager on enter/exit
+    public void onEnter() { /* reset playerCount=1, redraw donut, start tipRotation */ }
+    public void onExit()  { /* stop tipRotation */ }
+
+    // Called by the real network layer (ServerMessageRouter) with live lobby count.
+    // Updates the donut ring, counter label, and LOBBY FULL indicator.
+    public void setPlayerCount(int count) { }
+
     private void onReadyClicked() { }
     public void refreshLobbyDisplay() { }
 }
