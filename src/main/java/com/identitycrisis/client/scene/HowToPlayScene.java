@@ -101,48 +101,61 @@ public class HowToPlayScene {
     }
 
     private ScrollPane createContent(StackPane root) {
-        VBox content = new VBox(0);
-        content.setStyle("-fx-background-color: transparent;");
-        content.setPadding(new Insets(0, 32, 80, 32));
-        content.setMaxWidth(860);
-        content.setAlignment(Pos.TOP_CENTER);
-        // Center the content horizontally
-        VBox.setVgrow(content, Priority.ALWAYS);
+        // Main container that centers everything
+        VBox mainContainer = new VBox(0);
+        mainContainer.setAlignment(Pos.TOP_CENTER);
+        mainContainer.setFillWidth(true);
 
-        // Header
+        // Header - full width
         HBox header = createHeader();
-        content.getChildren().add(header);
+        mainContainer.getChildren().add(header);
+
+        // Content wrapper - centered with max-width 860px
+        VBox contentWrapper = new VBox(0);
+        contentWrapper.setStyle("-fx-background-color: transparent;");
+        contentWrapper.setAlignment(Pos.TOP_CENTER);
+        contentWrapper.setMaxWidth(860);
+        contentWrapper.setPadding(new Insets(40, 32, 80, 32)); // Match HTML: 40px top, 32px sides, 80px bottom
 
         // Objective Banner
         VBox objectiveBanner = createObjectiveBanner();
-        VBox.setMargin(objectiveBanner, new Insets(40, 0, 40, 0));
-        content.getChildren().add(objectiveBanner);
+        VBox.setMargin(objectiveBanner, new Insets(0, 0, 40, 0));
+        contentWrapper.getChildren().add(objectiveBanner);
 
         // Controls Section
         VBox controlsSection = createControlsSection();
         VBox.setMargin(controlsSection, new Insets(0, 0, 40, 0));
-        content.getChildren().add(controlsSection);
+        contentWrapper.getChildren().add(controlsSection);
 
         // Round Phases Section
         VBox roundsSection = createRoundsSection();
         VBox.setMargin(roundsSection, new Insets(0, 0, 40, 0));
-        content.getChildren().add(roundsSection);
+        contentWrapper.getChildren().add(roundsSection);
 
         // Chaos Events Section
         VBox chaosSection = createChaosSection();
         VBox.setMargin(chaosSection, new Insets(0, 0, 40, 0));
-        content.getChildren().add(chaosSection);
+        contentWrapper.getChildren().add(chaosSection);
 
         // Carry Mechanics Section
         VBox mechanicsSection = createMechanicsSection();
-        content.getChildren().add(mechanicsSection);
+        contentWrapper.getChildren().add(mechanicsSection);
 
-        ScrollPane scrollPane = new ScrollPane(content);
+        // Center the content wrapper
+        HBox centeredWrapper = new HBox();
+        centeredWrapper.setAlignment(Pos.TOP_CENTER);
+        HBox.setHgrow(contentWrapper, Priority.NEVER);
+        centeredWrapper.getChildren().add(contentWrapper);
+        VBox.setVgrow(centeredWrapper, Priority.ALWAYS);
+
+        mainContainer.getChildren().add(centeredWrapper);
+
+        ScrollPane scrollPane = new ScrollPane(mainContainer);
         scrollPane.setFitToWidth(true);
         scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scrollPane.setPadding(new Insets(20, 0, 0, 0));
+        scrollPane.setPadding(new Insets(0));
         // Bind to root for fullscreen
         scrollPane.prefWidthProperty().bind(root.widthProperty());
         scrollPane.prefHeightProperty().bind(root.heightProperty());
@@ -155,8 +168,8 @@ public class HowToPlayScene {
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPadding(new Insets(20, 32, 20, 32));
         header.setStyle("-fx-border-color: transparent transparent " + STONE_BORDER + " transparent; -fx-border-width: 0 0 1px 0; -fx-background-color: rgba(13,13,16,0.9);");
-        // Fill available width
-        header.setMaxWidth(860);
+        // Fill available width - make it span full width
+        header.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(header, Priority.ALWAYS);
 
         // Back button

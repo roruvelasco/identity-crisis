@@ -56,11 +56,12 @@ public class MenuScene {
         // Torch particles
         addTorchParticles(root);
 
-        // Main content area - bind width for responsive layout
-        VBox mainContent = createMainContent();
+        // Main content area - centered both horizontally and vertically
+        VBox mainContent = createMainContent(root);
         mainContent.prefWidthProperty().bind(root.widthProperty());
+        mainContent.prefHeightProperty().bind(root.heightProperty());
         root.getChildren().add(mainContent);
-        StackPane.setAlignment(mainContent, Pos.BOTTOM_CENTER);
+        StackPane.setAlignment(mainContent, Pos.CENTER);
 
         // Corner tags
         addCornerTags(root);
@@ -193,14 +194,13 @@ public class MenuScene {
         }
     }
 
-    private VBox createMainContent() {
+    private VBox createMainContent(StackPane root) {
         VBox content = new VBox(0);
-        content.setAlignment(Pos.BOTTOM_CENTER);
-        content.setPadding(new Insets(0, 0, 60, 0));
-        // Width bound to root for responsiveness
+        content.setAlignment(Pos.CENTER); // Center vertically and horizontally
+        // No padding that pushes content down - let it truly center
 
-        // Logo area
-        VBox logoArea = createLogoArea();
+        // Logo area - pass root for responsive font scaling
+        VBox logoArea = createLogoArea(root);
         VBox.setMargin(logoArea, new Insets(0, 0, 20, 0));
 
         // Player badge
@@ -220,7 +220,7 @@ public class MenuScene {
 
         // Buttons container
         VBox buttonsBox = createButtons();
-        VBox.setMargin(buttonsBox, new Insets(0, 0, 40, 0));
+        VBox.setMargin(buttonsBox, new Insets(0, 0, 20, 0));
 
         content.getChildren().addAll(logoArea, playerBadge, buttonsBox);
 
@@ -240,17 +240,25 @@ public class MenuScene {
         return content;
     }
 
-    private VBox createLogoArea() {
+    private VBox createLogoArea(StackPane root) {
         VBox logoArea = new VBox(8);
         logoArea.setAlignment(Pos.CENTER);
 
-        // Title - use viewport responsive sizing via CSS/scale
+        // Title - scale font size based on stage height for fullscreen responsiveness
         Text title = new Text("Identity Crisis");
-        title.setStyle(
-            "-fx-font-family: 'Cinzel Decorative', serif;" +
-            "-fx-font-size: 64px;" +
-            "-fx-font-weight: 700;" +
-            "-fx-fill: " + TEXT_PARCHMENT + ";"
+        // Bind font size to 8% of stage height, with min 48px and max 84px
+        title.styleProperty().bind(
+            javafx.beans.binding.Bindings.createStringBinding(
+                () -> String.format(
+                    "-fx-font-family: 'Cinzel Decorative', serif;" +
+                    "-fx-font-size: %.0fpx;" +
+                    "-fx-font-weight: 700;" +
+                    "-fx-fill: %s;",
+                    Math.max(48, Math.min(84, root.heightProperty().get() * 0.08)),
+                    TEXT_PARCHMENT
+                ),
+                root.heightProperty()
+            )
         );
         DropShadow shadow = new DropShadow();
         shadow.setColor(Color.rgb(201, 168, 76, 0.6));
@@ -258,9 +266,11 @@ public class MenuScene {
         shadow.setSpread(0.2);
         title.setEffect(shadow);
 
-        // Gold divider line
+        // Gold divider line - scale width with screen
         HBox divider = new HBox();
-        divider.setPrefWidth(280);
+        divider.prefWidthProperty().bind(root.widthProperty().multiply(0.25).add(80)); // 25% of width + base
+        divider.setMaxWidth(400);
+        divider.setMinWidth(200);
         divider.setPrefHeight(1);
         divider.setStyle("-fx-background-color: linear-gradient(to right, transparent, " + GOLD + ", transparent);");
         divider.setAlignment(Pos.CENTER);
@@ -270,16 +280,23 @@ public class MenuScene {
         diamond.setStyle("-fx-fill: " + GOLD + "; -fx-font-size: 10px;");
         diamond.setTranslateY(-8);
         StackPane dividerWithDiamond = new StackPane(divider, diamond);
-        dividerWithDiamond.setMaxWidth(280);
+        dividerWithDiamond.maxWidthProperty().bind(divider.prefWidthProperty());
 
-        // Tagline
+        // Tagline - scale font size slightly
         Text tagline = new Text("Who will survive the arena?");
-        tagline.setStyle(
-            "-fx-font-family: 'Crimson Pro', serif;" +
-            "-fx-font-style: italic;" +
-            "-fx-font-size: 15px;" +
-            "-fx-fill: " + TEXT_MUTED + ";" +
-            "-fx-letter-spacing: 2px;"
+        tagline.styleProperty().bind(
+            javafx.beans.binding.Bindings.createStringBinding(
+                () -> String.format(
+                    "-fx-font-family: 'Crimson Pro', serif;" +
+                    "-fx-font-style: italic;" +
+                    "-fx-font-size: %.0fpx;" +
+                    "-fx-fill: %s;" +
+                    "-fx-letter-spacing: 2px;",
+                    Math.max(13, Math.min(18, root.heightProperty().get() * 0.018)),
+                    TEXT_MUTED
+                ),
+                root.heightProperty()
+            )
         );
         VBox.setMargin(tagline, new Insets(12, 0, 0, 0));
 

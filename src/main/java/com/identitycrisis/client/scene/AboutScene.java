@@ -111,35 +111,50 @@ public class AboutScene {
     }
 
     private VBox createContent() {
-        VBox content = new VBox(0);
-        content.setAlignment(Pos.TOP_CENTER);
-        content.setMaxWidth(820);
-        content.setPadding(new Insets(0, 32, 60, 32));
+        // Main container that centers everything
+        VBox mainContainer = new VBox(0);
+        mainContainer.setAlignment(Pos.TOP_CENTER);
+        mainContainer.setFillWidth(true);
 
-        // Header
+        // Header - full width
         HBox header = createHeader();
-        content.getChildren().add(header);
+        mainContainer.getChildren().add(header);
+
+        // Content wrapper - centered with max-width 820px
+        VBox contentWrapper = new VBox(0);
+        contentWrapper.setAlignment(Pos.TOP_CENTER);
+        contentWrapper.setMaxWidth(820);
+        contentWrapper.setPadding(new Insets(40, 32, 60, 32)); // Match HTML: 40px top, 32px sides, 60px bottom
 
         // Game Header Section
         VBox gameHeader = createGameHeader();
-        VBox.setMargin(gameHeader, new Insets(40, 0, 40, 0));
-        content.getChildren().add(gameHeader);
+        VBox.setMargin(gameHeader, new Insets(0, 0, 40, 0));
+        contentWrapper.getChildren().add(gameHeader);
 
         // Concept Section
         VBox conceptSection = createConceptSection();
         VBox.setMargin(conceptSection, new Insets(0, 0, 36, 0));
-        content.getChildren().add(conceptSection);
+        contentWrapper.getChildren().add(conceptSection);
 
         // Team Section
         VBox teamSection = createTeamSection();
         VBox.setMargin(teamSection, new Insets(0, 0, 36, 0));
-        content.getChildren().add(teamSection);
+        contentWrapper.getChildren().add(teamSection);
 
         // Tech Stack Section
         VBox techSection = createTechSection();
-        content.getChildren().add(techSection);
+        contentWrapper.getChildren().add(techSection);
 
-        return content;
+        // Center the content wrapper
+        HBox centeredWrapper = new HBox();
+        centeredWrapper.setAlignment(Pos.TOP_CENTER);
+        HBox.setHgrow(contentWrapper, Priority.NEVER);
+        centeredWrapper.getChildren().add(contentWrapper);
+        VBox.setVgrow(centeredWrapper, Priority.ALWAYS);
+
+        mainContainer.getChildren().add(centeredWrapper);
+
+        return mainContainer;
     }
 
     private HBox createHeader() {
@@ -147,7 +162,8 @@ public class AboutScene {
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPadding(new Insets(20, 32, 20, 32));
         header.setStyle("-fx-border-color: transparent transparent " + STONE_BORDER + " transparent; -fx-border-width: 0 0 1px 0; -fx-background-color: rgba(13,13,16,0.9);");
-        // Fill available width
+        // Fill available width - make it span full width
+        header.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(header, Priority.ALWAYS);
 
         // Back button
@@ -214,13 +230,25 @@ public class AboutScene {
         header.setPadding(new Insets(0, 0, 32, 0));
         header.setStyle("-fx-border-color: transparent transparent rgba(201,168,76,0.15) transparent; -fx-border-width: 0 0 1px 0;");
 
-        // Gold star icon at top (matching screenshot)
-        Label starIcon = new Label("✦");
-        starIcon.setStyle(
-            "-fx-font-size: 32px;" +
-            "-fx-text-fill: " + GOLD + ";"
+        // Game crest (diamond shape with gold styling)
+        Label crestIcon = new Label("◆");
+        crestIcon.setStyle(
+            "-fx-font-size: 48px;" +
+            "-fx-text-fill: transparent;" +
+            "-fx-background-color: linear-gradient(to bottom, " + GOLD + ", " + GOLD_DARK + ");" +
+            "-fx-background-radius: 4px;"
         );
-        VBox.setMargin(starIcon, new Insets(0, 0, 16, 0));
+        // Use a stack pane to create a diamond-shaped container effect
+        StackPane crestContainer = new StackPane(crestIcon);
+        crestContainer.setStyle(
+            "-fx-background-color: " + STONE_PANEL + ";" +
+            "-fx-border-color: " + GOLD + ";" +
+            "-fx-border-width: 2px;" +
+            "-fx-padding: 8px;"
+        );
+        crestContainer.setMaxSize(60, 60);
+        crestContainer.setMinSize(60, 60);
+        VBox.setMargin(crestContainer, new Insets(0, 0, 16, 0));
 
         // Game title
         Label gameTitle = new Label("Identity Crisis");
@@ -259,7 +287,7 @@ public class AboutScene {
             "-fx-line-spacing: 0.3em;"
         );
 
-        header.getChildren().addAll(starIcon, gameTitle, courseLabel, descLabel);
+        header.getChildren().addAll(crestContainer, gameTitle, courseLabel, descLabel);
         return header;
     }
 
