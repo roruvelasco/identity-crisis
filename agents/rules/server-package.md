@@ -602,3 +602,58 @@ public class CollisionDetector {
     private void resolvePlayerCollision(Player a, Player b) { }
 }
 ```
+
+---
+
+### 6.15 `server/EmbeddedServer.java` — In-Process Host Server
+
+> Runs a full game server **inside** the client JVM on a background daemon thread.
+> Used by the host player's "Create Room" flow — one client acts as both host
+> and player without needing a separate server process.
+>
+> **Wiring:** mirrors `ServerApp.main()` exactly (same composition-root order).
+> The only difference is that `GameServer.start()` runs on a named daemon thread
+> so the JavaFX application thread is never blocked.
+>
+> **Lifecycle:** call `start(port)` once, call `stop()` to shut down. Do NOT
+> call `start()` more than once per instance.
+
+```java
+package com.identitycrisis.server;
+
+// Runs the full server inside the client process for the "Create Room" flow.
+public class EmbeddedServer {
+
+    public void start(int port) {
+        // Wire all collaborators identically to ServerApp.main().
+        // Run server.start() on a daemon thread named "embedded-server-accept".
+    }
+
+    public void stop() { /* server.shutdown() */ }
+
+    public int  getPort()     { /* port this server is bound to, or -1 */ }
+    public boolean isRunning() { /* true while server != null */ }
+}
+```
+
+**Create Room usage pattern (in `CreateJoinScene`):**
+```java
+int port = NetworkUtils.findFreePort();
+EmbeddedServer embedded = new EmbeddedServer();
+embedded.start(port);
+
+String code = RoomCodec.encode(NetworkUtils.getLanIp(), port);
+// show code to user ...
+
+gameClient.connect("localhost", port);
+gameClient.sendJoinRequest(displayName);
+sceneManager.showLobby();
+```
+
+**Join Room usage pattern:**
+```java
+RoomCodec.HostPort hp = RoomCodec.decode(enteredCode);
+gameClient.connect(hp.ip(), hp.port());
+gameClient.sendJoinRequest(displayName);
+sceneManager.showLobby();
+```

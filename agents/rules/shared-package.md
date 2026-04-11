@@ -498,3 +498,50 @@ public record LobbyStateMessage(int connectedCount, int requiredCount,
 package com.identitycrisis.shared.net.server;
 public record ChatBroadcastMessage(String senderName, String text) { }
 ```
+
+---
+
+### 5.17 `shared/util/RoomCodec.java` — Room Code Encoding
+
+> Encodes a host IP + port into a 10-character uppercase alphanumeric room code
+> displayed as `XXXXX-XXXXX`. Used by the "Create Room" flow to give players a
+> shareable code instead of a raw IP:port string.
+>
+> **Encoding:** packs the 4 IPv4 octets and 16-bit port into a 48-bit `long`,
+> then represents it in base-36 (digits + A-Z), zero-padded to 10 chars.
+> The dash separator is cosmetic and ignored during decoding.
+
+```java
+package com.identitycrisis.shared.util;
+
+public final class RoomCodec {
+    private RoomCodec() {}
+
+    // encode("192.168.1.42", 5137) → "0C0A8-012B1" (example)
+    public static String encode(String ip, int port) { }
+
+    // decode("0C0A8-012B1") → HostPort("192.168.1.42", 5137)
+    // Strips the dash separator before parsing.
+    public static HostPort decode(String code) { }
+
+    public record HostPort(String ip, int port) { }
+}
+```
+
+### 5.18 `shared/util/NetworkUtils.java` — LAN IP and Free Port
+
+```java
+package com.identitycrisis.shared.util;
+
+public final class NetworkUtils {
+    private NetworkUtils() {}
+
+    // Returns the machine's first non-loopback, non-link-local IPv4 address.
+    // Falls back to "127.0.0.1" (works for single-machine testing).
+    public static String getLanIp() { }
+
+    // Opens a ServerSocket on port 0, reads the assigned port, closes it.
+    // Small TOCTOU window acceptable for LAN use.
+    public static int findFreePort() { }
+}
+```
