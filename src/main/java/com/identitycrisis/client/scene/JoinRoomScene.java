@@ -4,7 +4,6 @@ import javafx.scene.Scene;
 import javafx.scene.layout.*;
 import javafx.scene.control.*;
 import javafx.geometry.*;
-import javafx.scene.paint.Color;
 import javafx.animation.*;
 import javafx.util.Duration;
 import com.identitycrisis.shared.model.GameConfig;

@@ -30,6 +30,7 @@ public class LobbyScene {
     private static final String STONE_PANEL = "#1c1c26";
     private static final String TEXT_PARCHMENT = "#e8dfc4";
     private static final String TEXT_MUTED = "#7a7060";
+    private static final String STONE_BORDER = "#2a2a36";
 
     private Canvas donutCanvas;
     private int playerCount = 1;
@@ -174,35 +175,47 @@ public class LobbyScene {
         return content;
     }
 
+    /**
+     * Back button - styled exactly like AboutScene.
+     */
     private void addBackButton(StackPane root) {
-        Button backBtn = new Button("◄  BACK");
+        Button backBtn = new Button("◀  Back");
         backBtn.setStyle(
             "-fx-font-family: 'Cinzel', serif;" +
-            "-fx-font-size: 14px;" +
+            "-fx-font-size: 11px;" +
             "-fx-font-weight: 700;" +
-            "-fx-text-fill: " + GOLD + ";" +
+            "-fx-text-fill: " + TEXT_MUTED + ";" +
+            "-fx-letter-spacing: 2px;" +
             "-fx-background-color: transparent;" +
+            "-fx-border-color: " + STONE_BORDER + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-padding: 7px 14px;" +
             "-fx-cursor: hand;"
         );
-
         backBtn.setOnMouseEntered(e -> backBtn.setStyle(
             "-fx-font-family: 'Cinzel', serif;" +
-            "-fx-font-size: 14px;" +
+            "-fx-font-size: 11px;" +
             "-fx-font-weight: 700;" +
-            "-fx-text-fill: white;" +
+            "-fx-text-fill: " + TEXT_PARCHMENT + ";" +
+            "-fx-letter-spacing: 2px;" +
             "-fx-background-color: transparent;" +
+            "-fx-border-color: " + GOLD_DARK + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-padding: 7px 14px;" +
             "-fx-cursor: hand;"
         ));
-
         backBtn.setOnMouseExited(e -> backBtn.setStyle(
             "-fx-font-family: 'Cinzel', serif;" +
-            "-fx-font-size: 14px;" +
+            "-fx-font-size: 11px;" +
             "-fx-font-weight: 700;" +
-            "-fx-text-fill: " + GOLD + ";" +
+            "-fx-text-fill: " + TEXT_MUTED + ";" +
+            "-fx-letter-spacing: 2px;" +
             "-fx-background-color: transparent;" +
+            "-fx-border-color: " + STONE_BORDER + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-padding: 7px 14px;" +
             "-fx-cursor: hand;"
         ));
-
         backBtn.setOnAction(e -> sceneManager.showCreateOrJoin());
 
         StackPane.setAlignment(backBtn, Pos.TOP_LEFT);
