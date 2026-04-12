@@ -25,9 +25,10 @@ public class SceneManager {
     private MenuScene menuScene;
     private HowToPlayScene howToPlayScene;
     private LoadingScene loadingScene;
+    private CreateOrJoinScene createOrJoinScene;
     private LobbyScene lobbyScene;
+    private JoinRoomScene joinRoomScene;
     private GameArena gameArena;
-    private GameScene gameScene;
     private ResultScene resultScene;
     private AboutScene aboutScene;
 
@@ -40,9 +41,10 @@ public class SceneManager {
         this.menuScene = new MenuScene(this);
         this.howToPlayScene = new HowToPlayScene(this);
         this.loadingScene = new LoadingScene(this);
+        this.createOrJoinScene = new CreateOrJoinScene(this);
         this.lobbyScene = new LobbyScene(this);
+        this.joinRoomScene = new JoinRoomScene(this);
         this.gameArena = new GameArena(this);
-        this.gameScene = new GameScene(this);
         this.resultScene = new ResultScene(this);
         this.aboutScene = new AboutScene(this);
     }
@@ -62,6 +64,20 @@ public class SceneManager {
         loadingScene.onEnter();
     }
 
+    public void showCreateOrJoin() {
+        Scene scene = scenes.computeIfAbsent("createorjoin", k -> createOrJoinScene.createScene());
+        setupFullscreenHandler(scene);
+        primaryStage.setScene(scene);
+        primaryStage.setTitle(GameConfig.WINDOW_TITLE + " - Create or Join");
+    }
+
+    public void showJoinRoom() {
+        Scene scene = scenes.computeIfAbsent("joinroom", k -> joinRoomScene.createScene());
+        setupFullscreenHandler(scene);
+        primaryStage.setScene(scene);
+        primaryStage.setTitle(GameConfig.WINDOW_TITLE + " - Join Room");
+    }
+
     public void showGameArena() {
         Scene scene = scenes.computeIfAbsent("gamearena", k -> gameArena.createScene());
         setupFullscreenHandler(scene);
@@ -76,14 +92,6 @@ public class SceneManager {
         primaryStage.setScene(scene);
         primaryStage.setTitle(GameConfig.WINDOW_TITLE + " - Lobby");
         lobbyScene.onEnter();
-    }
-
-    public void showGame() {
-        Scene scene = scenes.computeIfAbsent("game", k -> gameScene.createScene());
-        setupFullscreenHandler(scene);
-        primaryStage.setScene(scene);
-        primaryStage.setTitle(GameConfig.WINDOW_TITLE + " - Game");
-        gameScene.onEnter();
     }
 
     public void showResult() {
@@ -186,16 +194,20 @@ public class SceneManager {
         return loadingScene;
     }
 
+    public CreateOrJoinScene getCreateOrJoinScene() {
+        return createOrJoinScene;
+    }
+
     public LobbyScene getLobbyScene() {
         return lobbyScene;
     }
 
-    public GameArena getGameArena() {
-        return gameArena;
+    public JoinRoomScene getJoinRoomScene() {
+        return joinRoomScene;
     }
 
-    public GameScene getGameScene() {
-        return gameScene;
+    public GameArena getGameArena() {
+        return gameArena;
     }
 
     public ResultScene getResultScene() {

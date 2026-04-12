@@ -11,6 +11,7 @@ import javafx.scene.shape.ArcType;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import com.identitycrisis.shared.model.GameConfig;
+import java.util.Random;
 
 /**
  * Lobby/waiting screen — displays while players gather before game start.
@@ -38,6 +39,8 @@ public class LobbyScene {
     private Label tipLabel;
     private int tipIndex = 0;
     private Timeline tipRotation;
+    private Label roomCodeLabel;
+    private String roomCode;
 
     private final String[] tips = {
         "Carry a teammate to safety — but you can't enter the safe zone while holding them.",
@@ -63,6 +66,9 @@ public class LobbyScene {
 
         // Corner torch glows
         addCornerGlows(root);
+
+        // Back button (top-left)
+        addBackButton(root);
 
         // Main content
         VBox content = createContent();
@@ -129,6 +135,17 @@ public class LobbyScene {
         content.setPadding(new Insets(0, 24, 0, 24));
         content.setMaxWidth(560);
 
+        // Room code display (generated on scene load)
+        roomCodeLabel = new Label("ROOM CODE: ------");
+        roomCodeLabel.setStyle(
+            "-fx-font-family: 'Press Start 2P', monospace;" +
+            "-fx-font-size: 18px;" +
+            "-fx-text-fill: " + GOLD + ";" +
+            "-fx-letter-spacing: 4px;"
+        );
+        roomCodeLabel.setEffect(new javafx.scene.effect.DropShadow(30, Color.rgb(201, 168, 76, 0.5)));
+        VBox.setMargin(roomCodeLabel, new Insets(0, 0, 16, 0));
+
         // Enlarged waiting text (title-level weight using Press Start 2P)
         Label waitingText = new Label("WAITING FOR PLAYERS...");
         waitingText.setStyle(
@@ -144,17 +161,67 @@ public class LobbyScene {
         VBox donutSection = createPlayerDonut();
         VBox.setMargin(donutSection, new Insets(0, 0, 0, 0));
 
-        // Start Game button - navigates to GameArena
+        // Start Game button - navigates to LoadingScene (then to GameArena)
         Button startBtn = createPixelButton("▶  Start Game");
-        startBtn.setOnAction(e -> sceneManager.showGameArena());
+        startBtn.setOnAction(e -> sceneManager.showLoading());
         VBox.setMargin(startBtn, new Insets(20, 0, 0, 0));
 
         // Tip box
         VBox tipBox = createTipBox();
         VBox.setMargin(tipBox, new Insets(28, 0, 0, 0));
 
-        content.getChildren().addAll(waitingText, donutSection, startBtn, tipBox);
+        content.getChildren().addAll(roomCodeLabel, waitingText, donutSection, startBtn, tipBox);
         return content;
+    }
+
+    private void addBackButton(StackPane root) {
+        Button backBtn = new Button("◄  BACK");
+        backBtn.setStyle(
+            "-fx-font-family: 'Cinzel', serif;" +
+            "-fx-font-size: 14px;" +
+            "-fx-font-weight: 700;" +
+            "-fx-text-fill: " + GOLD + ";" +
+            "-fx-background-color: transparent;" +
+            "-fx-cursor: hand;"
+        );
+
+        backBtn.setOnMouseEntered(e -> backBtn.setStyle(
+            "-fx-font-family: 'Cinzel', serif;" +
+            "-fx-font-size: 14px;" +
+            "-fx-font-weight: 700;" +
+            "-fx-text-fill: white;" +
+            "-fx-background-color: transparent;" +
+            "-fx-cursor: hand;"
+        ));
+
+        backBtn.setOnMouseExited(e -> backBtn.setStyle(
+            "-fx-font-family: 'Cinzel', serif;" +
+            "-fx-font-size: 14px;" +
+            "-fx-font-weight: 700;" +
+            "-fx-text-fill: " + GOLD + ";" +
+            "-fx-background-color: transparent;" +
+            "-fx-cursor: hand;"
+        ));
+
+        backBtn.setOnAction(e -> sceneManager.showCreateOrJoin());
+
+        StackPane.setAlignment(backBtn, Pos.TOP_LEFT);
+        StackPane.setMargin(backBtn, new Insets(20, 0, 0, 20));
+        root.getChildren().add(backBtn);
+    }
+
+    /**
+     * Generate a random 6-character alphanumeric room code.
+     * Uses client-side random generation - no networking.
+     */
+    private String generateRoomCode() {
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        Random random = new Random();
+        StringBuilder code = new StringBuilder();
+        for (int i = 0; i < 6; i++) {
+            code.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        return code.toString();
     }
 
     private Button createPixelButton(String text) {
@@ -437,11 +504,17 @@ public class LobbyScene {
 
     /**
      * Called when entering the lobby scene.
-     * Resets to 1 player and starts tip rotation.
+     * Resets to 1 player, generates room code, and starts tip rotation.
      */
     public void onEnter() {
         tipIndex = 0;
         playerCount = 1;
+
+        // Generate and display room code
+        roomCode = generateRoomCode();
+        if (roomCodeLabel != null) {
+            roomCodeLabel.setText("ROOM CODE: " + roomCode);
+        }
         if (donutCanvas != null) {
             drawDonut(playerCount);
         }

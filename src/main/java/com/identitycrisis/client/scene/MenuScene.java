@@ -545,7 +545,7 @@ public class MenuScene {
     }
 
     private void onPlayClicked() {
-        sceneManager.showLoading();
+        sceneManager.showCreateOrJoin();
     }
 
     private void onHowToPlayClicked() {

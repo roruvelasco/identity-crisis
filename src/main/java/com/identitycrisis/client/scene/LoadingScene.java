@@ -405,7 +405,7 @@ public class LoadingScene {
                     progress = 100;
                     loadingAnimation.stop();
                     statusLabel.setText("Ready!");
-                    javafx.application.Platform.runLater(() -> sceneManager.showLobby());
+                    javafx.application.Platform.runLater(() -> sceneManager.showGameArena());
                 }
 
                 barFill.setWidth(4 + (progress / 100.0) * 392);
