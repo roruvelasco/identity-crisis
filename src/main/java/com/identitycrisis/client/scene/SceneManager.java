@@ -22,6 +22,7 @@ public class SceneManager {
     private Map<String, Scene> scenes = new HashMap<>();
 
     // Scene controllers
+    private InitialLoadingScene initialLoadingScene;
     private MenuScene menuScene;
     private HowToPlayScene howToPlayScene;
     private LoadingScene loadingScene;
@@ -38,6 +39,7 @@ public class SceneManager {
         this.primaryStage.setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
 
         // Initialize scene controllers
+        this.initialLoadingScene = new InitialLoadingScene(this);
         this.menuScene = new MenuScene(this);
         this.howToPlayScene = new HowToPlayScene(this);
         this.loadingScene = new LoadingScene(this);
@@ -47,6 +49,14 @@ public class SceneManager {
         this.gameArena = new GameArena(this);
         this.resultScene = new ResultScene(this);
         this.aboutScene = new AboutScene(this);
+    }
+
+    public void showInitialLoading() {
+        Scene scene = scenes.computeIfAbsent("initialloading", k -> initialLoadingScene.createScene());
+        setupFullscreenHandler(scene);
+        primaryStage.setScene(scene);
+        primaryStage.setTitle(GameConfig.WINDOW_TITLE + " - Loading");
+        initialLoadingScene.onEnter();
     }
 
     public void showMenu() {
@@ -216,5 +226,9 @@ public class SceneManager {
 
     public AboutScene getAboutScene() {
         return aboutScene;
+    }
+
+    public InitialLoadingScene getInitialLoadingScene() {
+        return initialLoadingScene;
     }
 }

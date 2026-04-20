@@ -24,7 +24,7 @@ public class ClientApp extends Application {
         primaryStage.setResizable(false);
 
         SceneManager sceneManager = new SceneManager(primaryStage);
-        sceneManager.showMenu();
+        sceneManager.showInitialLoading();
 
         primaryStage.show();
     }
