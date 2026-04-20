@@ -42,6 +42,8 @@ public class GameArena {
         root.getChildren().add(placeholderLabel);
         StackPane.setAlignment(placeholderLabel, Pos.CENTER);
 
+        addBackground(root);
+
         // Fullscreen button top-right
         addFullscreenButton(root);
 
@@ -49,6 +51,45 @@ public class GameArena {
         scene.getStylesheets().add(getClass().getResource("/styles/global.css").toExternalForm());
 
         return scene;
+    }
+
+    private void addBackground(StackPane root) {
+        try {
+            Image bgImage = new Image(getClass().getResourceAsStream("/ArenaMap.tmx"));
+            ImageView bgView = new ImageView(bgImage);
+            // Bind to root size for responsive scaling
+            bgView.fitWidthProperty().bind(root.widthProperty());
+            bgView.fitHeightProperty().bind(root.heightProperty());
+            bgView.setPreserveRatio(false);
+            bgView.setStyle("-fx-opacity: 1;");
+            root.getChildren().add(bgView);
+        } catch (Exception e) {
+            // Fallback to dark background
+            root.setStyle("-fx-background-color: " + STONE_DARK + ";");
+        }
+
+        // Vignette overlay - fill entire root
+        StackPane vignette = new StackPane();
+        vignette.setStyle("-fx-background-color: radial-gradient(center 50% 50%, radius 100%, transparent 30%, rgba(0,0,0,0.7) 100%);");
+        vignette.setMouseTransparent(true);
+        // Bind vignette to fill root
+        vignette.prefWidthProperty().bind(root.widthProperty());
+        vignette.prefHeightProperty().bind(root.heightProperty());
+        root.getChildren().add(vignette);
+
+        // Bottom gradient - use percent-based binding
+        VBox bottomGradient = new VBox();
+        LinearGradient grad = new LinearGradient(0, 1, 0, 0, true, CycleMethod.NO_CYCLE,
+            new Stop(0, Color.rgb(8, 8, 12, 0.97)),
+            new Stop(0.5, Color.rgb(8, 8, 12, 0.8)),
+            new Stop(1, Color.TRANSPARENT));
+        bottomGradient.setBackground(new Background(new BackgroundFill(grad, null, null)));
+        bottomGradient.setMouseTransparent(true);
+        // Bind to 55% of root height
+        bottomGradient.prefHeightProperty().bind(root.heightProperty().multiply(0.55));
+        bottomGradient.prefWidthProperty().bind(root.widthProperty());
+        root.getChildren().add(bottomGradient);
+        StackPane.setAlignment(bottomGradient, Pos.BOTTOM_CENTER);
     }
 
     private void addFullscreenButton(StackPane root) {
