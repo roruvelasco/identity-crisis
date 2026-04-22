@@ -1,8 +1,11 @@
 package com.identitycrisis.client.scene;
 
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.control.*;
+import javafx.scene.paint.*;
 import javafx.geometry.*;
 import com.identitycrisis.shared.model.GameConfig;
 
@@ -19,6 +22,7 @@ public class GameArena {
     private static final String GOLD = "#c9a84c";
     private static final String GOLD_DARK = "#8a6a1a";
     private static final String STONE_PANEL = "#1c1c26";
+    private static final String STONE_DARK = "#121218";
 
     public GameArena(SceneManager sceneManager) {
         this.sceneManager = sceneManager;
