@@ -6,7 +6,13 @@ import javafx.scene.control.*;
 import javafx.geometry.*;
 import javafx.animation.*;
 import javafx.util.Duration;
+import java.io.IOException;
+import com.identitycrisis.client.game.LocalGameState;
+import com.identitycrisis.client.net.GameClient;
+import com.identitycrisis.client.net.ServerMessageRouter;
 import com.identitycrisis.shared.model.GameConfig;
+import com.identitycrisis.shared.util.Logger;
+import com.identitycrisis.shared.util.RoomCodec;
 
 /**
  * Join Room scene - allows players to enter a room code to join an existing game.
@@ -14,6 +20,8 @@ import com.identitycrisis.shared.model.GameConfig;
  * Features LobbyScene-style corner glow effects and Press Start 2P typography.
  */
 public class JoinRoomScene {
+
+    private static final Logger LOG = new Logger("JoinRoomScene");
 
     private Scene scene;
     private SceneManager sceneManager;
@@ -27,8 +35,10 @@ public class JoinRoomScene {
     private static final String STONE_BORDER = "#2a2a36";
     private static final String TEXT_PARCHMENT = "#e8dfc4";
     private static final String TEXT_MUTED = "#7a7060";
+    private static final String DANGER_RED = "#e87d7d";
 
     private TextField roomCodeInput;
+    private Label statusLabel; // inline error feedback
 
     public JoinRoomScene(SceneManager sceneManager) {
         this.sceneManager = sceneManager;
@@ -221,16 +231,89 @@ public class JoinRoomScene {
         joinBtn.setOnAction(e -> onJoinClicked());
         VBox.setMargin(joinBtn, new Insets(10, 0, 0, 0));
 
-        inputCard.getChildren().addAll(inputLabel, roomCodeInput, joinBtn);
+        // Enter key in the text field also triggers Join.
+        roomCodeInput.setOnAction(e -> onJoinClicked());
+
+        // Inline error label for bad codes / connect failures.
+        statusLabel = new Label("");
+        statusLabel.setStyle(
+            "-fx-font-family: 'Press Start 2P', monospace;" +
+            "-fx-font-size: 8px;" +
+            "-fx-text-fill: " + DANGER_RED + ";" +
+            "-fx-letter-spacing: 1px;"
+        );
+        statusLabel.setWrapText(true);
+        statusLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+        statusLabel.setMaxWidth(400);
+        statusLabel.setVisible(false);
+        statusLabel.setManaged(false);
+
+        inputCard.getChildren().addAll(inputLabel, roomCodeInput, joinBtn, statusLabel);
 
         content.getChildren().addAll(title, inputCard);
         return content;
     }
 
+    /**
+     * Join-flow: decode the entered code via {@link RoomCodec}, open a
+     * {@link GameClient} to the host's IP/port, send the join request, and
+     * transition to the lobby. All failures (bad code, connect refused) are
+     * surfaced in {@link #statusLabel}; the user stays on this scene.
+     */
     private void onJoinClicked() {
-        // Navigate to LobbyScene (join flow)
-        // No validation needed - purely UI
+        String raw = roomCodeInput.getText();
+        if (raw == null || raw.isBlank()) {
+            showError("Please enter a room code.");
+            return;
+        }
+
+        // 1. Decode room code -> host IP/port.
+        RoomCodec.HostPort hp;
+        try {
+            hp = RoomCodec.decode(raw);
+        } catch (IllegalArgumentException e) {
+            LOG.warn("Invalid room code entered: \"" + raw + "\" (" + e.getMessage() + ")");
+            showError("Invalid room code.");
+            return;
+        }
+
+        // 2. Build the client networking stack and connect.
+        LocalGameState      localState = new LocalGameState();
+        ServerMessageRouter router     = new ServerMessageRouter(localState);
+        GameClient          gameClient = new GameClient(router);
+        try {
+            gameClient.connect(hp.ip(), hp.port());
+        } catch (IOException e) {
+            LOG.error("Could not connect to host " + hp, e);
+            showError("Could not connect to host " + hp + ".");
+            return;
+        }
+        gameClient.startListening();
+        gameClient.sendJoinRequest("Player");
+
+        // 3. Publish session state. Joiners are NOT hosts and have no embedded server.
+        sceneManager.setEmbeddedServer(null);
+        sceneManager.setRoomCode(raw.trim().toUpperCase());
+        sceneManager.setHost(false);
+        sceneManager.setGameClient(gameClient);
+        sceneManager.setLocalGameState(localState);
+        LOG.info("Joined room " + raw + " at " + hp);
+        clearError();
         sceneManager.showLobby();
+    }
+
+    private void showError(String msg) {
+        if (statusLabel == null) return;
+        statusLabel.setText(msg);
+        statusLabel.setVisible(true);
+        statusLabel.setManaged(true);
+    }
+
+    private void clearError() {
+        if (statusLabel == null) return;
+        statusLabel.setText("");
+        statusLabel.setVisible(false);
+        statusLabel.setManaged(false);
     }
 
     private Button createStyledButton(String text) {

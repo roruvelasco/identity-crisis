@@ -11,7 +11,6 @@ import javafx.scene.shape.ArcType;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import com.identitycrisis.shared.model.GameConfig;
-import java.util.Random;
 
 /**
  * Lobby/waiting screen — displays while players gather before game start.
@@ -216,26 +215,18 @@ public class LobbyScene {
             "-fx-padding: 7px 14px;" +
             "-fx-cursor: hand;"
         ));
-        backBtn.setOnAction(e -> sceneManager.showCreateOrJoin());
+        backBtn.setOnAction(e -> {
+            // Leaving the lobby ends the session for this client (and the room,
+            // if we are the host). Release sockets and the embedded server.
+            sceneManager.shutdownNetwork();
+            sceneManager.showCreateOrJoin();
+        });
 
         StackPane.setAlignment(backBtn, Pos.TOP_LEFT);
         StackPane.setMargin(backBtn, new Insets(20, 0, 0, 20));
         root.getChildren().add(backBtn);
     }
 
-    /**
-     * Generate a random 6-character alphanumeric room code.
-     * Uses client-side random generation - no networking.
-     */
-    private String generateRoomCode() {
-        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        Random random = new Random();
-        StringBuilder code = new StringBuilder();
-        for (int i = 0; i < 6; i++) {
-            code.append(chars.charAt(random.nextInt(chars.length())));
-        }
-        return code.toString();
-    }
 
     private Button createPixelButton(String text) {
         Button btn = new Button(text);
@@ -517,16 +508,23 @@ public class LobbyScene {
 
     /**
      * Called when entering the lobby scene.
-     * Resets to 1 player, generates room code, and starts tip rotation.
+     * Resets to 1 player, displays the room code from SceneManager, and starts
+     * tip rotation.
+     *
+     * <p>The room code is set by either {@code CreateOrJoinScene.onCreateClicked}
+     * (host) or {@code JoinRoomScene.onJoinClicked} (joiner) — see those
+     * scenes for the producer side. If neither ran (e.g. scene opened directly
+     * during dev), a placeholder is shown.
      */
     public void onEnter() {
         tipIndex = 0;
         playerCount = 1;
 
-        // Generate and display room code
-        roomCode = generateRoomCode();
+        // Pull the real room code from the SceneManager (populated by the
+        // Create or Join flow). Falls back to placeholder if absent.
+        roomCode = sceneManager.getRoomCode();
         if (roomCodeLabel != null) {
-            roomCodeLabel.setText("ROOM CODE: " + roomCode);
+            roomCodeLabel.setText("ROOM CODE: " + (roomCode != null ? roomCode : "------"));
         }
         if (donutCanvas != null) {
             drawDonut(playerCount);

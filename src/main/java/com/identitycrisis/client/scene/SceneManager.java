@@ -8,6 +8,7 @@ import java.util.Map;
 import com.identitycrisis.client.net.GameClient;
 import com.identitycrisis.client.game.LocalGameState;
 import com.identitycrisis.client.input.InputManager;
+import com.identitycrisis.server.EmbeddedServer;
 import com.identitycrisis.shared.model.GameConfig;
 
 /** Manages transitions between scenes by swapping Stage's Scene. */
@@ -17,6 +18,12 @@ public class SceneManager {
     private GameClient gameClient;
     private LocalGameState localGameState;
     private InputManager inputManager;
+
+    // Room-code / host-lifecycle state (populated by CreateOrJoinScene "Create Game"
+    // or JoinRoomScene "Join"; consumed by LobbyScene to display the code).
+    private EmbeddedServer embeddedServer; // non-null only when this client is the host
+    private String roomCode;
+    private boolean isHost;
 
     // Scene cache
     private Map<String, Scene> scenes = new HashMap<>();
@@ -38,6 +45,10 @@ public class SceneManager {
         this.primaryStage.setFullScreenExitHint("");
         this.primaryStage.setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
 
+        // Release network resources on window close so the EmbeddedServer daemon
+        // thread and client socket don't linger after the FX app exits.
+        this.primaryStage.setOnCloseRequest(e -> shutdownNetwork());
+
         // Initialize scene controllers
         this.initialLoadingScene = new InitialLoadingScene(this);
         this.menuScene = new MenuScene(this);
@@ -49,6 +60,24 @@ public class SceneManager {
         this.gameArena = new GameArena(this);
         this.resultScene = new ResultScene(this);
         this.aboutScene = new AboutScene(this);
+    }
+
+    /**
+     * Disconnects the client and (if host) stops the embedded server. Idempotent.
+     * Called from the window-close hook and from "Back" navigations that leave
+     * a room.
+     */
+    public void shutdownNetwork() {
+        if (gameClient != null) {
+            gameClient.disconnect();
+            gameClient = null;
+        }
+        if (embeddedServer != null) {
+            embeddedServer.stop();
+            embeddedServer = null;
+        }
+        roomCode = null;
+        isHost   = false;
     }
 
     public void showInitialLoading() {
@@ -191,6 +220,17 @@ public class SceneManager {
     public void setInputManager(InputManager inputManager) {
         this.inputManager = inputManager;
     }
+
+    // ── Room / host lifecycle ──────────────────────────────────────────────
+
+    public EmbeddedServer getEmbeddedServer() { return embeddedServer; }
+    public void setEmbeddedServer(EmbeddedServer s) { this.embeddedServer = s; }
+
+    public String getRoomCode() { return roomCode; }
+    public void setRoomCode(String code) { this.roomCode = code; }
+
+    public boolean isHost() { return isHost; }
+    public void setHost(boolean host) { this.isHost = host; }
 
     public MenuScene getMenuScene() {
         return menuScene;

@@ -403,7 +403,17 @@ public class SpriteManager {
 > Scene controllers (`MenuScene`, `LobbyScene`, etc.) are eagerly allocated in the constructor
 > because they hold only UI state, not network state.
 >
-> `AboutScene` is an approved addition (static info scene, mirrors `HowToPlayScene`).
+> `AboutScene`, `CreateOrJoinScene`, `JoinRoomScene`, `InitialLoadingScene`, and
+> `GameArena` are approved additions (see §7.23–§7.24 for the new Create/Join
+> flow).
+>
+> **Room / host lifecycle state.** `SceneManager` additionally owns the
+> `EmbeddedServer` reference (host only), the current `roomCode` string (set by
+> either the Create or Join flow, consumed by `LobbyScene.onEnter()`), and an
+> `isHost` flag. `shutdownNetwork()` is idempotent and disposes the client
+> socket + embedded server; it is wired to both
+> `stage.setOnCloseRequest(...)` in the constructor and the Lobby "Back"
+> button so the daemon accept-thread never outlives the UI.
 
 ```java
 package com.identitycrisis.client.scene;
@@ -412,43 +422,62 @@ import javafx.stage.Stage;
 import com.identitycrisis.client.net.GameClient;
 import com.identitycrisis.client.game.LocalGameState;
 import com.identitycrisis.client.input.InputManager;
+import com.identitycrisis.server.EmbeddedServer;
 
 // Manages transitions between scenes by swapping Stage's Scene.
 public class SceneManager {
     private Stage primaryStage;
-    private GameClient gameClient;        // injected lazily via setter before showLobby()
-    private LocalGameState localGameState;// injected lazily via setter before showLobby()
+    private GameClient gameClient;        // injected by Create/Join flow before showLobby()
+    private LocalGameState localGameState;// injected by Create/Join flow before showLobby()
     private InputManager inputManager;    // injected lazily via setter before showGame()
+
+    // Room / host lifecycle
+    private EmbeddedServer embeddedServer; // non-null only when this client is the host
+    private String         roomCode;       // XXXXX-XXXXX display code from RoomCodec
+    private boolean        isHost;
 
     // Scene controllers — eagerly allocated (UI state only, no network deps)
     private MenuScene menuScene;
     private HowToPlayScene howToPlayScene;
     private LobbyScene lobbyScene;
-    private GameScene gameScene;
-    private LoadingScene loadingScene;      // transition screen: Menu → Lobby
+    private GameArena gameArena;
+    private LoadingScene loadingScene;
+    private InitialLoadingScene initialLoadingScene;
+    private CreateOrJoinScene createOrJoinScene;
+    private JoinRoomScene joinRoomScene;
     private ResultScene resultScene;
-    private AboutScene aboutScene;        // approved extra scene
+    private AboutScene aboutScene;
 
-    public SceneManager(Stage primaryStage) { }
+    public SceneManager(Stage primaryStage) { /* registers stage.setOnCloseRequest(shutdownNetwork) */ }
 
     public void showMenu() { }
-    public void showLoading() { }         // Play clicked → animated loading bar → showLobby()
+    public void showLoading() { }
+    public void showCreateOrJoin() { }     // Play → choose Create or Join
+    public void showJoinRoom() { }          // enter room code
     public void showLobby() { }
-    public void showGame() { }
+    public void showGameArena() { }
     public void showResult() { }
     public void showHowToPlay() { }
-    public void showAbout() { }           // approved extra
+    public void showAbout() { }
 
-    // Getters
+    // Idempotent; called by close hook and Lobby "Back".
+    public void shutdownNetwork() { }
+
+    // Getters / setters
     public Stage getStage() { }
     public GameClient getGameClient() { }
     public LocalGameState getLocalGameState() { }
     public InputManager getInputManager() { }
+    public EmbeddedServer getEmbeddedServer() { }
+    public String  getRoomCode() { }
+    public boolean isHost() { }
 
-    // Setters — called by MenuScene.onPlayClicked() before navigating to lobby/game
     public void setGameClient(GameClient gameClient) { }
     public void setLocalGameState(LocalGameState localGameState) { }
     public void setInputManager(InputManager inputManager) { }
+    public void setEmbeddedServer(EmbeddedServer s) { }
+    public void setRoomCode(String code) { }
+    public void setHost(boolean host) { }
 }
 ```
 
@@ -595,6 +624,72 @@ public class LoadingScene {
     public Scene getScene() { }
     public void onEnter() { /* start loadingAnimation + tipRotation; fires showLobby() when done */ }
     public void onExit() { /* stop loadingAnimation + tipRotation */ }
+}
+```
+
+### 7.23 `client/scene/CreateOrJoinScene.java`
+
+> Post-Menu "PLAY" scene with two cards: **Create** and **Join**. The Create
+> card is the real host-creation flow — it starts an `EmbeddedServer`, encodes
+> a room code via `RoomCodec`, opens a local `GameClient`, and transitions to
+> `LobbyScene`. The Join card simply navigates to `JoinRoomScene`.
+
+```java
+package com.identitycrisis.client.scene;
+
+// Play → CreateOrJoin. Create card wires: NetworkUtils.findFreePort
+//   → EmbeddedServer.start → RoomCodec.encode(NetworkUtils.getLanIp(), port)
+//   → GameClient.connect("localhost", port)  [with retry — see server-package.md]
+//   → gameClient.startListening() → gameClient.sendJoinRequest(name)
+//   → sceneManager.set{EmbeddedServer, RoomCode, Host=true, GameClient, LocalGameState}
+//   → sceneManager.showLobby()
+// All failures roll back resources and surface in an inline statusLabel.
+public class CreateOrJoinScene {
+    private Scene scene;
+    private SceneManager sceneManager;
+    private Label statusLabel;           // inline error feedback
+
+    public CreateOrJoinScene(SceneManager sceneManager) { }
+    public Scene createScene() { }
+    public Scene getScene() { }
+
+    private void onCreateClicked() { }   // full host-creation flow
+    private boolean connectWithRetry(GameClient c, String host, int port) { }
+    private void showError(String msg) { }
+    private void clearError() { }
+}
+```
+
+### 7.24 `client/scene/JoinRoomScene.java`
+
+> Text-field scene for entering a room code. Pressing **Join** (or Enter in the
+> field) decodes the code via `RoomCodec.decode`, opens a `GameClient` to the
+> host's IP/port, sends the join request, and transitions to `LobbyScene`.
+> Bad codes and connect failures are surfaced in an inline `statusLabel` and
+> keep the user on this scene.
+
+```java
+package com.identitycrisis.client.scene;
+
+// Join card → JoinRoom. On Join button / Enter:
+//   RoomCodec.decode(textField) → HostPort(ip, port)
+//   GameClient.connect(ip, port) → startListening() → sendJoinRequest(name)
+//   sceneManager.set{RoomCode, Host=false, GameClient, LocalGameState}
+//   sceneManager.showLobby()
+// No EmbeddedServer on this path — joiners only consume a remote one.
+public class JoinRoomScene {
+    private Scene scene;
+    private SceneManager sceneManager;
+    private TextField roomCodeInput;
+    private Label     statusLabel;       // inline error feedback
+
+    public JoinRoomScene(SceneManager sceneManager) { }
+    public Scene createScene() { }
+    public Scene getScene() { }
+
+    private void onJoinClicked() { }     // decode → connect → showLobby
+    private void showError(String msg) { }
+    private void clearError() { }
 }
 ```
 

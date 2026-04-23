@@ -12,7 +12,15 @@ import javafx.scene.paint.Stop;
 import javafx.scene.paint.CycleMethod;
 import javafx.animation.*;
 import javafx.util.Duration;
+import java.io.IOException;
+import com.identitycrisis.client.game.LocalGameState;
+import com.identitycrisis.client.net.GameClient;
+import com.identitycrisis.client.net.ServerMessageRouter;
+import com.identitycrisis.server.EmbeddedServer;
 import com.identitycrisis.shared.model.GameConfig;
+import com.identitycrisis.shared.util.Logger;
+import com.identitycrisis.shared.util.NetworkUtils;
+import com.identitycrisis.shared.util.RoomCodec;
 
 /**
  * Create or Join scene - allows players to choose between creating a game or joining one.
@@ -21,8 +29,11 @@ import com.identitycrisis.shared.model.GameConfig;
  */
 public class CreateOrJoinScene {
 
+    private static final Logger LOG = new Logger("CreateOrJoinScene");
+
     private Scene scene;
     private SceneManager sceneManager;
+    private Label statusLabel; // shown below cards; used for error feedback
 
     // Color constants matching the game's dark aesthetic
     private static final String GOLD = "#c9a84c";
@@ -33,6 +44,7 @@ public class CreateOrJoinScene {
     private static final String STONE_BORDER = "#2a2a36";
     private static final String TEXT_PARCHMENT = "#e8dfc4";
     private static final String TEXT_MUTED = "#7a7060";
+    private static final String DANGER_RED = "#e87d7d";
 
     public CreateOrJoinScene(SceneManager sceneManager) {
         this.sceneManager = sceneManager;
@@ -219,7 +231,7 @@ public class CreateOrJoinScene {
             "CREATE",
             "Create Game",
             "Start a new game and invite friends",
-            () -> sceneManager.showLobby()
+            this::onCreateClicked
         );
 
         // JOIN section card
@@ -230,8 +242,116 @@ public class CreateOrJoinScene {
             () -> sceneManager.showJoinRoom()
         );
 
-        content.getChildren().addAll(title, createCard, joinCard);
+        // Status / error label (hidden until there's something to show)
+        statusLabel = new Label("");
+        statusLabel.setStyle(
+            "-fx-font-family: 'Press Start 2P', monospace;" +
+            "-fx-font-size: 8px;" +
+            "-fx-text-fill: " + DANGER_RED + ";" +
+            "-fx-letter-spacing: 1px;"
+        );
+        statusLabel.setWrapText(true);
+        statusLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+        statusLabel.setMaxWidth(440);
+        statusLabel.setVisible(false);
+        statusLabel.setManaged(false);
+
+        content.getChildren().addAll(title, createCard, joinCard, statusLabel);
         return content;
+    }
+
+    /**
+     * Host-side "Create Game" flow. Starts an {@link EmbeddedServer} on a free
+     * port, encodes a room code via {@link RoomCodec}, connects a local
+     * {@link GameClient} to {@code localhost:port}, sends the join request, and
+     * navigates to the lobby.
+     *
+     * <p>On any failure, resources are rolled back and the error is surfaced in
+     * {@link #statusLabel}; the user stays on this scene.
+     */
+    private void onCreateClicked() {
+        // 1. Allocate a free port and bring up the embedded server.
+        int port;
+        EmbeddedServer embedded = new EmbeddedServer();
+        try {
+            port = NetworkUtils.findFreePort();
+            embedded.start(port);
+        } catch (RuntimeException e) {
+            LOG.error("Failed to start embedded server", e);
+            showError("Could not start host server: " + e.getMessage());
+            return;
+        }
+
+        // 2. Derive the room code from the host's LAN IP + allocated port.
+        String lanIp = NetworkUtils.getLanIp();
+        String code;
+        try {
+            code = RoomCodec.encode(lanIp, port);
+        } catch (IllegalArgumentException e) {
+            LOG.error("Failed to encode room code for " + lanIp + ":" + port, e);
+            embedded.stop();
+            showError("Could not generate a room code.");
+            return;
+        }
+        LOG.info("Room created: " + code + " (host=" + lanIp + ":" + port + ")");
+
+        // 3. Build the client-side networking stack and connect to ourselves.
+        LocalGameState        localState = new LocalGameState();
+        ServerMessageRouter   router     = new ServerMessageRouter(localState);
+        GameClient            gameClient = new GameClient(router);
+        if (!connectWithRetry(gameClient, "localhost", port)) {
+            embedded.stop();
+            showError("Could not connect host client to embedded server.");
+            return;
+        }
+        gameClient.startListening();
+        gameClient.sendJoinRequest("Host");
+
+        // 4. Publish session state to the SceneManager and transition.
+        sceneManager.setEmbeddedServer(embedded);
+        sceneManager.setRoomCode(code);
+        sceneManager.setHost(true);
+        sceneManager.setGameClient(gameClient);
+        sceneManager.setLocalGameState(localState);
+        clearError();
+        sceneManager.showLobby();
+    }
+
+    /**
+     * Attempts {@link GameClient#connect} up to {@code maxAttempts} times with a
+     * short delay, to absorb the race between {@link EmbeddedServer#start}
+     * returning and the daemon accept-loop actually binding the ServerSocket.
+     */
+    private boolean connectWithRetry(GameClient client, String host, int port) {
+        final int maxAttempts = 20;   // ~20 × 30ms = 600ms total ceiling
+        final long delayMs    = 30;
+        IOException last = null;
+        for (int i = 0; i < maxAttempts; i++) {
+            try {
+                client.connect(host, port);
+                return true;
+            } catch (IOException e) {
+                last = e;
+                try { Thread.sleep(delayMs); }
+                catch (InterruptedException ie) { Thread.currentThread().interrupt(); break; }
+            }
+        }
+        if (last != null) LOG.error("connectWithRetry failed", last);
+        return false;
+    }
+
+    private void showError(String msg) {
+        if (statusLabel == null) return;
+        statusLabel.setText(msg);
+        statusLabel.setVisible(true);
+        statusLabel.setManaged(true);
+    }
+
+    private void clearError() {
+        if (statusLabel == null) return;
+        statusLabel.setText("");
+        statusLabel.setVisible(false);
+        statusLabel.setManaged(false);
     }
 
     private VBox createOptionCard(String sectionLabel, String buttonText, String description, Runnable onAction) {

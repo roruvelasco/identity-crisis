@@ -636,7 +636,7 @@ public class EmbeddedServer {
 }
 ```
 
-**Create Room usage pattern (in `CreateJoinScene`):**
+**Create Room usage pattern (in `CreateOrJoinScene.onCreateClicked`):**
 ```java
 int port = NetworkUtils.findFreePort();
 EmbeddedServer embedded = new EmbeddedServer();
@@ -645,15 +645,46 @@ embedded.start(port);
 String code = RoomCodec.encode(NetworkUtils.getLanIp(), port);
 // show code to user ...
 
-gameClient.connect("localhost", port);
+gameClient.connect("localhost", port);     // see "Async-bind race" below
+gameClient.startListening();
 gameClient.sendJoinRequest(displayName);
+sceneManager.setEmbeddedServer(embedded);
+sceneManager.setRoomCode(code);
+sceneManager.setHost(true);
 sceneManager.showLobby();
 ```
 
-**Join Room usage pattern:**
+**Join Room usage pattern (in `JoinRoomScene.onJoinClicked`):**
 ```java
 RoomCodec.HostPort hp = RoomCodec.decode(enteredCode);
 gameClient.connect(hp.ip(), hp.port());
+gameClient.startListening();
 gameClient.sendJoinRequest(displayName);
+sceneManager.setRoomCode(enteredCode);
+sceneManager.setHost(false);
 sceneManager.showLobby();
 ```
+
+**Async-bind race (Create flow only).** `EmbeddedServer.start()` returns as soon
+as the `embedded-server-accept` daemon thread is launched — but the daemon is
+what actually calls `new ServerSocket(port)` inside `GameServer.start()`. There
+is a short window (sub-millisecond to a few ms on localhost) where a caller's
+`new Socket("localhost", port)` can fail with `ConnectException`. Callers MUST
+retry the connect, e.g. up to 20 attempts × ~30 ms:
+
+```java
+for (int i = 0; i < 20; i++) {
+    try { gameClient.connect("localhost", port); break; }
+    catch (IOException e) { Thread.sleep(30); }
+}
+```
+
+Joiners hitting a remote host do NOT need the retry — the host's ServerSocket
+is bound long before the joiner dials in.
+
+**SceneManager ownership.** `SceneManager` holds the `EmbeddedServer` reference
+(host only), the `roomCode` string, and an `isHost` flag. Its
+`shutdownNetwork()` method is idempotent and is invoked from both (a) the
+stage's `setOnCloseRequest` handler and (b) the Lobby "Back" button — so the
+daemon server thread and the client socket are always released when the user
+exits the room.

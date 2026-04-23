@@ -1327,6 +1327,132 @@ Create `src/test/java/.../server/ServerIntegrationTest.java` that:
 
 ---
 
+## Step 8 — Create / Join Room Wiring (Room Code Flow)
+
+> Connects the UI's "Create Game" / "Join Game" buttons to the backend so
+> players can spin up a host session with a shareable code. Building blocks
+> (`RoomCodec`, `NetworkUtils`, `EmbeddedServer`, `LobbyManager`) already exist
+> — this step wires them into the scene graph.
+
+### 8A. `GameClient` — implement the TCP client
+
+**File:** `src/main/java/com/identitycrisis/client/net/GameClient.java`
+
+Previously all methods were stubs. Implement:
+
+- `connect(host, port)` — opens a `Socket`, wraps streams in
+  `DataInputStream`/`DataOutputStream` + `MessageEncoder`/`MessageDecoder`, sets
+  `connected = true`. Throws `IOException` on failure.
+- `startListening()` — spawns a **daemon** thread named `"client-reader"` that
+  loops calling `decoder.readNextType()` and `router.route(type, decoder)`.
+  On `EOFException`/`IOException` it calls `disconnect()` in a `finally` block.
+- `sendJoinRequest / sendReady / sendInput / sendChat` — all `synchronized`.
+  Encode → `encoder.flush()`. On `IOException` log and call `disconnect()`.
+- `disconnect()` — idempotent: `connected = false`, close socket (swallow
+  `IOException`).
+
+### 8B. `SceneManager` — own the room/host lifecycle
+
+Add three fields + `shutdownNetwork()`:
+
+```java
+private EmbeddedServer embeddedServer;  // non-null only when this client is host
+private String         roomCode;
+private boolean        isHost;
+
+public void shutdownNetwork() {
+    if (gameClient != null)     { gameClient.disconnect(); gameClient = null; }
+    if (embeddedServer != null) { embeddedServer.stop();   embeddedServer = null; }
+    roomCode = null; isHost = false;
+}
+```
+
+Register `primaryStage.setOnCloseRequest(e -> shutdownNetwork())` **in the
+constructor** so the daemon accept-thread is always disposed on window close.
+
+### 8C. `CreateOrJoinScene` — host-creation flow
+
+When the **Create Game** button fires:
+
+```java
+int port = NetworkUtils.findFreePort();
+EmbeddedServer embedded = new EmbeddedServer();
+embedded.start(port);                       // daemon accept-loop starts
+
+String code = RoomCodec.encode(NetworkUtils.getLanIp(), port);
+
+LocalGameState   state  = new LocalGameState();
+GameClient       client = new GameClient(new ServerMessageRouter(state));
+connectWithRetry(client, "localhost", port); // see async-bind race, §6.15
+client.startListening();
+client.sendJoinRequest("Host");
+
+sceneManager.setEmbeddedServer(embedded);
+sceneManager.setRoomCode(code);
+sceneManager.setHost(true);
+sceneManager.setGameClient(client);
+sceneManager.setLocalGameState(state);
+sceneManager.showLobby();
+```
+
+**`connectWithRetry`** — loops up to ~20 × 30ms because `EmbeddedServer.start()`
+returns before the daemon accept-thread has actually bound the `ServerSocket`
+(AGENTS.md server-package §6.15 "Async-bind race").
+
+On any failure roll back: `embedded.stop()` and surface the error in an inline
+`statusLabel` (no navigation).
+
+### 8D. `JoinRoomScene` — joiner flow
+
+When **Join** fires (or Enter in the text field):
+
+```java
+RoomCodec.HostPort hp = RoomCodec.decode(roomCodeInput.getText()); // may throw
+
+LocalGameState   state  = new LocalGameState();
+GameClient       client = new GameClient(new ServerMessageRouter(state));
+client.connect(hp.ip(), hp.port());       // no retry — host socket is long-bound
+client.startListening();
+client.sendJoinRequest("Player");
+
+sceneManager.setRoomCode(enteredCode);
+sceneManager.setHost(false);
+sceneManager.setGameClient(client);
+sceneManager.setLocalGameState(state);
+sceneManager.showLobby();
+```
+
+`RoomCodec.decode(...)` throws `IllegalArgumentException` on bad input — catch
+and show in `statusLabel`. `client.connect(...)` throws `IOException` on
+connect-refused — same handling.
+
+### 8E. `LobbyScene` — display the real code
+
+Replace any placeholder random-string generator with:
+
+```java
+public void onEnter() {
+    // ...
+    roomCode = sceneManager.getRoomCode();
+    roomCodeLabel.setText("ROOM CODE: " + (roomCode != null ? roomCode : "------"));
+    // ...
+}
+```
+
+Wire the **Back** button to `sceneManager.shutdownNetwork()` before
+`showCreateOrJoin()` so leaving the lobby releases the session (and — if we
+are the host — kills the embedded server).
+
+### 8F. Tests
+
+`src/test/java/.../shared/util/RoomCodecTest.java` — JUnit 5 round-trip tests
+for `encode ↔ decode`, port/IP boundary values, case/whitespace/separator
+normalisation in `decode`, and input validation errors. Run with `./mvnw test`.
+
+**Verify:** `./mvnw clean compile && ./mvnw test` (all tests pass).
+
+---
+
 ## Summary of Files Modified
 
 | File | What changed |
@@ -1350,5 +1476,10 @@ Create `src/test/java/.../server/ServerIntegrationTest.java` that:
 | `server/game/RoundManager.java` | `tick()`, `transitionTo()`, `startNewRound()`, `isWarmupRound()` |
 | `server/game/ServerGameLoop.java` | `processInputs()`, `broadcastState()` |
 | `server/ServerApp.java` | Add `lobbyMgr.setGameState(gameState)` |
-
-**No client/render/scene files are touched.** The entire frontend is independent.
+| **Step 8 (Create/Join Room)** | |
+| `client/net/GameClient.java` | `connect`, `startListening`, `readLoop`, all send methods, `disconnect`, `isConnected` |
+| `client/scene/SceneManager.java` | `embeddedServer`/`roomCode`/`isHost` fields + getters/setters + `shutdownNetwork()` + `stage.setOnCloseRequest` |
+| `client/scene/CreateOrJoinScene.java` | `onCreateClicked()` host flow + `connectWithRetry` + inline error label |
+| `client/scene/JoinRoomScene.java` | `onJoinClicked()` decode+connect flow + inline error label |
+| `client/scene/LobbyScene.java` | `onEnter()` pulls code from `SceneManager.getRoomCode()`; Back button calls `shutdownNetwork()` |
+| `src/test/.../shared/util/RoomCodecTest.java` | 11 round-trip + validation tests |
