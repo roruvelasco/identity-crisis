@@ -23,6 +23,9 @@ public class GameArena {
     private static final String GOLD_DARK = "#8a6a1a";
     private static final String STONE_PANEL = "#1c1c26";
     private static final String STONE_DARK = "#121218";
+    private static final String TEXT_PARCHMENT = "#e8dfc4";
+    private static final String TEXT_MUTED = "#7a7060";
+    private static final String STONE_BORDER = "#2a2a36";
 
     public GameArena(SceneManager sceneManager) {
         this.sceneManager = sceneManager;
@@ -47,6 +50,9 @@ public class GameArena {
         StackPane.setAlignment(placeholderLabel, Pos.CENTER);
 
         addBackground(root);
+
+        // Back button top-left
+        addBackButton(root);
 
         // Fullscreen button top-right
         addFullscreenButton(root);
@@ -140,6 +146,58 @@ public class GameArena {
         StackPane.setAlignment(fullscreenBtn, Pos.TOP_RIGHT);
         StackPane.setMargin(fullscreenBtn, new Insets(20, 20, 0, 0));
         root.getChildren().add(fullscreenBtn);
+    }
+
+    /**
+     * Back button - styled exactly like LobbyScene.
+     */
+    private void addBackButton(StackPane root) {
+        Button backBtn = new Button("◀  Back");
+        backBtn.setStyle(
+            "-fx-font-family: 'Cinzel', serif;" +
+            "-fx-font-size: 11px;" +
+            "-fx-font-weight: 700;" +
+            "-fx-text-fill: " + TEXT_MUTED + ";" +
+            "-fx-letter-spacing: 2px;" +
+            "-fx-background-color: transparent;" +
+            "-fx-border-color: " + STONE_BORDER + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-padding: 7px 14px;" +
+            "-fx-cursor: hand;"
+        );
+        backBtn.setOnMouseEntered(e -> backBtn.setStyle(
+            "-fx-font-family: 'Cinzel', serif;" +
+            "-fx-font-size: 11px;" +
+            "-fx-font-weight: 700;" +
+            "-fx-text-fill: " + TEXT_PARCHMENT + ";" +
+            "-fx-letter-spacing: 2px;" +
+            "-fx-background-color: transparent;" +
+            "-fx-border-color: " + GOLD_DARK + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-padding: 7px 14px;" +
+            "-fx-cursor: hand;"
+        ));
+        backBtn.setOnMouseExited(e -> backBtn.setStyle(
+            "-fx-font-family: 'Cinzel', serif;" +
+            "-fx-font-size: 11px;" +
+            "-fx-font-weight: 700;" +
+            "-fx-text-fill: " + TEXT_MUTED + ";" +
+            "-fx-letter-spacing: 2px;" +
+            "-fx-background-color: transparent;" +
+            "-fx-border-color: " + STONE_BORDER + ";" +
+            "-fx-border-width: 1px;" +
+            "-fx-padding: 7px 14px;" +
+            "-fx-cursor: hand;"
+        ));
+        backBtn.setOnAction(e -> {
+            // Returning to menu ends the session for this client.
+            sceneManager.shutdownNetwork();
+            sceneManager.showMenu();
+        });
+
+        StackPane.setAlignment(backBtn, Pos.TOP_LEFT);
+        StackPane.setMargin(backBtn, new Insets(20, 0, 0, 20));
+        root.getChildren().add(backBtn);
     }
 
     /**
