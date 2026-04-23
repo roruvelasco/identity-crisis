@@ -3,6 +3,7 @@ package com.identitycrisis.client.scene;
 import com.identitycrisis.client.input.InputManager;
 import com.identitycrisis.client.input.InputSnapshot;
 import com.identitycrisis.client.render.ArenaRenderer;
+import com.identitycrisis.client.render.MapManager;
 import com.identitycrisis.client.render.SpriteManager;
 import com.identitycrisis.shared.model.GameConfig;
 import javafx.animation.AnimationTimer;
@@ -15,22 +16,21 @@ import javafx.scene.control.Button;
 import javafx.scene.image.Image;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
 
 /**
  * Game arena screen.
  *
- * <p>Renders a dark arena with a gold border and subtle grid lines on a
- * Canvas that fills the window (fullscreen-safe). Runs a local
- * AnimationTimer game loop that:
+ * <p>Renders the full TMX map (scaled to fit the window at all times) and a
+ * single local player that:
  * <ol>
- *   <li>Reads keyboard input (WASD / arrow keys) via {@link InputManager}</li>
- *   <li>Moves the player at {@code GameConfig.PLAYER_SPEED} px/sec with
- *       diagonal-normalisation and arena-bounds clamping</li>
- *   <li>Cycles through the correct sprite-sheet frame (idle 4-frame /
- *       walk 6-frame, 8 fps) and flips horizontally when facing left</li>
+ *   <li>Moves with WASD / arrow keys at {@code GameConfig.PLAYER_SPEED} px/sec
+ *       in <em>world-pixel</em> coordinates.</li>
+ *   <li>Is blocked by wall, water, and void tiles via {@link MapManager#isSolid}.
+ *       Axis-separated collision lets the player slide along walls.</li>
+ *   <li>Shows a pulsing safe-zone indicator when standing on one of the 8 zones.</li>
+ *   <li>Is rendered at the correct screen position for both windowed and fullscreen modes.</li>
  * </ol>
- *
- * <p>No server connection is required for this visual demo.
  */
 public class GameArena {
 
@@ -41,16 +41,13 @@ public class GameArena {
     private static final int    WALK_FRAMES    = 6;
     /** Animation speed: 8 fps → frame advances every 0.125 s. */
     private static final double FRAME_DURATION = 1.0 / 8.0;
-    /** 3× upscale: 32 px → 96 px on screen. */
-    private static final double SPRITE_SCALE   = 3.0;
-    private static final double SPRITE_DISPLAY = SPRITE_NATIVE * SPRITE_SCALE; // 96 px
 
     // ── Colour palette (shared with other scenes) ────────────────────────────
-    private static final String GOLD          = "#c9a84c";
-    private static final String GOLD_DARK     = "#8a6a1a";
-    private static final String STONE_PANEL   = "#1c1c26";
-    private static final String STONE_BORDER  = "#2a2a36";
-    private static final String TEXT_MUTED    = "#7a7060";
+    private static final String GOLD           = "#c9a84c";
+    private static final String GOLD_DARK      = "#8a6a1a";
+    private static final String STONE_PANEL    = "#1c1c26";
+    private static final String STONE_BORDER   = "#2a2a36";
+    private static final String TEXT_MUTED     = "#7a7060";
     private static final String TEXT_PARCHMENT = "#e8dfc4";
 
     // ── Scene graph ──────────────────────────────────────────────────────────
@@ -61,17 +58,22 @@ public class GameArena {
     // ── Infrastructure ───────────────────────────────────────────────────────
     private SpriteManager  spriteManager;
     private ArenaRenderer  arenaRenderer;
+    private MapManager     mapManager;
     private InputManager   inputManager;
     private AnimationTimer gameLoop;
     private long           lastNano;
 
-    // ── Player state ─────────────────────────────────────────────────────────
+    // ── Player state (world-pixel coordinates, native 16 px/tile scale) ──────
     private double  playerX;
     private double  playerY;
     private int     animFrame;
     private double  animTimer;
     private boolean facingLeft;
     private boolean isMoving;
+    /** Safe-zone id (1–8) the player is currently in, or -1. */
+    private int     currentZone;
+    /** Accumulator for the safe-zone glow pulse animation. */
+    private double  pulseTimer;
 
     // ────────────────────────────────────────────────────────────────────────
 
@@ -103,7 +105,10 @@ public class GameArena {
         // Load sprites once
         spriteManager = new SpriteManager();
         spriteManager.loadAll();
+
+        // ArenaRenderer loads the TMX map internally
         arenaRenderer = new ArenaRenderer(spriteManager);
+        mapManager    = arenaRenderer.getMapManager();
 
         // InputManager created here; attached/detached in onEnter/onExit
         inputManager = new InputManager();
@@ -115,22 +120,29 @@ public class GameArena {
 
     /**
      * Called by SceneManager each time this scene becomes active.
-     * Resets player to canvas centre and starts the render loop.
+     * Resets player to the world centre and starts the render loop.
      */
     public void onEnter() {
-        double w = (canvas != null) ? canvas.getWidth()  : GameConfig.WINDOW_WIDTH;
-        double h = (canvas != null) ? canvas.getHeight() : GameConfig.WINDOW_HEIGHT;
+        // Spawn at centre of the active map content (floor area), not the full grid
+        if (mapManager != null && mapManager.getWorldWidth() > 0) {
+            playerX = mapManager.getActiveContentCenterX();
+            playerY = mapManager.getActiveContentCenterY();
+        } else {
+            double w = (canvas != null) ? canvas.getWidth()  : GameConfig.WINDOW_WIDTH;
+            double h = (canvas != null) ? canvas.getHeight() : GameConfig.WINDOW_HEIGHT;
+            playerX = w / 2.0;
+            playerY = h / 2.0;
+        }
 
-        // Reset player
-        playerX    = w / 2.0;
-        playerY    = h / 2.0;
         animFrame  = 0;
         animTimer  = 0.0;
         facingLeft = false;
         isMoving   = false;
-        lastNano   = 0L;
+        currentZone = -1;
+        pulseTimer  = 0.0;
+        lastNano    = 0L;
 
-        // Attach keyboard handlers (uses addEventHandler, safe alongside F11)
+        // Attach keyboard handlers
         if (scene != null && inputManager != null) {
             inputManager.attachToScene(scene);
         }
@@ -166,10 +178,6 @@ public class GameArena {
     private void update(double dt) {
         InputSnapshot input = inputManager.snapshot();
 
-        double w      = canvas.getWidth();
-        double h      = canvas.getHeight();
-        double margin = SPRITE_DISPLAY / 2.0;
-
         // ── Direction ────────────────────────────────────────────────────────
         double dx = 0, dy = 0;
         if (input.up())    dy -= 1;
@@ -177,7 +185,7 @@ public class GameArena {
         if (input.left())  dx -= 1;
         if (input.right()) dx += 1;
 
-        // Normalise diagonal so diagonal speed == cardinal speed
+        // Normalise diagonal
         if (dx != 0 && dy != 0) {
             double inv = 1.0 / Math.sqrt(2.0);
             dx *= inv;
@@ -187,26 +195,49 @@ public class GameArena {
         isMoving = (dx != 0 || dy != 0);
 
         if (isMoving) {
-            playerX += dx * GameConfig.PLAYER_SPEED * dt;
-            playerY += dy * GameConfig.PLAYER_SPEED * dt;
+            double speed  = GameConfig.PLAYER_SPEED;
+            double radius = GameConfig.PLAYER_RADIUS;
 
-            // Facing: only update when there is horizontal input
+            // ── Axis-separated collision ─────────────────────────────────────
+            // Try X
+            double newX = playerX + dx * speed * dt;
+            if (!isBlocked(newX, playerY, radius)) {
+                playerX = newX;
+            }
+            // Try Y (independently — allows sliding along walls)
+            double newY = playerY + dy * speed * dt;
+            if (!isBlocked(playerX, newY, radius)) {
+                playerY = newY;
+            }
+
             if (dx < 0) facingLeft = true;
             if (dx > 0) facingLeft = false;
-
-            // Clamp within arena bounds (with half-sprite margin)
-            playerX = clamp(playerX, margin, w - margin);
-            playerY = clamp(playerY, margin, h - margin);
         }
 
         // ── Animation ────────────────────────────────────────────────────────
-        // Reset frame index when animation state changes so we start at frame 0
         animTimer += dt;
         if (animTimer >= FRAME_DURATION) {
             animTimer -= FRAME_DURATION;
             int totalFrames = isMoving ? WALK_FRAMES : IDLE_FRAMES;
             animFrame = (animFrame + 1) % totalFrames;
         }
+
+        // ── Safe-zone detection ───────────────────────────────────────────────
+        currentZone = (mapManager != null) ? mapManager.getSafeZoneAt(playerX, playerY) : -1;
+        pulseTimer += dt;
+    }
+
+    /**
+     * Returns {@code true} if a circle at {@code (cx, cy)} with the given
+     * {@code radius} overlaps any solid tile. Checks the four corner points
+     * of the player's bounding box.
+     */
+    private boolean isBlocked(double cx, double cy, double radius) {
+        if (mapManager == null) return false;
+        return mapManager.isSolid(cx - radius, cy - radius)
+            || mapManager.isSolid(cx + radius, cy - radius)
+            || mapManager.isSolid(cx - radius, cy + radius)
+            || mapManager.isSolid(cx + radius, cy + radius);
     }
 
     // ── Render ───────────────────────────────────────────────────────────────
@@ -217,50 +248,98 @@ public class GameArena {
         double w = canvas.getWidth();
         double h = canvas.getHeight();
 
-        // 1. Arena: dark bg + grid + gold border
+        // 1. Arena map (tiles, fit-to-window)
         arenaRenderer.render(gc, w, h);
 
-        // 2. Player sprite
-        drawPlayer(gc);
+        // 2. Safe-zone indicator
+        if (currentZone != -1) {
+            drawSafeZoneIndicator(gc, w, h);
+        }
+
+        // 3. Player sprite
+        drawPlayer(gc, w, h);
     }
 
-    private void drawPlayer(GraphicsContext gc) {
-        String key    = isMoving ? "player_1_walk" : "player_1_idle";
-        Image  sheet  = spriteManager.get(key);
+    // ── Player rendering ─────────────────────────────────────────────────────
 
-        // Clamp frame index defensively
+    private void drawPlayer(GraphicsContext gc, double viewW, double viewH) {
+        // Convert world-pixel position → screen position
+        double screenX, screenY, displaySize;
+
+        if (mapManager != null && mapManager.getWorldWidth() > 0) {
+            double scale = mapManager.getScale(viewW, viewH);
+            screenX     = mapManager.worldToScreenX(playerX, viewW, viewH);
+            screenY     = mapManager.worldToScreenY(playerY, viewW, viewH);
+            // Display sprite proportionally: 2 tiles wide at the current map scale
+            displaySize = SPRITE_NATIVE * scale;
+        } else {
+            // Fallback: no map, render at 3× native in screen space
+            screenX     = playerX;
+            screenY     = playerY;
+            displaySize = SPRITE_NATIVE * 3.0;
+        }
+
+        String key   = isMoving ? "player_1_walk" : "player_1_idle";
+        Image  sheet = spriteManager.get(key);
+
         int maxFrames = isMoving ? WALK_FRAMES : IDLE_FRAMES;
         int frame     = Math.min(animFrame, maxFrames - 1);
-
-        double srcX = frame * SPRITE_NATIVE;      // X offset in sprite sheet
-        double drawX = playerX - SPRITE_DISPLAY / 2.0;
-        double drawY = playerY - SPRITE_DISPLAY / 2.0;
+        double srcX   = frame * SPRITE_NATIVE;
+        double drawX  = screenX - displaySize / 2.0;
+        double drawY  = screenY - displaySize / 2.0;
 
         if (sheet != null) {
             gc.save();
             if (facingLeft) {
-                // Mirror: translate right edge to draw position, then flip X
-                gc.translate(drawX + SPRITE_DISPLAY, drawY);
+                gc.translate(drawX + displaySize, drawY);
                 gc.scale(-1, 1);
                 gc.drawImage(sheet,
                         srcX, 0, SPRITE_NATIVE, SPRITE_NATIVE,
-                        0, 0, SPRITE_DISPLAY, SPRITE_DISPLAY);
+                        0, 0, displaySize, displaySize);
             } else {
                 gc.drawImage(sheet,
                         srcX, 0, SPRITE_NATIVE, SPRITE_NATIVE,
-                        drawX, drawY, SPRITE_DISPLAY, SPRITE_DISPLAY);
+                        drawX, drawY, displaySize, displaySize);
             }
             gc.restore();
         } else {
-            // Fallback placeholder: green circle with directional line
+            // Fallback circle
             gc.setFill(Color.web("#3E8948"));
-            double r = SPRITE_DISPLAY / 2.0;
-            gc.fillOval(playerX - r, playerY - r, SPRITE_DISPLAY, SPRITE_DISPLAY);
+            double r = displaySize / 2.0;
+            gc.fillOval(screenX - r, screenY - r, displaySize, displaySize);
             gc.setStroke(Color.web("#63C74D"));
             gc.setLineWidth(2);
-            double eyeX = facingLeft ? playerX - r * 0.3 : playerX + r * 0.3;
-            gc.strokeLine(playerX, playerY, eyeX, playerY - r * 0.4);
+            double eyeX = facingLeft ? screenX - r * 0.3 : screenX + r * 0.3;
+            gc.strokeLine(screenX, screenY, eyeX, screenY - r * 0.4);
         }
+    }
+
+    // ── Safe-zone indicator ───────────────────────────────────────────────────
+
+    private void drawSafeZoneIndicator(GraphicsContext gc, double viewW, double viewH) {
+        double screenX, screenY;
+        if (mapManager != null && mapManager.getWorldWidth() > 0) {
+            screenX = mapManager.worldToScreenX(playerX, viewW, viewH);
+            screenY = mapManager.worldToScreenY(playerY, viewW, viewH);
+        } else {
+            screenX = playerX;
+            screenY = playerY;
+        }
+
+        // Pulsing glow
+        double pulse = 0.18 + 0.12 * Math.sin(pulseTimer * 4.0);
+        gc.setFill(Color.rgb(74, 140, 92, pulse));
+        gc.fillOval(screenX - 44, screenY - 44, 88, 88);
+
+        // Label
+        gc.setFill(Color.web("#4a8c5c"));
+        try {
+            gc.setFont(Font.font("Press Start 2P", 7));
+        } catch (Exception ignored) {
+            gc.setFont(Font.font(9));
+        }
+        String label = "◆ SAFE ZONE " + currentZone + " ◆";
+        gc.fillText(label, screenX - 38, screenY - 48);
     }
 
     // ── HUD overlay buttons ──────────────────────────────────────────────────
@@ -326,10 +405,6 @@ public class GameArena {
             gameLoop.stop();
             gameLoop = null;
         }
-    }
-
-    private static double clamp(double v, double min, double max) {
-        return Math.max(min, Math.min(max, v));
     }
 
     /** Legacy accessor kept for SceneManager compatibility. */

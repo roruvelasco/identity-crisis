@@ -2,6 +2,7 @@ module com.identitycrisis {
     requires javafx.controls;
     requires javafx.graphics;
     requires javafx.media;
+    requires java.xml;
 
     exports com.identitycrisis.client;
     exports com.identitycrisis.server;
