@@ -298,6 +298,10 @@ public class CreateOrJoinScene {
         // 3. Build the client-side networking stack and connect to ourselves.
         LocalGameState        localState = new LocalGameState();
         ServerMessageRouter   router     = new ServerMessageRouter(localState);
+        router.setOnLobbyStateChanged(() -> {
+            int count = localState.getLobbyConnectedCount();
+            sceneManager.getLobbyScene().setPlayerCount(count);
+        });
         GameClient            gameClient = new GameClient(router);
         if (!connectWithRetry(gameClient, "localhost", port)) {
             embedded.stop();

@@ -2,6 +2,7 @@ package com.identitycrisis.client.net;
 
 import com.identitycrisis.shared.net.*;
 import com.identitycrisis.client.game.LocalGameState;
+import javafx.application.Platform;
 
 /**
  * Routes incoming server messages to update LocalGameState.
@@ -23,16 +24,45 @@ public class ServerMessageRouter {
     }
 
     public void route(MessageType type, MessageDecoder decoder) {
-        // switch (type):
-        //   S_LOBBY_STATE     → update lobby, fire onLobbyStateChanged
-        //   S_GAME_STATE      → localGameState.updateFromSnapshot(...)
-        //   S_ROUND_STATE     → localGameState.updateRoundState(...)
-        //   S_SAFE_ZONE       → localGameState.updateSafeZones(...)
-        //   S_PLAYER_ELIMINATED → mark eliminated, fire callback
-        //   S_CHAOS_EVENT     → localGameState.setChaosEvent(...)
-        //   S_CONTROL_SWAP    → localGameState.setControlledPlayerId(...)
-        //   S_GAME_OVER       → set game over, fire callback
-        //   S_CHAT_BROADCAST  → add chat message, fire callback
+        switch (type) {
+            case S_LOBBY_STATE -> {
+                MessageDecoder.LobbyStateData data = decoder.decodeLobbyState();
+                localGameState.updateLobbyState(data);
+                if (onLobbyStateChanged != null) {
+                    Platform.runLater(onLobbyStateChanged);
+                }
+            }
+            case S_GAME_STATE -> {
+                // localGameState.updateFromSnapshot(decoder.decodeGameState());
+            }
+            case S_ROUND_STATE -> {
+                // localGameState.updateRoundState(decoder.decodeRoundState());
+            }
+            case S_SAFE_ZONE -> {
+                // localGameState.updateSafeZones(decoder.decodeSafeZone());
+            }
+            case S_PLAYER_ELIMINATED -> {
+                // localGameState.markEliminated(decoder.decodeElimination());
+                // if (onElimination != null) Platform.runLater(onElimination);
+            }
+            case S_CHAOS_EVENT -> {
+                // localGameState.setChaosEvent(decoder.decodeChaosEvent());
+            }
+            case S_CONTROL_SWAP -> {
+                // localGameState.setControlledPlayerId(decoder.decodeControlSwap());
+            }
+            case S_GAME_OVER -> {
+                // localGameState.setGameOver(decoder.decodeGameOver());
+                // if (onGameOver != null) Platform.runLater(onGameOver);
+            }
+            case S_CHAT_BROADCAST -> {
+                // localGameState.addChatMessage(decoder.decodeChat());
+                // if (onChatReceived != null) Platform.runLater(onChatReceived);
+            }
+            default -> {
+                // Unknown message type — silently skip
+            }
+        }
     }
 
     public void setOnLobbyStateChanged(Runnable r) { this.onLobbyStateChanged = r; }

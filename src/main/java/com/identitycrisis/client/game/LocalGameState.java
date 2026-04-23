@@ -36,7 +36,12 @@ public class LocalGameState {
 
     // Update methods (network thread)
     public void updateFromSnapshot(MessageDecoder.GameStateData data) { }
-    public void updateLobbyState(MessageDecoder.LobbyStateData data) { }
+    public void updateLobbyState(MessageDecoder.LobbyStateData data) {
+        this.lobbyConnectedCount = data.connectedCount();
+        this.lobbyRequiredCount   = data.requiredCount();
+        this.lobbyPlayerNames     = data.names();
+        this.lobbyReadyFlags     = data.ready();
+    }
     public void updateRoundState(MessageDecoder.RoundStateData data) { }
     public void updateSafeZones(MessageDecoder.SafeZoneData data) { }
     public void markEliminated(MessageDecoder.EliminationData data) { }
@@ -60,7 +65,7 @@ public class LocalGameState {
     public String getWinnerName() { throw new UnsupportedOperationException("stub"); }
     public List<String> getChatMessages() { throw new UnsupportedOperationException("stub"); }
     public String getLastEliminatedName() { throw new UnsupportedOperationException("stub"); }
-    public int getLobbyConnectedCount() { throw new UnsupportedOperationException("stub"); }
+    public int getLobbyConnectedCount() { return lobbyConnectedCount; }
     public int getLobbyRequiredCount() { throw new UnsupportedOperationException("stub"); }
     public String[] getLobbyPlayerNames() { throw new UnsupportedOperationException("stub"); }
     public boolean[] getLobbyReadyFlags() { throw new UnsupportedOperationException("stub"); }

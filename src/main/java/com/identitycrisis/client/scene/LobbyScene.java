@@ -35,7 +35,6 @@ public class LobbyScene {
     private int playerCount = 1;
     private Label playerCountLabel;
     private Label lobbyFullLabel;
-    private Label testCountDisplay;
     private Label tipLabel;
     private int tipIndex = 0;
     private Timeline tipRotation;
@@ -296,10 +295,7 @@ public class LobbyScene {
         lobbyFullLabel.setVisible(false);
         lobbyFullLabel.setManaged(false);
 
-        // Mock test controls: [−] count [+]
-        HBox testControls = createTestControls();
-
-        container.getChildren().addAll(donutCanvas, playerCountLabel, lobbyFullLabel, testControls);
+        container.getChildren().addAll(donutCanvas, playerCountLabel, lobbyFullLabel);
         return container;
     }
 
@@ -348,75 +344,9 @@ public class LobbyScene {
         gc.strokeOval(cx - innerR, cy - innerR, innerR * 2, innerR * 2);
     }
 
-    private HBox createTestControls() {
-        HBox controls = new HBox(10);
-        controls.setAlignment(Pos.CENTER);
-        controls.setPadding(new Insets(6, 0, 0, 0));
-
-        String btnBase =
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 11px;" +
-            "-fx-text-fill: " + GOLD + ";" +
-            "-fx-background-color: " + STONE_PANEL + ";" +
-            "-fx-border-color: " + GOLD_DARK + ";" +
-            "-fx-border-width: 1px;" +
-            "-fx-cursor: hand;" +
-            "-fx-pref-width: 30px;" +
-            "-fx-pref-height: 26px;";
-
-        String btnHover =
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 11px;" +
-            "-fx-text-fill: " + GOLD_LIGHT + ";" +
-            "-fx-background-color: rgba(201,168,76,0.12);" +
-            "-fx-border-color: " + GOLD + ";" +
-            "-fx-border-width: 1px;" +
-            "-fx-cursor: hand;" +
-            "-fx-pref-width: 30px;" +
-            "-fx-pref-height: 26px;";
-
-        Button minus = new Button("−");
-        minus.setStyle(btnBase);
-        minus.setOnMouseEntered(e -> minus.setStyle(btnHover));
-        minus.setOnMouseExited(e -> minus.setStyle(btnBase));
-        minus.setOnAction(e -> {
-            if (playerCount > 1) {
-                playerCount--;
-                updatePlayerCount();
-            }
-        });
-
-        testCountDisplay = new Label(String.valueOf(playerCount));
-        testCountDisplay.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 9px;" +
-            "-fx-text-fill: " + TEXT_MUTED + ";" +
-            "-fx-pref-width: 22px;" +
-            "-fx-alignment: center;"
-        );
-
-        Button plus = new Button("+");
-        plus.setStyle(btnBase);
-        plus.setOnMouseEntered(e -> plus.setStyle(btnHover));
-        plus.setOnMouseExited(e -> plus.setStyle(btnBase));
-        plus.setOnAction(e -> {
-            if (playerCount < GameConfig.MAX_PLAYERS) {
-                playerCount++;
-                updatePlayerCount();
-            }
-        });
-
-
-        controls.getChildren().addAll(minus, testCountDisplay, plus);
-        return controls;
-    }
-
     private void updatePlayerCount() {
         drawDonut(playerCount);
         playerCountLabel.setText(playerCount + " / " + GameConfig.MAX_PLAYERS + " PLAYERS");
-        if (testCountDisplay != null) {
-            testCountDisplay.setText(String.valueOf(playerCount));
-        }
         boolean isFull = playerCount >= GameConfig.MAX_PLAYERS;
         lobbyFullLabel.setVisible(isFull);
         lobbyFullLabel.setManaged(isFull);
@@ -531,9 +461,6 @@ public class LobbyScene {
         }
         if (playerCountLabel != null) {
             playerCountLabel.setText(playerCount + " / " + GameConfig.MAX_PLAYERS + " PLAYERS");
-        }
-        if (testCountDisplay != null) {
-            testCountDisplay.setText("1");
         }
         if (lobbyFullLabel != null) {
             lobbyFullLabel.setVisible(false);
