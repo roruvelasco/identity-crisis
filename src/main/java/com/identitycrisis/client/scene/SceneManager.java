@@ -2,7 +2,9 @@ package com.identitycrisis.client.scene;
 
 import javafx.stage.Stage;
 import javafx.scene.Scene;
+import javafx.scene.layout.StackPane;
 import javafx.scene.input.KeyCombination;
+import javafx.scene.input.KeyEvent;
 import java.util.HashMap;
 import java.util.Map;
 import com.identitycrisis.client.net.GameClient;
@@ -10,6 +12,7 @@ import com.identitycrisis.client.game.LocalGameState;
 import com.identitycrisis.client.input.InputManager;
 import com.identitycrisis.server.EmbeddedServer;
 import com.identitycrisis.shared.model.GameConfig;
+import javafx.scene.Parent;
 
 /** Manages transitions between scenes by swapping Stage's Scene. */
 public class SceneManager {
@@ -19,14 +22,18 @@ public class SceneManager {
     private LocalGameState localGameState;
     private InputManager inputManager;
 
-    // Room-code / host-lifecycle state (populated by CreateOrJoinScene "Create Game"
-    // or JoinRoomScene "Join"; consumed by LobbyScene to display the code).
-    private EmbeddedServer embeddedServer; // non-null only when this client is the host
+    // Single permanent scene — the Stage's scene is set ONCE and never swapped.
+    // Content is changed via permanentScene.setRoot() so fullscreen is never reset.
+    private final Scene permanentScene;
+
+    // Cached root nodes (Parent) for each named screen.
+    // createScene() is called once; the root is extracted and the temp Scene discarded.
+    private final Map<String, Parent> roots = new HashMap<>();
+
+    // Room-code / host-lifecycle state
+    private EmbeddedServer embeddedServer;
     private String roomCode;
     private boolean isHost;
-
-    // Scene cache
-    private Map<String, Scene> scenes = new HashMap<>();
 
     // Scene controllers
     private InitialLoadingScene initialLoadingScene;
@@ -44,10 +51,38 @@ public class SceneManager {
         this.primaryStage = primaryStage;
         this.primaryStage.setFullScreenExitHint("");
         this.primaryStage.setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
-
-        // Release network resources on window close so the EmbeddedServer daemon
-        // thread and client socket don't linger after the FX app exits.
         this.primaryStage.setOnCloseRequest(e -> shutdownNetwork());
+
+        // Create the one permanent Scene. Its root is swapped via setRoot() on every
+        // navigation so the Stage's scene property never changes — fullscreen is preserved.
+        StackPane placeholder = new StackPane();
+        placeholder.setStyle("-fx-background-color: #0d0d14;");
+        permanentScene = new Scene(placeholder,
+                GameConfig.WINDOW_WIDTH, GameConfig.WINDOW_HEIGHT);
+
+        // Attach global CSS once.
+        try {
+            var css = getClass().getResource("/styles/global.css");
+            if (css != null) permanentScene.getStylesheets().add(css.toExternalForm());
+        } catch (Exception ignored) {}
+
+        // F11 / ESCAPE fullscreen toggle — addEventFilter so InputManager's
+        // addEventHandler is not overridden.
+        permanentScene.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
+            switch (event.getCode()) {
+                case F11  -> { toggleFullscreen(); event.consume(); }
+                case ESCAPE -> {
+                    if (primaryStage.isFullScreen()) {
+                        primaryStage.setFullScreen(false);
+                        event.consume();
+                    }
+                }
+                default -> {}
+            }
+        });
+
+        // Set the scene exactly once.
+        primaryStage.setScene(permanentScene);
 
         // Initialize scene controllers
         this.initialLoadingScene = new InitialLoadingScene(this);
@@ -81,116 +116,94 @@ public class SceneManager {
     }
 
     public void showInitialLoading() {
-        Scene scene = scenes.computeIfAbsent("initialloading", k -> initialLoadingScene.createScene());
-        setupFullscreenHandler(scene);
-        primaryStage.setScene(scene);
+        swapRoot("initialloading", initialLoadingScene::createScene);
         primaryStage.setTitle(GameConfig.WINDOW_TITLE + " - Loading");
         initialLoadingScene.onEnter();
     }
 
     public void showMenu() {
-        Scene scene = scenes.computeIfAbsent("menu", k -> menuScene.createScene());
-        setupFullscreenHandler(scene);
-        primaryStage.setScene(scene);
+        swapRoot("menu", menuScene::createScene);
         primaryStage.setTitle(GameConfig.WINDOW_TITLE + " - Main Menu");
     }
 
     public void showLoading() {
-        Scene scene = scenes.computeIfAbsent("loading", k -> loadingScene.createScene());
-        setupFullscreenHandler(scene);
-        primaryStage.setScene(scene);
+        swapRoot("loading", loadingScene::createScene);
         primaryStage.setTitle(GameConfig.WINDOW_TITLE + " - Loading");
         loadingScene.onEnter();
     }
 
     public void showCreateOrJoin() {
-        Scene scene = scenes.computeIfAbsent("createorjoin", k -> createOrJoinScene.createScene());
-        setupFullscreenHandler(scene);
-        primaryStage.setScene(scene);
+        swapRoot("createorjoin", createOrJoinScene::createScene);
         primaryStage.setTitle(GameConfig.WINDOW_TITLE + " - Create or Join");
     }
 
     public void showJoinRoom() {
-        Scene scene = scenes.computeIfAbsent("joinroom", k -> joinRoomScene.createScene());
-        setupFullscreenHandler(scene);
-        primaryStage.setScene(scene);
+        swapRoot("joinroom", joinRoomScene::createScene);
         primaryStage.setTitle(GameConfig.WINDOW_TITLE + " - Join Room");
     }
 
     public void showGameArena() {
-        Scene scene = scenes.computeIfAbsent("gamearena", k -> gameArena.createScene());
-        setupFullscreenHandler(scene);
-        primaryStage.setScene(scene);
+        swapRoot("gamearena", gameArena::createScene);
         primaryStage.setTitle(GameConfig.WINDOW_TITLE + " - Game Arena");
         gameArena.onEnter();
     }
 
     public void showLobby() {
-        Scene scene = scenes.computeIfAbsent("lobby", k -> lobbyScene.createScene());
-        setupFullscreenHandler(scene);
-        primaryStage.setScene(scene);
+        swapRoot("lobby", lobbyScene::createScene);
         primaryStage.setTitle(GameConfig.WINDOW_TITLE + " - Lobby");
         lobbyScene.onEnter();
     }
 
     public void showResult() {
-        Scene scene = scenes.computeIfAbsent("result", k -> resultScene.createScene());
-        setupFullscreenHandler(scene);
-        primaryStage.setScene(scene);
+        swapRoot("result", resultScene::createScene);
         primaryStage.setTitle(GameConfig.WINDOW_TITLE + " - Results");
     }
 
     public void showHowToPlay() {
-        Scene scene = scenes.computeIfAbsent("howtoplay", k -> howToPlayScene.createScene());
-        setupFullscreenHandler(scene);
-        primaryStage.setScene(scene);
+        swapRoot("howtoplay", howToPlayScene::createScene);
         primaryStage.setTitle(GameConfig.WINDOW_TITLE + " - How to Play");
     }
 
     public void showAbout() {
-        Scene scene = scenes.computeIfAbsent("about", k -> aboutScene.createScene());
-        setupFullscreenHandler(scene);
-        primaryStage.setScene(scene);
+        swapRoot("about", aboutScene::createScene);
         primaryStage.setTitle(GameConfig.WINDOW_TITLE + " - About");
     }
 
     /**
-     * Toggle fullscreen mode on the primary stage.
-     * Can be triggered by F11 key or fullscreen button.
+     * Returns the single permanent scene (always attached to the Stage).
+     * Used by GameArena to attach InputManager to the correct scene.
      */
-    public void toggleFullscreen() {
-        boolean isFullScreen = !primaryStage.isFullScreen();
-        primaryStage.setFullScreen(isFullScreen);
+    public Scene getPermanentScene() {
+        return permanentScene;
     }
 
     /**
-     * Check if the stage is currently in fullscreen mode.
+     * Swaps displayed content by replacing the permanent scene's root.
+     * The Stage's scene is never changed so JavaFX never resets fullscreen.
+     *
+     * @param key     cache key for this screen's root
+     * @param creator called once on first use to build the Scene (root extracted, Scene discarded)
      */
+    private void swapRoot(String key, java.util.function.Supplier<Scene> creator) {
+        Parent root = roots.computeIfAbsent(key, k -> {
+            Scene tmp = creator.get();
+            Parent r = tmp.getRoot();
+            // Detach r from tmp so it can be adopted by permanentScene.
+            // JavaFX enforces that a node can only be root of one scene at a time.
+            tmp.setRoot(new javafx.scene.layout.StackPane());
+            return r;
+        });
+        permanentScene.setRoot(root);
+    }
+
+    /** Toggle fullscreen on the primary stage. Can be triggered by F11 or the HUD button. */
+    public void toggleFullscreen() {
+        primaryStage.setFullScreen(!primaryStage.isFullScreen());
+    }
+
+    /** Returns {@code true} if the stage is currently in fullscreen mode. */
     public boolean isFullscreen() {
         return primaryStage.isFullScreen();
-    }
-
-    /**
-     * Set up F11 key handler for fullscreen toggle on a scene.
-     */
-    private void setupFullscreenHandler(Scene scene) {
-        scene.setOnKeyPressed(event -> {
-            switch (event.getCode()) {
-                case F11:
-                    toggleFullscreen();
-                    event.consume();
-                    break;
-                case ESCAPE:
-                    // Only exit fullscreen, don't propagate
-                    if (primaryStage.isFullScreen()) {
-                        primaryStage.setFullScreen(false);
-                        event.consume();
-                    }
-                    break;
-                default:
-                    break;
-            }
-        });
     }
 
     public Stage getStage() {

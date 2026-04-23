@@ -142,9 +142,9 @@ public class GameArena {
         pulseTimer  = 0.0;
         lastNano    = 0L;
 
-        // Attach keyboard handlers
-        if (scene != null && inputManager != null) {
-            inputManager.attachToScene(scene);
+        // Attach keyboard handlers to the permanent scene (the one JavaFX actually delivers events to)
+        if (inputManager != null) {
+            inputManager.attachToScene(sceneManager.getPermanentScene());
         }
 
         stopLoop();
@@ -168,8 +168,8 @@ public class GameArena {
      */
     public void onExit() {
         stopLoop();
-        if (scene != null && inputManager != null) {
-            inputManager.detachFromScene(scene);
+        if (inputManager != null) {
+            inputManager.detachFromScene(sceneManager.getPermanentScene());
         }
     }
 
