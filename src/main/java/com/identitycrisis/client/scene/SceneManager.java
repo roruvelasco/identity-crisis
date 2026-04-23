@@ -13,6 +13,8 @@ import com.identitycrisis.client.input.InputManager;
 import com.identitycrisis.server.EmbeddedServer;
 import com.identitycrisis.shared.model.GameConfig;
 import javafx.scene.Parent;
+import com.identitycrisis.client.audio.AudioManager;
+
 
 /** Manages transitions between scenes by swapping Stage's Scene. */
 public class SceneManager {
@@ -21,6 +23,8 @@ public class SceneManager {
     private GameClient gameClient;
     private LocalGameState localGameState;
     private InputManager inputManager;
+    private AudioManager audioManager;
+
 
     // Single permanent scene — the Stage's scene is set ONCE and never swapped.
     // Content is changed via permanentScene.setRoot() so fullscreen is never reset.
@@ -49,7 +53,9 @@ public class SceneManager {
 
     public SceneManager(Stage primaryStage) {
         this.primaryStage = primaryStage;
+        this.audioManager = new AudioManager();
         this.primaryStage.setFullScreenExitHint("");
+
         this.primaryStage.setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
         this.primaryStage.setOnCloseRequest(e -> shutdownNetwork());
 
@@ -103,7 +109,11 @@ public class SceneManager {
      * a room.
      */
     public void shutdownNetwork() {
+        if (audioManager != null) {
+            audioManager.stopBGM();
+        }
         if (gameClient != null) {
+
             gameClient.disconnect();
             gameClient = null;
         }
@@ -193,8 +203,18 @@ public class SceneManager {
             tmp.setRoot(new javafx.scene.layout.StackPane());
             return r;
         });
+
+        // Background Music Control
+        if ("gamearena".equals(key) || "initialloading".equals(key) || "loading".equals(key)) {
+            audioManager.stopBGM();
+        } else {
+            audioManager.playBGM("/audio/bgmusic.mp3");
+        }
+
+
         permanentScene.setRoot(root);
     }
+
 
     /** Toggle fullscreen on the primary stage. Can be triggered by F11 or the HUD button. */
     public void toggleFullscreen() {
@@ -233,6 +253,11 @@ public class SceneManager {
     public void setInputManager(InputManager inputManager) {
         this.inputManager = inputManager;
     }
+
+    public AudioManager getAudioManager() {
+        return audioManager;
+    }
+
 
     // ── Room / host lifecycle ──────────────────────────────────────────────
 

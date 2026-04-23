@@ -69,7 +69,11 @@ public class MenuScene {
         // Fullscreen button
         addFullscreenButton(root);
 
+        // Mute button
+        addMuteButton(root);
+
         // Scanlines overlay
+
         addScanlines(root);
 
         scene = new Scene(root, GameConfig.WINDOW_WIDTH, GameConfig.WINDOW_HEIGHT);
@@ -532,6 +536,49 @@ public class MenuScene {
         StackPane.setMargin(fullscreenBtn, new Insets(20, 20, 0, 0));
         root.getChildren().add(fullscreenBtn);
     }
+
+    private void addMuteButton(StackPane root) {
+        var audioManager = sceneManager.getAudioManager();
+        
+        Image onIcon = new Image(getClass().getResourceAsStream("/sprites/ui/volume_on.png"));
+        Image offIcon = new Image(getClass().getResourceAsStream("/sprites/ui/volume_off.png"));
+        
+        ImageView iconView = new ImageView(audioManager.isMuted() ? offIcon : onIcon);
+        iconView.setFitWidth(18);
+        iconView.setFitHeight(18);
+        iconView.setPreserveRatio(true);
+
+        Button muteBtn = new Button();
+        muteBtn.setGraphic(iconView);
+        muteBtn.setPrefSize(32, 32);
+        muteBtn.setMinSize(32, 32);
+        muteBtn.setMaxSize(32, 32);
+        muteBtn.setStyle(muteButtonStyle(false));
+
+        muteBtn.setOnMouseEntered(e -> muteBtn.setStyle(muteButtonStyle(true)));
+        muteBtn.setOnMouseExited(e -> muteBtn.setStyle(muteButtonStyle(false)));
+
+        muteBtn.setOnAction(e -> {
+            audioManager.toggleMute();
+            iconView.setImage(audioManager.isMuted() ? offIcon : onIcon);
+        });
+
+        StackPane.setAlignment(muteBtn, Pos.TOP_LEFT);
+        StackPane.setMargin(muteBtn, new Insets(20, 0, 0, 20));
+        root.getChildren().add(muteBtn);
+    }
+
+
+    private String muteButtonStyle(boolean hover) {
+        return "-fx-font-family: 'Segoe UI Symbol', 'Press Start 2P', monospace;" +
+               "-fx-font-size: 14px;" +
+               "-fx-text-fill: " + GOLD + ";" +
+               "-fx-background-color: " + (hover ? "rgba(201,168,76,0.1)" : STONE_MID) + ";" +
+               "-fx-border-color: " + (hover ? GOLD : GOLD_DARK) + ";" +
+               "-fx-border-width: 1px;" +
+               "-fx-cursor: hand;";
+    }
+
 
     private void addScanlines(StackPane root) {
         Pane scanlines = new Pane();
