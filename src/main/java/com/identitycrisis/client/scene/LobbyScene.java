@@ -40,6 +40,7 @@ public class LobbyScene {
     private Timeline tipRotation;
     private Label roomCodeLabel;
     private String roomCode;
+    private Button startBtn;
 
     private final String[] tips = {
         "Carry a teammate to safety — but you can't enter the safe zone while holding them.",
@@ -161,7 +162,7 @@ public class LobbyScene {
         VBox.setMargin(donutSection, new Insets(0, 0, 0, 0));
 
         // Start Game button - navigates to LoadingScene (then to GameArena)
-        Button startBtn = createPixelButton("▶  Start Game");
+        startBtn = createPixelButton("▶  Start Game");
         startBtn.setOnAction(e -> sceneManager.showLoading());
         VBox.setMargin(startBtn, new Insets(20, 0, 0, 0));
 
@@ -465,6 +466,12 @@ public class LobbyScene {
         if (lobbyFullLabel != null) {
             lobbyFullLabel.setVisible(false);
             lobbyFullLabel.setManaged(false);
+        }
+
+        if (startBtn != null) {
+            boolean isHost = sceneManager.isHost();
+            startBtn.setVisible(isHost);
+            startBtn.setManaged(isHost);
         }
 
         // Tip rotation
