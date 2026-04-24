@@ -1,4 +1,4 @@
-package com.identitycrisis.client.render;
+﻿package com.identitycrisis.client.render;
 
 import javafx.geometry.Rectangle2D;
 import javafx.scene.canvas.GraphicsContext;
@@ -465,7 +465,12 @@ public class MapManager {
 
         for (int row = 0; row < worldRows; row++) {
             for (int col = 0; col < worldCols; col++) {
-                // 1. Void: no floor tile of any kind → solid
+                // 1. Void: no floor tile of any kind → solid.
+                // For floor_2, a tile only grants walkable floor when it has no
+                // centre-covering collision shape (i.e. it is a pure floor tile).
+                // Wall-edge/ledge tiles in floor_2 DO have collision and must be
+                // handled in step 4 below, so we allow them to pass the hasFloor
+                // gate here — the void check is only about whether there is ANY tile.
                 boolean hasFloor = (floorGrid  != null && floorGrid[row][col]  != 0)
                                 || (floor2Grid != null && floor2Grid[row][col] != 0);
                 if (!hasFloor) {
@@ -479,23 +484,37 @@ public class MapManager {
                     continue;
                 }
 
-                // 3. Per-tile collision shapes: check walls layer
-                if (wallsGrid != null) {
-                    int gid = wallsGrid[row][col];
-                    if (gid != 0 && tileCollisionShapes.containsKey(gid)) {
-                        solid[row][col] = true;
-                        continue;
-                    }
-                    // Tiles in walls layer with no objectgroup still block fully
-                    if (gid != 0) {
+                // 3. Per-tile collision shapes: check walls layer.
+                //    Only tiles with a collision objectgroup in the tileset are solid.
+                //    Tiles with no objectgroup (e.g. door openings, passages) are
+                //    walkable even when placed in the walls layer.
+                if (tileHasAnyCollision(wallsGrid, row, col)) {
+                    solid[row][col] = true;
+                    continue;
+                }
+
+                // 4. Per-tile collision shapes: check floor_2 layer.
+                //    floor_2 mixes truly walkable floor tiles (no objectgroup at all
+                //    in the tileset) with wall-edge and ledge tiles (with objectgroups).
+                //    We use tileHasAnyCollision so that edge tiles whose shapes do NOT
+                //    cover the tile centre (8,8) — such as fire-pit ledges (height=7)
+                //    and treasure-chest borders — are still caught and marked solid.
+                //    Walkable floor tiles have no objectgroup and return false.
+                if (floor2Grid != null) {
+                    int gid = floor2Grid[row][col];
+                    if (gid != 0 && tileHasAnyCollision(floor2Grid, row, col)) {
                         solid[row][col] = true;
                         continue;
                     }
                 }
 
-                // 4. Objects with collision shapes block movement
-                boolean objectSolid = checkLayerForCollision(objGrid, row, col)
-                                   || checkLayerForCollision(obj2Grid, row, col);
+                // 5. Objects with collision shapes block movement.
+                //    Object tiles are never walkable floor, so ANY defined collision
+                //    shape (not just one covering the centre) makes the tile solid.
+                //    This catches fire-edge, chest-edge, and other partial-shape tiles
+                //    that do not reach tile centre (8,8).
+                boolean objectSolid = tileHasAnyCollision(objGrid,  row, col)
+                                   || tileHasAnyCollision(obj2Grid, row, col);
                 if (objectSolid) {
                     solid[row][col] = true;
                 }
@@ -503,17 +522,41 @@ public class MapManager {
         }
     }
 
+    /**
+     * Returns {@code true} if the tile at {@code (row,col)} in {@code grid} has
+     * a collision shape whose bounding rectangle contains the tile centre (8,8).
+     *
+     * <p>Kept as a utility for future use.  {@link #buildCollisionGrid} now uses
+     * {@link #tileHasAnyCollision} for all layers, which catches partial-shape
+     * tiles that miss the centre point.
+     */
     private boolean checkLayerForCollision(int[][] grid, int row, int col) {
         if (grid == null) return false;
         int gid = grid[row][col];
         if (gid == 0) return false;
         List<Rectangle2D> shapes = tileCollisionShapes.get(gid);
         if (shapes == null) return false;
-        // If the tile has any collision shape that covers the tile centre (8,8), it's solid
         for (Rectangle2D r : shapes) {
             if (r.contains(8, 8)) return true;
         }
         return false;
+    }
+
+    /**
+     * Returns {@code true} if the tile at {@code (row,col)} in {@code grid} has
+     * <em>any</em> collision shape defined in the tileset — regardless of shape
+     * position or size.
+     *
+     * <p>Used for {@code objects} and {@code objects2}: these tiles are never
+     * walkable floor, so the presence of <em>any</em> objectgroup is sufficient
+     * to mark the cell solid.  This catches partial-shape tiles such as fire-pit
+     * edges and chest edges whose shapes do not cover the tile centre (8,8).
+     */
+    private boolean tileHasAnyCollision(int[][] grid, int row, int col) {
+        if (grid == null) return false;
+        int gid = grid[row][col];
+        if (gid == 0) return false;
+        return tileCollisionShapes.containsKey(gid);
     }
 
     // ─────────────────────────────────────────────────────────────────────────

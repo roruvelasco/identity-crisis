@@ -42,6 +42,24 @@ public class GameArena {
     /** Animation speed: 8 fps → frame advances every 0.125 s. */
     private static final double FRAME_DURATION = 1.0 / 8.0;
 
+    // ── Tight hitbox — ALL values are in WORLD-PIXEL units (same space as playerX/Y) ──────────
+    //
+    // The tile grid uses TILE_SIZE = 16 world px per tile.  The character sprite is
+    // displayed at SPRITE_NATIVE (32 px) = 2 tiles wide, but the actual body art only
+    // covers about 6 px of that width and ~10 px of the height.  The centre of the
+    // sprite frame is the origin; the body sits in the lower-centre portion.
+    //
+    // A 1-tile-wide door/corridor is 16 world px. Half-width must stay well below 8 px
+    // so the player can squeeze through.  3 px gives comfortable passage while still
+    // blocking on solid tiles on either side.
+    //
+    //   hitbox half-extents (world px)
+    private static final double HIT_HALF_W =  3.0;   // body ≈ 6 px wide  (fits 1-tile door)
+    private static final double HIT_HALF_H =  5.0;   // body ≈ 10 px tall
+    //   hitbox centre offset from the sprite-frame centre (world px)
+    private static final double HIT_OFS_X  =  0.0;   // horizontally centred
+    private static final double HIT_OFS_Y  =  4.0;   // feet/body in lower half of the 32-px frame
+
     // ── Colour palette (shared with other scenes) ────────────────────────────
     private static final String GOLD           = "#c9a84c";
     private static final String GOLD_DARK      = "#8a6a1a";
@@ -196,17 +214,16 @@ public class GameArena {
 
         if (isMoving) {
             double speed  = GameConfig.PLAYER_SPEED;
-            double radius = GameConfig.PLAYER_RADIUS;
 
-            // ── Axis-separated collision ─────────────────────────────────────
+            // ── Axis-separated collision (tight hitbox — radius param unused) ─
             // Try X
             double newX = playerX + dx * speed * dt;
-            if (!isBlocked(newX, playerY, radius)) {
+            if (!isBlocked(newX, playerY, 0)) {
                 playerX = newX;
             }
             // Try Y (independently — allows sliding along walls)
             double newY = playerY + dy * speed * dt;
-            if (!isBlocked(playerX, newY, radius)) {
+            if (!isBlocked(playerX, newY, 0)) {
                 playerY = newY;
             }
 
@@ -228,16 +245,28 @@ public class GameArena {
     }
 
     /**
-     * Returns {@code true} if a circle at {@code (cx, cy)} with the given
-     * {@code radius} overlaps any solid tile. Checks the four corner points
-     * of the player's bounding box.
+     * Returns {@code true} if the player's tight hitbox rectangle overlaps any
+     * solid tile.  {@code (cx, cy)} is the world-pixel position of the sprite-
+     * frame centre (i.e. {@link #playerX} / {@link #playerY}).
+     *
+     * <p>All HIT_* constants are in <b>world-pixel</b> units — the same coordinate
+     * space as {@link #playerX}/{@link #playerY} and {@link MapManager#isSolid}.
+     * They must <em>not</em> be multiplied by the screen scale factor (which converts
+     * world→screen pixels) because {@code isSolid} works purely in world space.
+     *
+     * <p>The hitbox is static: it does not change with animation state.
      */
     private boolean isBlocked(double cx, double cy, double radius) {
         if (mapManager == null) return false;
-        return mapManager.isSolid(cx - radius, cy - radius)
-            || mapManager.isSolid(cx + radius, cy - radius)
-            || mapManager.isSolid(cx - radius, cy + radius)
-            || mapManager.isSolid(cx + radius, cy + radius);
+        // Hitbox corners in world-pixel space — no screen-scale multiplication needed.
+        double left   = cx + HIT_OFS_X - HIT_HALF_W;
+        double right  = cx + HIT_OFS_X + HIT_HALF_W;
+        double top    = cy + HIT_OFS_Y - HIT_HALF_H;
+        double bottom = cy + HIT_OFS_Y + HIT_HALF_H;
+        return mapManager.isSolid(left,  top)
+            || mapManager.isSolid(right, top)
+            || mapManager.isSolid(left,  bottom)
+            || mapManager.isSolid(right, bottom);
     }
 
     // ── Render ───────────────────────────────────────────────────────────────
