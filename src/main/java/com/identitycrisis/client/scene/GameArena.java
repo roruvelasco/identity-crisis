@@ -257,6 +257,22 @@ public class GameArena {
     private void update(double dt) {
         InputSnapshot input = inputManager.snapshot();
 
+        boolean reversed = false;
+        if (sceneManager != null && sceneManager.getLocalGameState() != null) {
+            reversed = (sceneManager.getLocalGameState().getActiveChaos() == com.identitycrisis.shared.model.ChaosEventType.REVERSED_CONTROLS);
+        }
+        if (inputManager != null && inputManager.isTestingReversed()) {
+            reversed = true;
+        }
+
+        if (reversed) {
+            input = new InputSnapshot(
+                input.down(), input.up(), input.right(), input.left(),
+                input.carry(), input.throwAction(), input.chatToggle()
+            );
+        }
+
+
         // ── Direction ────────────────────────────────────────────────────────
         double dx = 0, dy = 0;
         if (input.up())    dy -= 1;

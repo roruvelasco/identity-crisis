@@ -22,13 +22,28 @@ public class InputManager {
 
     private EventHandler<KeyEvent> keyPressedHandler;
     private EventHandler<KeyEvent> keyReleasedHandler;
+    
+    private boolean testingReversed = false;
+    private boolean uWasPressed = false;
 
     public InputManager() { }
 
     /** Registers key handlers on the scene. Idempotent — detaches first if already attached. */
     public void attachToScene(Scene scene) {
-        keyPressedHandler  = e -> pressedKeys.add(e.getCode());
-        keyReleasedHandler = e -> pressedKeys.remove(e.getCode());
+        keyPressedHandler  = e -> {
+            pressedKeys.add(e.getCode());
+            if (e.getCode() == KeyCode.U && !uWasPressed) {
+                testingReversed = !testingReversed;
+                uWasPressed = true;
+                System.out.println("[DEBUG] Reversed bindings debug toggle toggled via U: " + testingReversed);
+            }
+        };
+        keyReleasedHandler = e -> {
+            pressedKeys.remove(e.getCode());
+            if (e.getCode() == KeyCode.U) {
+                uWasPressed = false;
+            }
+        };
         scene.addEventHandler(KeyEvent.KEY_PRESSED,  keyPressedHandler);
         scene.addEventHandler(KeyEvent.KEY_RELEASED, keyReleasedHandler);
     }
@@ -59,5 +74,9 @@ public class InputManager {
 
     public boolean isPressed(KeyCode code) {
         return pressedKeys.contains(code);
+    }
+
+    public boolean isTestingReversed() {
+        return testingReversed;
     }
 }

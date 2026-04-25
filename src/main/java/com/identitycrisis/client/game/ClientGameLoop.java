@@ -28,16 +28,27 @@ public class ClientGameLoop extends AnimationTimer {
 
     @Override
     public void handle(long now) {
-        // double dt = (now - lastFrameTime) / 1_000_000_000.0
-        // InputSnapshot input = inputManager.snapshot()
-        // InputSnapshot modified = applyChaosModifications(input)
-        // gameClient.sendInput(...)
-        // renderer.render(localGameState, dt)
-        // lastFrameTime = now
+        if (lastFrameTime == 0) {
+            lastFrameTime = now;
+            return;
+        }
+        double dt = (now - lastFrameTime) / 1_000_000_000.0;
+        InputSnapshot input = inputManager.snapshot();
+        InputSnapshot modified = applyChaosModifications(input);
+        gameClient.sendInput(modified.up(), modified.down(), modified.left(), modified.right(), modified.carry(), modified.throwAction());
+        renderer.render(localGameState, dt);
+        lastFrameTime = now;
     }
 
     /** If REVERSED_CONTROLS active, invert movement keys. */
     private InputSnapshot applyChaosModifications(InputSnapshot raw) {
-        throw new UnsupportedOperationException("stub");
+        boolean reversed = (localGameState.getActiveChaos() == com.identitycrisis.shared.model.ChaosEventType.REVERSED_CONTROLS) || inputManager.isTestingReversed();
+        if (reversed) {
+            return new InputSnapshot(
+                raw.down(), raw.up(), raw.right(), raw.left(),
+                raw.carry(), raw.throwAction(), raw.chatToggle()
+            );
+        }
+        return raw;
     }
 }
