@@ -17,6 +17,8 @@ import javafx.scene.image.Image;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
+import javafx.scene.text.TextAlignment;
+import java.io.InputStream;
 
 /**
  * Game arena screen.
@@ -68,6 +70,38 @@ public class GameArena {
     private static final String TEXT_MUTED     = "#7a7060";
     private static final String TEXT_PARCHMENT = "#e8dfc4";
 
+    // ── Timer-panel colours (sampled directly from timer_ui.svg) ─────────────
+    /** Dark outline / text on the panel face. */
+    private static final Color TIMER_DARK    = Color.web("#181425");
+    /** Panel face background (used to clear behind text). */
+    private static final Color TIMER_FACE    = Color.web("#8B9BB4");
+    /** Header strip text colour. */
+    private static final Color TIMER_HEADER  = Color.web("#C0CBDC");
+    /** Urgent colour when ≤ 10 s remain. */
+    private static final Color TIMER_URGENT  = Color.web("#D04648");
+
+    // ── Timer-panel layout (native SVG px → screen at TIMER_SCALE ×) ─────────
+    /** Scale factor applied to the 64×32 SVG panel. */
+    private static final int    TIMER_SCALE      = 2;
+    /** Native panel dimensions (px). */
+    private static final int    TIMER_W_NATIVE   = 64;
+    private static final int    TIMER_H_NATIVE   = 32;
+    /** Panel screen size. */
+    private static final double TIMER_W          = TIMER_W_NATIVE * TIMER_SCALE;  // 128
+    private static final double TIMER_H          = TIMER_H_NATIVE * TIMER_SCALE;  //  64
+    /** Face area in native px (where countdown text lives). */
+    private static final double FACE_X_NATIVE    = 10;
+    private static final double FACE_Y_NATIVE    = 10;
+    private static final double FACE_W_NATIVE    = 44;
+    private static final double FACE_H_NATIVE    = 14;
+    /** Header strip in native px (where "ROUND N" label lives). */
+    private static final double HDR_X_NATIVE     = 10;
+    private static final double HDR_Y_NATIVE     =  6;
+    private static final double HDR_W_NATIVE     = 44;
+    private static final double HDR_H_NATIVE     =  4;
+    /** Warm-up round duration (seconds). */
+    private static final double TIMER_DURATION   = 45.0;
+
     // ── Scene graph ──────────────────────────────────────────────────────────
     private Scene  scene;
     private Canvas canvas;
@@ -92,6 +126,19 @@ public class GameArena {
     private int     currentZone;
     /** Accumulator for the safe-zone glow pulse animation. */
     private double  pulseTimer;
+
+    // ── Round / timer state ───────────────────────────────────────────────────
+    /** Current round number (1-based). Rounds 1–2 are timer-based (45 s). */
+    private int    roundNumber;
+    /** Seconds remaining in the current timer-based round. */
+    private double roundTimer;
+    /** True while the round countdown is actively ticking. */
+    private boolean timerRunning;
+    /** The timer_ui.png panel image, loaded once. */
+    private Image  timerPanelImage;
+    /** Cached "Press Start 2P" font at various sizes for the timer HUD. */
+    private Font   fontTimerLabel;
+    private Font   fontTimerFace;
 
     // ────────────────────────────────────────────────────────────────────────
 
@@ -131,6 +178,15 @@ public class GameArena {
         // InputManager created here; attached/detached in onEnter/onExit
         inputManager = new InputManager();
 
+        // Timer panel sprite
+        try (InputStream is = getClass().getResourceAsStream("/sprites/ui/toasts/timer_ui.png")) {
+            if (is != null) timerPanelImage = new Image(is);
+        } catch (Exception ignored) {}
+
+        // Pre-build fonts (Press Start 2P — loaded via global.css)
+        fontTimerLabel = loadFont("Press Start 2P",  6);   // header strip: "ROUND N"
+        fontTimerFace  = loadFont("Press Start 2P", 10);   // face area:   countdown
+
         return scene;
     }
 
@@ -159,6 +215,11 @@ public class GameArena {
         currentZone = -1;
         pulseTimer  = 0.0;
         lastNano    = 0L;
+
+        // Start from round 1 with a full 45-second timer
+        roundNumber  = 1;
+        roundTimer   = TIMER_DURATION;
+        timerRunning = true;
 
         // Attach keyboard handlers to the permanent scene (the one JavaFX actually delivers events to)
         if (inputManager != null) {
@@ -242,6 +303,21 @@ public class GameArena {
         // ── Safe-zone detection ───────────────────────────────────────────────
         currentZone = (mapManager != null) ? mapManager.getSafeZoneAt(playerX, playerY) : -1;
         pulseTimer += dt;
+
+        // ── Round timer (only ticks during warm-up rounds 1–2) ───────────────
+        if (timerRunning && roundNumber <= GameConfig.WARMUP_ROUNDS) {
+            roundTimer -= dt;
+            if (roundTimer <= 0) {
+                roundTimer   = 0;
+                timerRunning = false;
+                // Advance to next round and restart timer if still a warm-up round
+                roundNumber++;
+                if (roundNumber <= GameConfig.WARMUP_ROUNDS) {
+                    roundTimer   = TIMER_DURATION;
+                    timerRunning = true;
+                }
+            }
+        }
     }
 
     /**
@@ -287,6 +363,9 @@ public class GameArena {
 
         // 3. Player sprite
         drawPlayer(gc, w, h);
+
+        // 4. Round timer HUD (top-centre)
+        drawTimerHud(gc, w, h);
     }
 
     // ── Player rendering ─────────────────────────────────────────────────────
@@ -369,6 +448,108 @@ public class GameArena {
         }
         String label = "◆ SAFE ZONE " + currentZone + " ◆";
         gc.fillText(label, screenX - 38, screenY - 48);
+    }
+
+    // ── Timer HUD ────────────────────────────────────────────────────────────
+
+    /**
+     * Draws the pixel-art timer panel (timer_ui.png, scaled 2×) centred at the
+     * top of the screen.  Only visible during timer-based rounds (1–2).
+     * Hidden entirely for round 3+ (safe-zone-based rounds).
+     */
+    private void drawTimerHud(GraphicsContext gc, double viewW, double viewH) {
+        // Only shown during warm-up timer rounds
+        if (roundNumber > GameConfig.WARMUP_ROUNDS) return;
+        // Panel top-left position — centred horizontally, 16 px from top
+        double panelX = Math.round((viewW - TIMER_W) / 2.0);
+        double panelY = 16;
+
+        // ── Background panel ─────────────────────────────────────────────────
+        if (timerPanelImage != null) {
+            gc.drawImage(timerPanelImage, panelX, panelY, TIMER_W, TIMER_H);
+        } else {
+            // Fallback: hand-draw the panel using SVG colours
+            drawFallbackPanel(gc, panelX, panelY);
+        }
+
+
+        // ── Header strip — "ROUND N" ──────────────────────────────────────────
+        double hdrCX = panelX + (HDR_X_NATIVE + HDR_W_NATIVE / 2.0) * TIMER_SCALE;
+        double hdrCY = panelY + (HDR_Y_NATIVE + HDR_H_NATIVE / 2.0) * TIMER_SCALE + 4;
+        gc.save();
+        gc.setFont(fontTimerLabel);
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setFill(TIMER_HEADER);
+        gc.fillText("ROUND " + roundNumber, hdrCX, hdrCY);
+        gc.restore();
+
+        // ── Face area — countdown ───────────────────────────────────────────────
+        double faceCX = panelX + (FACE_X_NATIVE + FACE_W_NATIVE / 2.0) * TIMER_SCALE;
+        double faceCY = panelY + (FACE_Y_NATIVE + FACE_H_NATIVE / 2.0) * TIMER_SCALE + 5;
+
+        gc.save();
+        gc.setFont(fontTimerFace);
+        gc.setTextAlign(TextAlignment.CENTER);
+        // Countdown: urgent red in the last 10 seconds, dark otherwise
+        boolean urgent = (roundTimer <= 10.0);
+        if (urgent) {
+            // Subtle flicker on the text every half-second
+            double flicker = Math.sin(roundTimer * Math.PI * 2) > 0 ? 1.0 : 0.75;
+            gc.setGlobalAlpha(flicker);
+        }
+        gc.setFill(urgent ? TIMER_URGENT : TIMER_DARK);
+        gc.fillText(formatTime(roundTimer), faceCX, faceCY);
+        gc.restore();
+    }
+
+    /**
+     * Formats a time value as {@code M:SS} (e.g. 45 → "0:45", 9 → "0:09").
+     * Clamps to zero so no negative values are displayed.
+     */
+    private String formatTime(double seconds) {
+        int total = Math.max(0, (int) Math.ceil(seconds));
+        int m = total / 60;
+        int s = total % 60;
+        return m + ":" + String.format("%02d", s);
+    }
+
+    /**
+     * Fallback panel drawn entirely via {@link GraphicsContext} rectangles,
+     * matching the timer_ui.svg geometry at {@code TIMER_SCALE} ×.
+     * Used only if timer_ui.png fails to load.
+     */
+    private void drawFallbackPanel(GraphicsContext gc, double ox, double oy) {
+        double s = TIMER_SCALE;
+        gc.save();
+        // Outer dark border
+        gc.setFill(Color.web("#181425")); gc.fillRect(ox, oy, 64*s, 2*s);
+        gc.fillRect(ox, oy+2*s, 2*s, 30*s);
+        gc.fillRect(ox+62*s, oy+2*s, 2*s, 30*s);
+        gc.fillRect(ox+2*s, oy+30*s, 60*s, 2*s);
+        // Panel face
+        gc.setFill(Color.web("#8B9BB4")); gc.fillRect(ox+4*s, oy+4*s, 56*s, 24*s);
+        // Top highlight
+        gc.setFill(Color.web("#FFFFFF")); gc.fillRect(ox+4*s, oy+4*s, 56*s, 2*s);
+        // Side shadows
+        gc.setFill(Color.web("#8B9BB4")); gc.fillRect(ox+2*s, oy+4*s, 2*s, 24*s);
+        gc.fillRect(ox+60*s, oy+4*s, 2*s, 24*s);
+        // Header strip
+        gc.setFill(Color.web("#5A6988")); gc.fillRect(ox+10*s, oy+6*s, 44*s, 4*s);
+        gc.setFill(Color.web("#3A4466")); gc.fillRect(ox+8*s,  oy+6*s,  2*s, 4*s);
+        gc.fillRect(ox+54*s, oy+6*s, 2*s, 4*s);
+        // Bottom strip
+        gc.setFill(Color.web("#C0CBDC")); gc.fillRect(ox+8*s, oy+24*s, 48*s, 4*s);
+        gc.restore();
+    }
+
+    /**
+     * Loads a {@link Font} by family name, falling back to the system default
+     * if the named font is not available on this JVM.
+     */
+    private Font loadFont(String family, double size) {
+        Font f = Font.font(family, size);
+        // Font.font returns a fallback silently; check the name to detect it
+        return f;
     }
 
     // ── HUD overlay buttons ──────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-﻿package com.identitycrisis.client.render;
+package com.identitycrisis.client.render;
 
 import javafx.geometry.Rectangle2D;
 import javafx.scene.canvas.GraphicsContext;
@@ -29,6 +29,19 @@ public class MapManager {
 
     // ── Constants ─────────────────────────────────────────────────────────────
     private static final int TILE_SIZE = 16; // native px per tile in the TMX
+
+    /**
+     * Tiled encodes flip flags in the three most-significant bits of each GID
+     * stored in the layer CSV data:
+     *   bit 31 (0x80000000) = horizontal flip
+     *   bit 30 (0x40000000) = vertical flip
+     *   bit 29 (0x20000000) = diagonal (anti-diagonal) flip
+     * Stripping these bits gives the actual tileset GID used for tileset lookup
+     * and collision-shape lookup.  Without this mask, flipped tiles produce
+     * large/negative GIDs that match nothing in the tileset or collision maps,
+     * making them both invisible and non-solid.
+     */
+    private static final int GID_MASK = 0x1FFFFFFF;
 
     /** Render order: bottom-to-top visual layer names (safezone layers excluded). */
     private static final List<String> RENDER_LAYERS = List.of(
@@ -159,7 +172,7 @@ public class MapManager {
 
             for (int row = activeMinRow; row <= activeMaxRow; row++) {
                 for (int col = activeMinCol; col <= activeMaxCol; col++) {
-                    int gid = grid[row][col];
+                    int gid = grid[row][col] & GID_MASK;
                     if (gid == 0) continue;
 
                     TilesetInfo ts = findTileset(gid);
@@ -532,7 +545,7 @@ public class MapManager {
      */
     private boolean checkLayerForCollision(int[][] grid, int row, int col) {
         if (grid == null) return false;
-        int gid = grid[row][col];
+        int gid = grid[row][col] & GID_MASK;
         if (gid == 0) return false;
         List<Rectangle2D> shapes = tileCollisionShapes.get(gid);
         if (shapes == null) return false;
@@ -554,7 +567,7 @@ public class MapManager {
      */
     private boolean tileHasAnyCollision(int[][] grid, int row, int col) {
         if (grid == null) return false;
-        int gid = grid[row][col];
+        int gid = grid[row][col] & GID_MASK;
         if (gid == 0) return false;
         return tileCollisionShapes.containsKey(gid);
     }

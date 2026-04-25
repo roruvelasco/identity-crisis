@@ -133,3 +133,39 @@ This is the correct approach because:
 > The `walls` layer marks **any** non-zero tile as solid (no objectgroup check).
 > If you ever add walkable tiles to `walls`, add an objectgroup check matching
 > the pattern used in step 4.
+
+---
+
+## Tiled Flip Flags — GID Mask (MapManager)
+
+Tiled encodes horizontal / vertical / diagonal flip in the **three most-significant
+bits** of each tile GID written to the layer CSV:
+
+| Bit | Mask | Meaning |
+|-----|------|---------|
+| 31 | `0x80000000` | Horizontal flip |
+| 30 | `0x40000000` | Vertical flip |
+| 29 | `0x20000000` | Diagonal (anti-diagonal) flip |
+
+Without stripping these bits, flipped tiles produce large/negative GIDs that
+match nothing in `tilesets` or `tileCollisionShapes`, making them **invisible
+and non-solid** — the root cause of the door/cracked-wall collision failures.
+
+`MapManager` defines `GID_MASK = 0x1FFFFFFF` and applies it with `& GID_MASK`
+**before every lookup**:
+
+```java
+// render():
+int gid = grid[row][col] & GID_MASK;
+
+// tileHasAnyCollision():
+int gid = grid[row][col] & GID_MASK;
+
+// checkLayerForCollision():
+int gid = grid[row][col] & GID_MASK;
+```
+
+> [!CAUTION]
+> **Never** look up a raw `grid[row][col]` value directly in `tileCollisionShapes`
+> or `findTileset()` without applying `& GID_MASK` first. Presence checks
+> (`!= 0`) are the only safe operation on raw GIDs.
