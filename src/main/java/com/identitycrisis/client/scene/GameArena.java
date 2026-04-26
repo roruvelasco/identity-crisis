@@ -140,6 +140,16 @@ public class GameArena {
     private Font   fontTimerLabel;
     private Font   fontTimerFace;
 
+    // ── Round start popup state ────────────────────────────────────────────
+    /** True while the round start popup is being displayed. */
+    private boolean roundPopupActive;
+    /** Countdown timer for the round start popup (3.0 → 0.0). */
+    private double roundPopupTimer;
+    /** The round number being announced (for display consistency). */
+    private int popupRoundNumber;
+    /** Font for the large round announcement. */
+    private Font fontRoundPopup;
+
     // ────────────────────────────────────────────────────────────────────────
 
     public GameArena(SceneManager sceneManager) {
@@ -186,6 +196,7 @@ public class GameArena {
         // Pre-build fonts (Press Start 2P — loaded via global.css)
         fontTimerLabel = loadFont("Press Start 2P",  6);   // header strip: "ROUND N"
         fontTimerFace  = loadFont("Press Start 2P", 10);   // face area:   countdown
+        fontRoundPopup = loadFont("Press Start 2P", 24);   // round announcement popup
 
         return scene;
     }
@@ -220,6 +231,9 @@ public class GameArena {
         roundNumber  = 1;
         roundTimer   = TIMER_DURATION;
         timerRunning = true;
+
+        // Show round start popup for round 1
+        triggerRoundPopup(1);
 
         // Attach keyboard handlers to the permanent scene (the one JavaFX actually delivers events to)
         if (inputManager != null) {
@@ -328,10 +342,21 @@ public class GameArena {
                 timerRunning = false;
                 // Advance to next round and restart timer if still a warm-up round
                 roundNumber++;
+                // Show round start popup for the new round
+                triggerRoundPopup(roundNumber);
                 if (roundNumber <= GameConfig.WARMUP_ROUNDS) {
                     roundTimer   = TIMER_DURATION;
                     timerRunning = true;
                 }
+            }
+        }
+
+        // ── Round start popup countdown ─────────────────────────────────────
+        if (roundPopupActive) {
+            roundPopupTimer -= dt;
+            if (roundPopupTimer <= 0) {
+                roundPopupActive = false;
+                roundPopupTimer = 0;
             }
         }
     }
@@ -382,6 +407,9 @@ public class GameArena {
 
         // 4. Round timer HUD (top-centre)
         drawTimerHud(gc, w, h);
+
+        // 5. Round start popup overlay (center)
+        drawRoundPopup(gc, w, h);
     }
 
     // ── Player rendering ─────────────────────────────────────────────────────
@@ -527,6 +555,96 @@ public class GameArena {
         int m = total / 60;
         int s = total % 60;
         return m + ":" + String.format("%02d", s);
+    }
+
+    /**
+     * Triggers the round start popup with a 3-2-1 countdown.
+     * @param round the round number to announce
+     */
+    private void triggerRoundPopup(int round) {
+        popupRoundNumber = round;
+        roundPopupTimer = GameConfig.COUNTDOWN_SECONDS; // 3 seconds
+        roundPopupActive = true;
+    }
+
+    /**
+     * Draws an aesthetic round start popup at the center of the screen.
+     * Shows "ROUND X" with a pulsing countdown (3... 2... 1...).
+     */
+    private void drawRoundPopup(GraphicsContext gc, double viewW, double viewH) {
+        if (!roundPopupActive) return;
+
+        double centerX = viewW / 2.0;
+        double centerY = viewH / 2.0;
+
+        // Popup dimensions
+        double popupW = 400;
+        double popupH = 180;
+        double popupX = centerX - popupW / 2.0;
+        double popupY = centerY - popupH / 2.0;
+
+        // Calculate countdown number (3, 2, 1, or GO!)
+        int countdownValue = (int) Math.ceil(roundPopupTimer);
+        String countdownText = countdownValue > 0 ? String.valueOf(countdownValue) : "GO!";
+
+        // Pulsing scale effect for countdown
+        double pulse = 1.0 + 0.15 * Math.sin(roundPopupTimer * Math.PI * 4);
+        double countdownScale = pulse;
+
+        // ── Semi-transparent overlay ──────────────────────────────────────────
+        gc.setFill(Color.rgb(0, 0, 0, 0.4));
+        gc.fillRect(0, 0, viewW, viewH);
+
+        // ── Main panel with stone border aesthetic ────────────────────────────
+        // Outer glow/shadow
+        gc.setFill(Color.rgb(201, 168, 76, 0.3)); // Gold glow
+        gc.fillRoundRect(popupX - 8, popupY - 8, popupW + 16, popupH + 16, 16, 16);
+
+        // Main panel background
+        gc.setFill(Color.web("#1c1c26")); // STONE_PANEL
+        gc.fillRoundRect(popupX, popupY, popupW, popupH, 12, 12);
+
+        // Inner border
+        gc.setStroke(Color.web("#c9a84c")); // GOLD
+        gc.setLineWidth(3);
+        gc.strokeRoundRect(popupX + 4, popupY + 4, popupW - 8, popupH - 8, 8, 8);
+
+        // ── "ROUND X" header ────────────────────────────────────────────────
+        gc.save();
+        gc.setFont(fontRoundPopup);
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setFill(Color.web("#e8dfc4")); // TEXT_PARCHMENT
+        gc.fillText("ROUND " + popupRoundNumber, centerX, popupY + 55);
+        gc.restore();
+
+        // ── Decorative line ───────────────────────────────────────────────────
+        gc.setStroke(Color.web("#8a6a1a")); // GOLD_DARK
+        gc.setLineWidth(2);
+        gc.strokeLine(centerX - 80, popupY + 70, centerX + 80, popupY + 70);
+
+        // ── "starts in" subtitle ────────────────────────────────────────────
+        gc.save();
+        gc.setFont(loadFont("Press Start 2P", 12));
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setFill(Color.web("#7a7060")); // TEXT_MUTED
+        gc.fillText("starts in", centerX, popupY + 95);
+        gc.restore();
+
+        // ── Countdown number with pulse ───────────────────────────────────────
+        gc.save();
+        gc.setFont(Font.font("Press Start 2P", 48 * countdownScale));
+        gc.setTextAlign(TextAlignment.CENTER);
+
+        // Color based on countdown: 3=green, 2=yellow, 1=red, GO!=gold
+        Color countdownColor;
+        if (countdownValue == 3) countdownColor = Color.web("#4a8c5c");
+        else if (countdownValue == 2) countdownColor = Color.web("#d4a017");
+        else if (countdownValue == 1) countdownColor = Color.web("#d04648");
+        else countdownColor = Color.web("#c9a84c");
+
+        gc.setFill(countdownColor);
+        gc.fillText(countdownText, centerX, popupY + 145);
+        gc.restore();
     }
 
     /**
