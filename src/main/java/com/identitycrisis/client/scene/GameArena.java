@@ -374,7 +374,7 @@ public class GameArena {
         pulseTimer += dt;
 
         // ── Round timer (only ticks during warm-up rounds 1–2) ───────────────
-        if (timerRunning && roundNumber <= GameConfig.WARMUP_ROUNDS) {
+        if (timerRunning && !roundPopupActive && roundNumber <= GameConfig.WARMUP_ROUNDS) {
             roundTimer -= dt;
             if (roundTimer <= 0) {
                 roundTimer   = 0;
