@@ -18,6 +18,8 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
 import java.io.InputStream;
 
 /**
@@ -149,6 +151,8 @@ public class GameArena {
     private int popupRoundNumber;
     /** Font for the large round announcement. */
     private Font fontRoundPopup;
+    /** Audio player for the 3-second countdown timer sound. */
+    private MediaPlayer countdownAudio;
 
     // ────────────────────────────────────────────────────────────────────────
 
@@ -191,6 +195,15 @@ public class GameArena {
         // Timer panel sprite
         try (InputStream is = getClass().getResourceAsStream("/sprites/ui/toasts/timer_ui.png")) {
             if (is != null) timerPanelImage = new Image(is);
+        } catch (Exception ignored) {}
+
+        // Load countdown audio (3 seconds)
+        try {
+            java.net.URL audioUrl = getClass().getResource("/sprites/ui/3sectimer.mp3");
+            if (audioUrl != null) {
+                countdownAudio = new MediaPlayer(new Media(audioUrl.toExternalForm()));
+                countdownAudio.setVolume(0.8);
+            }
         } catch (Exception ignored) {}
 
         // Pre-build fonts (Press Start 2P — loaded via global.css)
@@ -563,8 +576,14 @@ public class GameArena {
      */
     private void triggerRoundPopup(int round) {
         popupRoundNumber = round;
-        roundPopupTimer = GameConfig.COUNTDOWN_SECONDS; // 3 seconds
+        roundPopupTimer = GameConfig.COUNTDOWN_SECONDS; // 3 seconds - matches audio length
         roundPopupActive = true;
+
+        // Play countdown audio
+        if (countdownAudio != null) {
+            countdownAudio.seek(javafx.util.Duration.ZERO);
+            countdownAudio.play();
+        }
     }
 
     /**
