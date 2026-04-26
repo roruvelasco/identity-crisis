@@ -20,6 +20,9 @@ import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
+import javafx.scene.layout.VBox;
+import javafx.scene.control.Label;
+import javafx.scene.input.KeyCode;
 import java.io.InputStream;
 
 /**
@@ -153,6 +156,15 @@ public class GameArena {
     private Font fontRoundPopup;
     /** Audio player for the 3-second countdown timer sound. */
     private MediaPlayer countdownAudio;
+    
+    // ── Pause state ──────────────────────────────────────────────────────────
+    private boolean isPaused = false;
+    private boolean escWasPressed = false;
+    private StackPane pauseOverlay;
+    private javafx.scene.layout.VBox pauseMenu;
+    private javafx.scene.layout.VBox confirmMenu;
+    private javafx.scene.control.Label confirmLabel;
+    private Runnable confirmAction;
 
     // ────────────────────────────────────────────────────────────────────────
 
@@ -174,8 +186,10 @@ public class GameArena {
         root.getChildren().add(canvas);
 
         // HUD overlay buttons (drawn in JavaFX, not on canvas)
-        addBackButton(root);
         addFullscreenButton(root);
+
+        // Pause Overlay (Initially hidden)
+        createPauseOverlay(root);
 
         scene = new Scene(root, GameConfig.WINDOW_WIDTH, GameConfig.WINDOW_HEIGHT);
         scene.getStylesheets().add(
@@ -245,6 +259,9 @@ public class GameArena {
         roundTimer   = TIMER_DURATION;
         timerRunning = true;
 
+        isPaused = false;
+        if (pauseOverlay != null) pauseOverlay.setVisible(false);
+
         // Show round start popup for round 1
         triggerRoundPopup(1);
 
@@ -282,6 +299,15 @@ public class GameArena {
     // ── Update (game logic) ──────────────────────────────────────────────────
 
     private void update(double dt) {
+        // Handle ESC key for pausing
+        boolean escPressed = inputManager != null && inputManager.isPressed(KeyCode.ESCAPE);
+        if (escPressed && !escWasPressed) {
+            togglePause();
+        }
+        escWasPressed = escPressed;
+
+        if (isPaused) return;
+
         InputSnapshot input = inputManager.snapshot();
 
         boolean reversed = false;
@@ -615,10 +641,6 @@ public class GameArena {
         gc.fillRect(0, 0, viewW, viewH);
 
         // ── Main panel with stone border aesthetic ────────────────────────────
-        // Outer glow/shadow
-        gc.setFill(Color.rgb(201, 168, 76, 0.3)); // Gold glow
-        gc.fillRoundRect(popupX - 8, popupY - 8, popupW + 16, popupH + 16, 16, 16);
-
         // Main panel background
         gc.setFill(Color.web("#1c1c26")); // STONE_PANEL
         gc.fillRoundRect(popupX, popupY, popupW, popupH, 12, 12);
@@ -762,6 +784,126 @@ public class GameArena {
     }
 
     // ── Utilities ────────────────────────────────────────────────────────────
+
+    private void createPauseOverlay(StackPane root) {
+        pauseOverlay = new StackPane();
+        pauseOverlay.setVisible(false);
+        pauseOverlay.setStyle("-fx-background-color: rgba(0, 0, 0, 0.4);"); // Subtle dimming
+
+        // ── Main Box (Small panel in the center) ─────────────────────────────
+        VBox box = new VBox();
+        box.setAlignment(Pos.CENTER);
+        box.setMaxSize(360, 280);
+        box.setMinSize(360, 280);
+        box.setStyle("-fx-background-color: #1c1c26; " +
+                     "-fx-border-color: #3a3a50; " +
+                     "-fx-border-width: 3px; " +
+                     "-fx-effect: dropshadow(gaussian, black, 20, 0, 0, 0);");
+
+        // Use a StackPane to swap menus in the same spot
+        StackPane menuContainer = new StackPane();
+        menuContainer.setAlignment(Pos.CENTER);
+
+        // ── Pause Menu ───────────────────────────────────────────────────────
+        pauseMenu = new VBox(20);
+        pauseMenu.setAlignment(Pos.CENTER);
+
+        Label pausedLabel = new Label("PAUSED");
+        pausedLabel.setStyle("-fx-font-family: 'Press Start 2P'; -fx-font-size: 18px; -fx-text-fill: #e8dfc4;");
+
+        Button resumeBtn = createMenuButton("RESUME");
+        resumeBtn.setOnAction(e -> togglePause());
+
+        Button menuBtn = createMenuButton("MAIN MENU");
+        menuBtn.setOnAction(e -> showConfirmMenu("RETURN TO MENU?", () -> {
+            onExit();
+            sceneManager.shutdownNetwork();
+            sceneManager.showMenu();
+        }));
+
+        Button quitBtn = createMenuButton("QUIT GAME");
+        quitBtn.setOnAction(e -> showConfirmMenu("QUIT TO DESKTOP?", () -> {
+            javafx.application.Platform.exit();
+            System.exit(0);
+        }));
+
+        pauseMenu.getChildren().addAll(pausedLabel, resumeBtn, menuBtn, quitBtn);
+
+        // ── Confirmation Menu ────────────────────────────────────────────────
+        confirmMenu = new VBox(25);
+        confirmMenu.setAlignment(Pos.CENTER);
+        confirmMenu.setVisible(false);
+
+        confirmLabel = new Label("ARE YOU SURE?");
+        confirmLabel.setStyle("-fx-font-family: 'Press Start 2P'; -fx-font-size: 11px; -fx-text-fill: #e8dfc4;");
+        confirmLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+        confirmLabel.setAlignment(Pos.CENTER);
+        confirmLabel.setMaxWidth(300);
+        confirmLabel.setWrapText(true);
+
+        javafx.scene.layout.HBox confirmButtons = new javafx.scene.layout.HBox(20);
+        confirmButtons.setAlignment(Pos.CENTER);
+
+        Button yesBtn = createMenuButton("YES");
+        yesBtn.setMinWidth(110);
+        yesBtn.setOnAction(e -> {
+            if (confirmAction != null) confirmAction.run();
+        });
+
+        Button noBtn = createMenuButton("NO");
+        noBtn.setMinWidth(110);
+        noBtn.setOnAction(e -> showPauseMenu());
+
+        confirmButtons.getChildren().addAll(yesBtn, noBtn);
+        confirmMenu.getChildren().addAll(confirmLabel, confirmButtons);
+
+        menuContainer.getChildren().addAll(pauseMenu, confirmMenu);
+        box.getChildren().add(menuContainer);
+        pauseOverlay.getChildren().add(box);
+        root.getChildren().add(pauseOverlay);
+    }
+
+    private Button createMenuButton(String text) {
+        Button btn = new Button(text);
+        btn.setMinWidth(220);
+        btn.setStyle(pauseButtonStyle(false));
+        btn.setOnMouseEntered(e -> btn.setStyle(pauseButtonStyle(true)));
+        btn.setOnMouseExited(e -> btn.setStyle(pauseButtonStyle(false)));
+        return btn;
+    }
+
+    private String pauseButtonStyle(boolean hover) {
+        return "-fx-font-family: 'Press Start 2P', monospace;" +
+               "-fx-font-size: 10px;" +
+               "-fx-text-fill: " + (hover ? "#ffffff" : "#b0a890") + ";" +
+               "-fx-background-color: " + (hover ? "#3a3a50" : "#252535") + ";" +
+               "-fx-border-color: " + (hover ? "#e8dfc4" : "#3a3a50") + ";" +
+               "-fx-border-width: 2px;" +
+               "-fx-padding: 12px 15px;" +
+               "-fx-cursor: hand;" +
+               "-fx-background-radius: 0;" +
+               "-fx-border-radius: 0;";
+    }
+
+    private void togglePause() {
+        isPaused = !isPaused;
+        pauseOverlay.setVisible(isPaused);
+        if (isPaused) {
+            showPauseMenu();
+        }
+    }
+
+    private void showPauseMenu() {
+        pauseMenu.setVisible(true);
+        confirmMenu.setVisible(false);
+    }
+
+    private void showConfirmMenu(String question, Runnable action) {
+        confirmLabel.setText(question);
+        confirmAction = action;
+        pauseMenu.setVisible(false);
+        confirmMenu.setVisible(true);
+    }
 
     private void stopLoop() {
         if (gameLoop != null) {
