@@ -169,3 +169,64 @@ int gid = grid[row][col] & GID_MASK;
 > **Never** look up a raw `grid[row][col]` value directly in `tileCollisionShapes`
 > or `findTileset()` without applying `& GID_MASK` first. Presence checks
 > (`!= 0`) are the only safe operation on raw GIDs.
+
+---
+
+## Walls Layer — Always Solid
+
+The `walls` layer is treated **the same as water**: every non-zero tile (after
+stripping flip flags) marks the cell solid, regardless of whether the tile has
+an `<objectgroup>` in the tileset.
+
+This is necessary because `walls_floor.png` tiles do **not** have objectgroups
+for most of their IDs — Tiled considers the collision implicit for wall tiles.
+Using `tileHasAnyCollision` for the walls layer silently allowed players to walk
+through wall tiles that had no XML collision definition.
+
+```java
+// buildCollisionGrid() — step 3:
+if (wallsGrid != null && (wallsGrid[row][col] & GID_MASK) != 0) {
+    solid[row][col] = true;
+    continue;
+}
+```
+
+> [!IMPORTANT]
+> If a walkable passage tile (e.g. a door opening) is placed in the `walls`
+> layer, it will still be solid. Place door openings in the `objects` layer
+> instead, where collision is objectgroup-driven.
+
+---
+
+## Tile Animations (MapManager)
+
+`MapManager` supports Tiled's `<animation>` system. Any `<tile>` element in a
+tileset that contains an `<animation>` child will be animated at runtime.
+
+### How it works
+
+1. **Parsing** (`parseTilesets`): each `<frame tileid="N" duration="D"/>` is
+   read into `tileAnimations` keyed by the trigger tile's **global** id.
+   Frames store a **local** id (within the same tileset) and duration in ms.
+
+2. **Clock** (`render`): a shared `elapsedMs` counter advances each frame via
+   `System.nanoTime()`. All instances of the same tile stay in sync.
+
+3. **Frame resolution** (`resolveAnimLocalId`): `elapsedMs % totalCycleDuration`
+   selects the current frame. The local-id is used to compute `srcX/srcY` on
+   the spritesheet.
+
+### Affected tilesets
+
+| Tileset | firstgid | Animation tiles |
+|---------|----------|-----------------|
+| `fire_animation` | 5159 | All tiles (6-frame fire, 150 ms each) |
+| `fire_animation2` | 5357 | All tiles |
+| `trap_animation` | 5795 | All tiles |
+| `Water_coasts_animation` | 870 | Water coast tiles |
+| `doors_lever_chest_animation` | 5429 | Door/chest open sequences |
+
+> [!NOTE]
+> The `objects` and `objects2` layers use these animated tilesets.
+> The animation clock is wall-clock based, not game-tick based, so it runs
+> correctly even if the game loop is paused.

@@ -57,6 +57,25 @@ public class MapManager {
     // ── Tileset record ────────────────────────────────────────────────────────
     private record TilesetInfo(int firstGid, int lastGid, int columns, Image image) {}
 
+    // ── Animation data ────────────────────────────────────────────────────────
+    /**
+     * One frame in a tile animation: local tile-id to display and its duration in ms.
+     */
+    private record AnimFrame(int localId, int durationMs) {}
+
+    /**
+     * Animation sequences keyed by global tile ID (the "trigger" tile placed in the map).
+     * Value = ordered list of frames (localId within the same tileset, durationMs).
+     */
+    private final Map<Integer, List<AnimFrame>> tileAnimations = new HashMap<>();
+
+    /**
+     * Elapsed wall-clock time in milliseconds, advanced each {@link #render} call.
+     * Used to index into animation sequences without storing per-tile state.
+     */
+    private long elapsedMs = 0;
+    private long lastRenderNano = 0;
+
     // ── Parsed data ───────────────────────────────────────────────────────────
     /** All tilesets sorted by firstGid ascending. */
     private final List<TilesetInfo> tilesets = new ArrayList<>();
@@ -158,6 +177,13 @@ public class MapManager {
         if (tilesets.isEmpty()) return;
         recomputeScale(viewW, viewH);
 
+        // ── Advance animation clock ───────────────────────────────────────────
+        long now = System.nanoTime();
+        if (lastRenderNano != 0) {
+            elapsedMs += (now - lastRenderNano) / 1_000_000L;
+        }
+        lastRenderNano = now;
+
         double sx   = lastScaleX;
         double sy   = lastScaleY;
         double offX = lastOffsetX;
@@ -178,7 +204,9 @@ public class MapManager {
                     TilesetInfo ts = findTileset(gid);
                     if (ts == null || ts.image() == null) continue;
 
-                    int localId = gid - ts.firstGid();
+                    // ── Animation: resolve current frame local-id ─────────────
+                    int localId = resolveAnimLocalId(gid, ts.firstGid());
+
                     double srcX = (localId % ts.columns()) * TILE_SIZE;
                     double srcY = (localId / ts.columns()) * TILE_SIZE;
 
@@ -196,6 +224,31 @@ public class MapManager {
 
             if (isShadow) gc.restore();
         }
+    }
+
+    /**
+     * Resolves the current animation frame local-id for a given global tile id.
+     * If the tile has no animation, returns the base local-id (gid - firstGid).
+     * Uses the shared {@link #elapsedMs} clock so all instances of the same
+     * tile stay in sync regardless of map position.
+     */
+    private int resolveAnimLocalId(int gid, int firstGid) {
+        List<AnimFrame> frames = tileAnimations.get(gid);
+        if (frames == null || frames.isEmpty()) return gid - firstGid;
+
+        // Compute total cycle duration
+        int totalMs = 0;
+        for (AnimFrame f : frames) totalMs += f.durationMs();
+        if (totalMs <= 0) return gid - firstGid;
+
+        // Position within the cycle
+        long pos = elapsedMs % totalMs;
+        long acc = 0;
+        for (AnimFrame f : frames) {
+            acc += f.durationMs();
+            if (pos < acc) return f.localId();
+        }
+        return frames.get(frames.size() - 1).localId();
     }
 
     /**
@@ -319,7 +372,7 @@ public class MapManager {
 
             tilesets.add(new TilesetInfo(firstGid, lastGid, columns, img));
 
-            // Parse per-tile collision shapes
+            // Parse per-tile collision shapes AND animation sequences
             NodeList tileNodes = ts.getElementsByTagName("tile");
             for (int t = 0; t < tileNodes.getLength(); t++) {
                 Element tileEl = (Element) tileNodes.item(t);
@@ -329,41 +382,54 @@ public class MapManager {
                 int localId = Integer.parseInt(tileEl.getAttribute("id"));
                 int globalId = firstGid + localId;
 
+                // ── Collision shapes ──────────────────────────────────────────
                 NodeList ogList = tileEl.getElementsByTagName("objectgroup");
-                if (ogList.getLength() == 0) continue;
+                if (ogList.getLength() > 0) {
+                    Element og = (Element) ogList.item(0);
+                    NodeList objects = og.getElementsByTagName("object");
+                    List<Rectangle2D> shapes = new ArrayList<>();
 
-                Element og = (Element) ogList.item(0);
-                NodeList objects = og.getElementsByTagName("object");
-                List<Rectangle2D> shapes = new ArrayList<>();
+                    for (int o = 0; o < objects.getLength(); o++) {
+                        Element obj = (Element) objects.item(o);
+                        String wAttr = obj.getAttribute("width");
+                        String hAttr = obj.getAttribute("height");
+                        double ox = parseDoubleAttr(obj, "x", 0);
+                        double oy = parseDoubleAttr(obj, "y", 0);
 
-                for (int o = 0; o < objects.getLength(); o++) {
-                    Element obj = (Element) objects.item(o);
-                    // Simple rectangle collision (width/height attributes present)
-                    String wAttr = obj.getAttribute("width");
-                    String hAttr = obj.getAttribute("height");
-
-                    double ox = parseDoubleAttr(obj, "x", 0);
-                    double oy = parseDoubleAttr(obj, "y", 0);
-
-                    if (!wAttr.isEmpty() && !hAttr.isEmpty()) {
-                        // Rectangle object
-                        double ow = Double.parseDouble(wAttr);
-                        double oh = Double.parseDouble(hAttr);
-                        shapes.add(new Rectangle2D(ox, oy, ow, oh));
-                    } else {
-                        // Polygon / point: use bounding-box of polygon points
-                        NodeList polyNodes = obj.getElementsByTagName("polygon");
-                        if (polyNodes.getLength() > 0) {
-                            String points = ((Element) polyNodes.item(0)).getAttribute("points");
-                            Rectangle2D bbox = polygonBoundingBox(points, ox, oy);
-                            if (bbox != null) shapes.add(bbox);
+                        if (!wAttr.isEmpty() && !hAttr.isEmpty()) {
+                            double ow = Double.parseDouble(wAttr);
+                            double oh = Double.parseDouble(hAttr);
+                            shapes.add(new Rectangle2D(ox, oy, ow, oh));
                         } else {
-                            // Fallback: full tile
-                            shapes.add(new Rectangle2D(0, 0, TILE_SIZE, TILE_SIZE));
+                            NodeList polyNodes = obj.getElementsByTagName("polygon");
+                            if (polyNodes.getLength() > 0) {
+                                String points = ((Element) polyNodes.item(0)).getAttribute("points");
+                                Rectangle2D bbox = polygonBoundingBox(points, ox, oy);
+                                if (bbox != null) shapes.add(bbox);
+                            } else {
+                                shapes.add(new Rectangle2D(0, 0, TILE_SIZE, TILE_SIZE));
+                            }
                         }
                     }
+                    if (!shapes.isEmpty()) tileCollisionShapes.put(globalId, shapes);
                 }
-                if (!shapes.isEmpty()) tileCollisionShapes.put(globalId, shapes);
+
+                // ── Animation frames ──────────────────────────────────────────
+                // Each <tile> may have one <animation> child with ordered <frame> elements.
+                // Frames reference local tile-ids within the same tileset.
+                NodeList animList = tileEl.getElementsByTagName("animation");
+                if (animList.getLength() > 0) {
+                    Element animEl = (Element) animList.item(0);
+                    NodeList frameNodes = animEl.getElementsByTagName("frame");
+                    List<AnimFrame> frames = new ArrayList<>();
+                    for (int f = 0; f < frameNodes.getLength(); f++) {
+                        Element frameEl = (Element) frameNodes.item(f);
+                        int frameLocalId  = Integer.parseInt(frameEl.getAttribute("tileid"));
+                        int frameDuration = Integer.parseInt(frameEl.getAttribute("duration"));
+                        frames.add(new AnimFrame(frameLocalId, frameDuration));
+                    }
+                    if (!frames.isEmpty()) tileAnimations.put(globalId, frames);
+                }
             }
         }
 
@@ -497,11 +563,15 @@ public class MapManager {
                     continue;
                 }
 
-                // 3. Per-tile collision shapes: check walls layer.
-                //    Only tiles with a collision objectgroup in the tileset are solid.
-                //    Tiles with no objectgroup (e.g. door openings, passages) are
-                //    walkable even when placed in the walls layer.
-                if (tileHasAnyCollision(wallsGrid, row, col)) {
+                // 3. Walls layer — every non-zero tile is solid.
+                //    The walls_floor tileset does not define objectgroups for most
+                //    of its tiles (they have implicit full-tile collision in Tiled).
+                //    Relying on tileHasAnyCollision would silently skip those tiles.
+                //    Treat the walls layer exactly like water: presence == solid.
+                //    Exception: tile GIDs that ARE in tileCollisionShapes with
+                //    explicitly empty shapes (none added) are still treated as solid
+                //    because the layer itself implies obstruction.
+                if (wallsGrid != null && (wallsGrid[row][col] & GID_MASK) != 0) {
                     solid[row][col] = true;
                     continue;
                 }
