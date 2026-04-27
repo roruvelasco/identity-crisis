@@ -728,24 +728,13 @@ public class MapManager {
         int activeCols = activeMaxCol - activeMinCol + 1;
         int activeRows = activeMaxRow - activeMinRow + 1;
 
-        // Scale so the active content fills the full window height.
-        // Aspect ratio is preserved; remaining horizontal space becomes side bars.
-        double uniformScale = viewH / (activeRows * TILE_SIZE);
+        // Stretch to fill entire viewport - no black bars!
+        lastScaleX = viewW / (activeCols * TILE_SIZE);
+        lastScaleY = viewH / (activeRows * TILE_SIZE);
 
-        // If even at that scale the width overflows, constrain by width instead
-        double scaledW = activeCols * TILE_SIZE * uniformScale;
-        if (scaledW > viewW) {
-            uniformScale = viewW / (activeCols * TILE_SIZE);
-        }
-
-        lastScaleX = uniformScale;
-        lastScaleY = uniformScale;
-
-        // Center whatever axis has leftover space
-        double scaledMapW = activeCols * TILE_SIZE * uniformScale;
-        double scaledMapH = activeRows * TILE_SIZE * uniformScale;
-        lastOffsetX = Math.max(0, (viewW - scaledMapW) / 2.0);
-        lastOffsetY = Math.max(0, (viewH - scaledMapH) / 2.0);
+        // No offset - map fills entire screen
+        lastOffsetX = 0;
+        lastOffsetY = 0;
     }
 
     private TilesetInfo findTileset(int gid) {

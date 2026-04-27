@@ -45,7 +45,10 @@ public class LocalGameState {
     public void updateRoundState(MessageDecoder.RoundStateData data) { }
     public void updateSafeZones(MessageDecoder.SafeZoneData data) { }
     public void markEliminated(MessageDecoder.EliminationData data) { }
-    public void setChaosEvent(MessageDecoder.ChaosEventData data) { }
+    public void setChaosEvent(MessageDecoder.ChaosEventData data) {
+        this.activeChaos = ChaosEventType.values()[data.chaosOrdinal()];
+        this.chaosDurationRemaining = data.duration();
+    }
     public void setControlledPlayerId(int id) { }
     public void setGameOver(MessageDecoder.GameOverData data) { }
     public void addChatMessage(MessageDecoder.ChatData data) { }
@@ -55,7 +58,7 @@ public class LocalGameState {
     public int getRoundNumber() { throw new UnsupportedOperationException("stub"); }
     public double getTimerRemaining() { throw new UnsupportedOperationException("stub"); }
     public RoundPhase getPhase() { throw new UnsupportedOperationException("stub"); }
-    public ChaosEventType getActiveChaos() { throw new UnsupportedOperationException("stub"); }
+    public ChaosEventType getActiveChaos() { return activeChaos; }
     public int getControlledPlayerId() { throw new UnsupportedOperationException("stub"); }
     public int getMyPlayerId() { throw new UnsupportedOperationException("stub"); }
     public List<Player> getPlayers() { throw new UnsupportedOperationException("stub"); }

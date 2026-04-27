@@ -18,6 +18,11 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
+import javafx.scene.layout.VBox;
+import javafx.scene.control.Label;
+import javafx.scene.input.KeyCode;
 import java.io.InputStream;
 
 /**
@@ -140,6 +145,27 @@ public class GameArena {
     private Font   fontTimerLabel;
     private Font   fontTimerFace;
 
+    // ── Round start popup state ────────────────────────────────────────────
+    /** True while the round start popup is being displayed. */
+    private boolean roundPopupActive;
+    /** Countdown timer for the round start popup (3.0 → 0.0). */
+    private double roundPopupTimer;
+    /** The round number being announced (for display consistency). */
+    private int popupRoundNumber;
+    /** Font for the large round announcement. */
+    private Font fontRoundPopup;
+    /** Audio player for the 3-second countdown timer sound. */
+    private MediaPlayer countdownAudio;
+    
+    // ── Pause state ──────────────────────────────────────────────────────────
+    private boolean isPaused = false;
+    private boolean escWasPressed = false;
+    private StackPane pauseOverlay;
+    private javafx.scene.layout.VBox pauseMenu;
+    private javafx.scene.layout.VBox confirmMenu;
+    private javafx.scene.control.Label confirmLabel;
+    private Runnable confirmAction;
+
     // ────────────────────────────────────────────────────────────────────────
 
     public GameArena(SceneManager sceneManager) {
@@ -160,8 +186,10 @@ public class GameArena {
         root.getChildren().add(canvas);
 
         // HUD overlay buttons (drawn in JavaFX, not on canvas)
-        addBackButton(root);
         addFullscreenButton(root);
+
+        // Pause Overlay (Initially hidden)
+        createPauseOverlay(root);
 
         scene = new Scene(root, GameConfig.WINDOW_WIDTH, GameConfig.WINDOW_HEIGHT);
         scene.getStylesheets().add(
@@ -183,9 +211,19 @@ public class GameArena {
             if (is != null) timerPanelImage = new Image(is);
         } catch (Exception ignored) {}
 
+        // Load countdown audio (3 seconds)
+        try {
+            java.net.URL audioUrl = getClass().getResource("/sprites/ui/3sectimer.wav");
+            if (audioUrl != null) {
+                countdownAudio = new MediaPlayer(new Media(audioUrl.toExternalForm()));
+                countdownAudio.setVolume(0.8);
+            }
+        } catch (Exception ignored) {}
+
         // Pre-build fonts (Press Start 2P — loaded via global.css)
         fontTimerLabel = loadFont("Press Start 2P",  6);   // header strip: "ROUND N"
         fontTimerFace  = loadFont("Press Start 2P", 10);   // face area:   countdown
+        fontRoundPopup = loadFont("Press Start 2P", 24);   // round announcement popup
 
         return scene;
     }
@@ -221,6 +259,12 @@ public class GameArena {
         roundTimer   = TIMER_DURATION;
         timerRunning = true;
 
+        isPaused = false;
+        if (pauseOverlay != null) pauseOverlay.setVisible(false);
+
+        // Show round start popup for round 1
+        triggerRoundPopup(1);
+
         // Attach keyboard handlers to the permanent scene (the one JavaFX actually delivers events to)
         if (inputManager != null) {
             inputManager.attachToScene(sceneManager.getPermanentScene());
@@ -255,7 +299,32 @@ public class GameArena {
     // ── Update (game logic) ──────────────────────────────────────────────────
 
     private void update(double dt) {
+        // Handle ESC key for pausing
+        boolean escPressed = inputManager != null && inputManager.isPressed(KeyCode.ESCAPE);
+        if (escPressed && !escWasPressed) {
+            togglePause();
+        }
+        escWasPressed = escPressed;
+
+        if (isPaused) return;
+
         InputSnapshot input = inputManager.snapshot();
+
+        boolean reversed = false;
+        if (sceneManager != null && sceneManager.getLocalGameState() != null) {
+            reversed = (sceneManager.getLocalGameState().getActiveChaos() == com.identitycrisis.shared.model.ChaosEventType.REVERSED_CONTROLS);
+        }
+        if (inputManager != null && inputManager.isTestingReversed()) {
+            reversed = true;
+        }
+
+        if (reversed) {
+            input = new InputSnapshot(
+                input.down(), input.up(), input.right(), input.left(),
+                input.carry(), input.throwAction(), input.chatToggle()
+            );
+        }
+
 
         // ── Direction ────────────────────────────────────────────────────────
         double dx = 0, dy = 0;
@@ -305,17 +374,28 @@ public class GameArena {
         pulseTimer += dt;
 
         // ── Round timer (only ticks during warm-up rounds 1–2) ───────────────
-        if (timerRunning && roundNumber <= GameConfig.WARMUP_ROUNDS) {
+        if (timerRunning && !roundPopupActive && roundNumber <= GameConfig.WARMUP_ROUNDS) {
             roundTimer -= dt;
             if (roundTimer <= 0) {
                 roundTimer   = 0;
                 timerRunning = false;
                 // Advance to next round and restart timer if still a warm-up round
                 roundNumber++;
+                // Show round start popup for the new round
+                triggerRoundPopup(roundNumber);
                 if (roundNumber <= GameConfig.WARMUP_ROUNDS) {
                     roundTimer   = TIMER_DURATION;
                     timerRunning = true;
                 }
+            }
+        }
+
+        // ── Round start popup countdown ─────────────────────────────────────
+        if (roundPopupActive) {
+            roundPopupTimer -= dt;
+            if (roundPopupTimer <= 0) {
+                roundPopupActive = false;
+                roundPopupTimer = 0;
             }
         }
     }
@@ -366,6 +446,9 @@ public class GameArena {
 
         // 4. Round timer HUD (top-centre)
         drawTimerHud(gc, w, h);
+
+        // 5. Round start popup overlay (center)
+        drawRoundPopup(gc, w, h);
     }
 
     // ── Player rendering ─────────────────────────────────────────────────────
@@ -514,6 +597,98 @@ public class GameArena {
     }
 
     /**
+     * Triggers the round start popup with a 3-2-1 countdown.
+     * @param round the round number to announce
+     */
+    private void triggerRoundPopup(int round) {
+        popupRoundNumber = round;
+        roundPopupTimer = GameConfig.COUNTDOWN_SECONDS; // 3 seconds - matches audio length
+        roundPopupActive = true;
+
+        // Play countdown audio
+        if (countdownAudio != null) {
+            countdownAudio.seek(javafx.util.Duration.ZERO);
+            countdownAudio.play();
+        }
+    }
+
+    /**
+     * Draws an aesthetic round start popup at the center of the screen.
+     * Shows "ROUND X" with a pulsing countdown (3... 2... 1...).
+     */
+    private void drawRoundPopup(GraphicsContext gc, double viewW, double viewH) {
+        if (!roundPopupActive) return;
+
+        double centerX = viewW / 2.0;
+        double centerY = viewH / 2.0;
+
+        // Popup dimensions
+        double popupW = 400;
+        double popupH = 180;
+        double popupX = centerX - popupW / 2.0;
+        double popupY = centerY - popupH / 2.0;
+
+        // Calculate countdown number (3, 2, 1, or GO!)
+        int countdownValue = (int) Math.ceil(roundPopupTimer);
+        String countdownText = countdownValue > 0 ? String.valueOf(countdownValue) : "GO!";
+
+        // Pulsing scale effect for countdown
+        double pulse = 1.0 + 0.15 * Math.sin(roundPopupTimer * Math.PI * 4);
+        double countdownScale = pulse;
+
+        // ── Semi-transparent overlay ──────────────────────────────────────────
+        gc.setFill(Color.rgb(0, 0, 0, 0.4));
+        gc.fillRect(0, 0, viewW, viewH);
+
+        // ── Main panel with stone border aesthetic ────────────────────────────
+        // Main panel background
+        gc.setFill(Color.web("#1c1c26")); // STONE_PANEL
+        gc.fillRoundRect(popupX, popupY, popupW, popupH, 12, 12);
+
+        // Inner border
+        gc.setStroke(Color.web("#c9a84c")); // GOLD
+        gc.setLineWidth(3);
+        gc.strokeRoundRect(popupX + 4, popupY + 4, popupW - 8, popupH - 8, 8, 8);
+
+        // ── "ROUND X" header ────────────────────────────────────────────────
+        gc.save();
+        gc.setFont(fontRoundPopup);
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setFill(Color.web("#e8dfc4")); // TEXT_PARCHMENT
+        gc.fillText("ROUND " + popupRoundNumber, centerX, popupY + 55);
+        gc.restore();
+
+        // ── Decorative line ───────────────────────────────────────────────────
+        gc.setStroke(Color.web("#8a6a1a")); // GOLD_DARK
+        gc.setLineWidth(2);
+        gc.strokeLine(centerX - 80, popupY + 70, centerX + 80, popupY + 70);
+
+        // ── "starts in" subtitle ────────────────────────────────────────────
+        gc.save();
+        gc.setFont(loadFont("Press Start 2P", 12));
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setFill(Color.web("#7a7060")); // TEXT_MUTED
+        gc.fillText("starts in", centerX, popupY + 95);
+        gc.restore();
+
+        // ── Countdown number with pulse ───────────────────────────────────────
+        gc.save();
+        gc.setFont(Font.font("Press Start 2P", 48 * countdownScale));
+        gc.setTextAlign(TextAlignment.CENTER);
+
+        // Color based on countdown: 3=green, 2=yellow, 1=red, GO!=gold
+        Color countdownColor;
+        if (countdownValue == 3) countdownColor = Color.web("#4a8c5c");
+        else if (countdownValue == 2) countdownColor = Color.web("#d4a017");
+        else if (countdownValue == 1) countdownColor = Color.web("#d04648");
+        else countdownColor = Color.web("#c9a84c");
+
+        gc.setFill(countdownColor);
+        gc.fillText(countdownText, centerX, popupY + 145);
+        gc.restore();
+    }
+
+    /**
      * Fallback panel drawn entirely via {@link GraphicsContext} rectangles,
      * matching the timer_ui.svg geometry at {@code TIMER_SCALE} ×.
      * Used only if timer_ui.png fails to load.
@@ -609,6 +784,126 @@ public class GameArena {
     }
 
     // ── Utilities ────────────────────────────────────────────────────────────
+
+    private void createPauseOverlay(StackPane root) {
+        pauseOverlay = new StackPane();
+        pauseOverlay.setVisible(false);
+        pauseOverlay.setStyle("-fx-background-color: rgba(0, 0, 0, 0.4);"); // Subtle dimming
+
+        // ── Main Box (Small panel in the center) ─────────────────────────────
+        VBox box = new VBox();
+        box.setAlignment(Pos.CENTER);
+        box.setMaxSize(360, 280);
+        box.setMinSize(360, 280);
+        box.setStyle("-fx-background-color: #1c1c26; " +
+                     "-fx-border-color: #3a3a50; " +
+                     "-fx-border-width: 3px; " +
+                     "-fx-effect: dropshadow(gaussian, black, 20, 0, 0, 0);");
+
+        // Use a StackPane to swap menus in the same spot
+        StackPane menuContainer = new StackPane();
+        menuContainer.setAlignment(Pos.CENTER);
+
+        // ── Pause Menu ───────────────────────────────────────────────────────
+        pauseMenu = new VBox(20);
+        pauseMenu.setAlignment(Pos.CENTER);
+
+        Label pausedLabel = new Label("PAUSED");
+        pausedLabel.setStyle("-fx-font-family: 'Press Start 2P'; -fx-font-size: 18px; -fx-text-fill: #e8dfc4;");
+
+        Button resumeBtn = createMenuButton("RESUME");
+        resumeBtn.setOnAction(e -> togglePause());
+
+        Button menuBtn = createMenuButton("MAIN MENU");
+        menuBtn.setOnAction(e -> showConfirmMenu("RETURN TO MENU?", () -> {
+            onExit();
+            sceneManager.shutdownNetwork();
+            sceneManager.showMenu();
+        }));
+
+        Button quitBtn = createMenuButton("QUIT GAME");
+        quitBtn.setOnAction(e -> showConfirmMenu("QUIT TO DESKTOP?", () -> {
+            javafx.application.Platform.exit();
+            System.exit(0);
+        }));
+
+        pauseMenu.getChildren().addAll(pausedLabel, resumeBtn, menuBtn, quitBtn);
+
+        // ── Confirmation Menu ────────────────────────────────────────────────
+        confirmMenu = new VBox(25);
+        confirmMenu.setAlignment(Pos.CENTER);
+        confirmMenu.setVisible(false);
+
+        confirmLabel = new Label("ARE YOU SURE?");
+        confirmLabel.setStyle("-fx-font-family: 'Press Start 2P'; -fx-font-size: 11px; -fx-text-fill: #e8dfc4;");
+        confirmLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+        confirmLabel.setAlignment(Pos.CENTER);
+        confirmLabel.setMaxWidth(300);
+        confirmLabel.setWrapText(true);
+
+        javafx.scene.layout.HBox confirmButtons = new javafx.scene.layout.HBox(20);
+        confirmButtons.setAlignment(Pos.CENTER);
+
+        Button yesBtn = createMenuButton("YES");
+        yesBtn.setMinWidth(110);
+        yesBtn.setOnAction(e -> {
+            if (confirmAction != null) confirmAction.run();
+        });
+
+        Button noBtn = createMenuButton("NO");
+        noBtn.setMinWidth(110);
+        noBtn.setOnAction(e -> showPauseMenu());
+
+        confirmButtons.getChildren().addAll(yesBtn, noBtn);
+        confirmMenu.getChildren().addAll(confirmLabel, confirmButtons);
+
+        menuContainer.getChildren().addAll(pauseMenu, confirmMenu);
+        box.getChildren().add(menuContainer);
+        pauseOverlay.getChildren().add(box);
+        root.getChildren().add(pauseOverlay);
+    }
+
+    private Button createMenuButton(String text) {
+        Button btn = new Button(text);
+        btn.setMinWidth(220);
+        btn.setStyle(pauseButtonStyle(false));
+        btn.setOnMouseEntered(e -> btn.setStyle(pauseButtonStyle(true)));
+        btn.setOnMouseExited(e -> btn.setStyle(pauseButtonStyle(false)));
+        return btn;
+    }
+
+    private String pauseButtonStyle(boolean hover) {
+        return "-fx-font-family: 'Press Start 2P', monospace;" +
+               "-fx-font-size: 10px;" +
+               "-fx-text-fill: " + (hover ? "#ffffff" : "#b0a890") + ";" +
+               "-fx-background-color: " + (hover ? "#3a3a50" : "#252535") + ";" +
+               "-fx-border-color: " + (hover ? "#e8dfc4" : "#3a3a50") + ";" +
+               "-fx-border-width: 2px;" +
+               "-fx-padding: 12px 15px;" +
+               "-fx-cursor: hand;" +
+               "-fx-background-radius: 0;" +
+               "-fx-border-radius: 0;";
+    }
+
+    private void togglePause() {
+        isPaused = !isPaused;
+        pauseOverlay.setVisible(isPaused);
+        if (isPaused) {
+            showPauseMenu();
+        }
+    }
+
+    private void showPauseMenu() {
+        pauseMenu.setVisible(true);
+        confirmMenu.setVisible(false);
+    }
+
+    private void showConfirmMenu(String question, Runnable action) {
+        confirmLabel.setText(question);
+        confirmAction = action;
+        pauseMenu.setVisible(false);
+        confirmMenu.setVisible(true);
+    }
 
     private void stopLoop() {
         if (gameLoop != null) {

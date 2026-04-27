@@ -208,7 +208,7 @@ public class SceneManager {
         if ("gamearena".equals(key) || "initialloading".equals(key) || "loading".equals(key)) {
             audioManager.stopBGM();
         } else {
-            audioManager.playBGM("/audio/bgmusic.mp3");
+            audioManager.playBGM("/audio/bgmusic.wav");
         }
 
 
