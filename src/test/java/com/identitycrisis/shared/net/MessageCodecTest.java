@@ -142,7 +142,7 @@ class MessageCodecTest {
                 (byte) 1, 0, false, 1, -1)
         };
         MessageEncoder.SafeZoneNetData[] zones = {
-            new MessageEncoder.SafeZoneNetData(500.0, 300.0, 64.0)
+            new MessageEncoder.SafeZoneNetData(3, 500.0, 300.0, 64.0, 32.0)
         };
 
         Pair p = encoder();
@@ -178,9 +178,32 @@ class MessageCodecTest {
         assertEquals(1,    d.players()[1].carriedBy());
 
         assertEquals(1,     d.zones().length);
+        assertEquals(3,     d.zones()[0].id());
         assertEquals(500.0, d.zones()[0].x(), 1e-9);
         assertEquals(300.0, d.zones()[0].y(), 1e-9);
-        assertEquals(64.0,  d.zones()[0].radius(), 1e-9);
+        assertEquals(64.0,  d.zones()[0].w(), 1e-9);
+        assertEquals(32.0,  d.zones()[0].h(), 1e-9);
+    }
+
+    @Test
+    void safeZoneUpdate_roundTrip() throws Exception {
+        Pair p = encoder();
+        p.enc().encodeSafeZoneUpdate(
+            new int[]    {1, 4, 7},
+            new double[] {10.0, 50.0, 90.0},
+            new double[] {20.0, 60.0, 100.0},
+            new double[] {32.0, 48.0, 16.0},
+            new double[] {32.0, 32.0, 64.0});
+        p.enc().flush();
+
+        MessageDecoder dec = decoder(p.buf());
+        assertEquals(MessageType.S_SAFE_ZONE, dec.readNextType());
+        MessageDecoder.SafeZoneData d = dec.decodeSafeZoneUpdate();
+        assertArrayEquals(new int[]{1, 4, 7}, d.ids());
+        assertArrayEquals(new double[]{10.0, 50.0, 90.0},   d.xs(), 1e-9);
+        assertArrayEquals(new double[]{20.0, 60.0, 100.0},  d.ys(), 1e-9);
+        assertArrayEquals(new double[]{32.0, 48.0, 16.0},   d.ws(), 1e-9);
+        assertArrayEquals(new double[]{32.0, 32.0, 64.0},   d.hs(), 1e-9);
     }
 
     @Test

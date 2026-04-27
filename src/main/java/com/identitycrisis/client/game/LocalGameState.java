@@ -24,8 +24,8 @@ public class LocalGameState {
     private volatile double chaosDurationRemaining;
     private volatile int controlledPlayerId;
     private volatile int myPlayerId;
-    private volatile List<Player> players;
-    private volatile List<SafeZone> safeZones;
+    private volatile List<Player> players = new java.util.ArrayList<>();
+    private volatile List<SafeZone> safeZones = new java.util.ArrayList<>();
 
     // UI
     private volatile boolean gameOver;
@@ -34,42 +34,91 @@ public class LocalGameState {
     private volatile List<String> chatMessages;
     private volatile String lastEliminatedName;
 
+    /**
+     * Sentinel returned by {@link #getRoundNumber()} when the client has not
+     * yet received a snapshot.  Callers (e.g. {@link com.identitycrisis.client.scene.GameArena})
+     * fall back to local state in this case.
+     */
+    public static final int NO_ROUND = 0;
+
     // Update methods (network thread)
-    public void updateFromSnapshot(MessageDecoder.GameStateData data) { }
+    public void updateFromSnapshot(MessageDecoder.GameStateData data) {
+        this.roundNumber = data.roundNumber();
+        this.timerRemaining = data.timerRemaining();
+        this.phase = RoundPhase.values()[data.phaseOrdinal()];
+        this.activeChaos = ChaosEventType.values()[data.chaosOrdinal()];
+        this.chaosDurationRemaining = data.chaosDuration();
+        this.controlledPlayerId = data.controlledPlayerId();
+
+        List<SafeZone> updatedZones = new java.util.ArrayList<>();
+        if (data.zones() != null) {
+            for (MessageDecoder.SafeZoneNetData z : data.zones()) {
+                updatedZones.add(new SafeZone(z.id(), z.x(), z.y(), z.w(), z.h()));
+            }
+        }
+        this.safeZones = updatedZones;
+    }
     public void updateLobbyState(MessageDecoder.LobbyStateData data) {
         this.lobbyConnectedCount = data.connectedCount();
         this.lobbyRequiredCount   = data.requiredCount();
         this.lobbyPlayerNames     = data.names();
         this.lobbyReadyFlags     = data.ready();
     }
-    public void updateRoundState(MessageDecoder.RoundStateData data) { }
-    public void updateSafeZones(MessageDecoder.SafeZoneData data) { }
-    public void markEliminated(MessageDecoder.EliminationData data) { }
+    public void updateRoundState(MessageDecoder.RoundStateData data) {
+        this.roundNumber    = data.roundNumber();
+        this.phase          = RoundPhase.values()[data.phaseOrdinal()];
+        this.timerRemaining = data.timerRemaining();
+    }
+    public void updateSafeZones(MessageDecoder.SafeZoneData data) {
+        if (data == null || data.ids() == null) return;
+        List<SafeZone> updated = new java.util.ArrayList<>(data.ids().length);
+        for (int i = 0; i < data.ids().length; i++) {
+            updated.add(new SafeZone(
+                data.ids()[i], data.xs()[i], data.ys()[i],
+                data.ws()[i],  data.hs()[i]));
+        }
+        this.safeZones = updated;
+    }
+    public void markEliminated(MessageDecoder.EliminationData data) {
+        if (data != null) this.lastEliminatedName = data.playerName();
+    }
     public void setChaosEvent(MessageDecoder.ChaosEventData data) {
         this.activeChaos = ChaosEventType.values()[data.chaosOrdinal()];
         this.chaosDurationRemaining = data.duration();
     }
-    public void setControlledPlayerId(int id) { }
-    public void setGameOver(MessageDecoder.GameOverData data) { }
-    public void addChatMessage(MessageDecoder.ChatData data) { }
-    public void setMyPlayerId(int id) { }
+    public void setControlledPlayerId(int id) { this.controlledPlayerId = id; }
+    public void setGameOver(MessageDecoder.GameOverData data) {
+        this.gameOver       = true;
+        this.winnerPlayerId = data.winnerPlayerId();
+        this.winnerName     = data.winnerName();
+    }
+    public void addChatMessage(MessageDecoder.ChatData data) {
+        if (data == null) return;
+        if (this.chatMessages == null) this.chatMessages = new java.util.ArrayList<>();
+        this.chatMessages.add(data.senderName() + ": " + data.text());
+    }
+    public void setMyPlayerId(int id) { this.myPlayerId = id; }
 
     // Read methods (render thread)
-    public int getRoundNumber() { throw new UnsupportedOperationException("stub"); }
-    public double getTimerRemaining() { throw new UnsupportedOperationException("stub"); }
-    public RoundPhase getPhase() { throw new UnsupportedOperationException("stub"); }
+    public int getRoundNumber() { return roundNumber; }
+    public double getTimerRemaining() { return timerRemaining; }
+    public RoundPhase getPhase() { return phase; }
     public ChaosEventType getActiveChaos() { return activeChaos; }
-    public int getControlledPlayerId() { throw new UnsupportedOperationException("stub"); }
-    public int getMyPlayerId() { throw new UnsupportedOperationException("stub"); }
-    public List<Player> getPlayers() { throw new UnsupportedOperationException("stub"); }
-    public List<SafeZone> getSafeZones() { throw new UnsupportedOperationException("stub"); }
-    public boolean isGameOver() { throw new UnsupportedOperationException("stub"); }
-    public int getWinnerPlayerId() { throw new UnsupportedOperationException("stub"); }
-    public String getWinnerName() { throw new UnsupportedOperationException("stub"); }
-    public List<String> getChatMessages() { throw new UnsupportedOperationException("stub"); }
-    public String getLastEliminatedName() { throw new UnsupportedOperationException("stub"); }
+    public double getChaosDurationRemaining() { return chaosDurationRemaining; }
+    public int getControlledPlayerId() { return controlledPlayerId; }
+    public int getMyPlayerId() { return myPlayerId; }
+    public List<Player> getPlayers() { return players; }
+    public List<SafeZone> getSafeZones() { return safeZones; }
+    public boolean isGameOver() { return gameOver; }
+    public int getWinnerPlayerId() { return winnerPlayerId; }
+    public String getWinnerName() { return winnerName; }
+    public List<String> getChatMessages() { return chatMessages; }
+    public String getLastEliminatedName() { return lastEliminatedName; }
     public int getLobbyConnectedCount() { return lobbyConnectedCount; }
-    public int getLobbyRequiredCount() { throw new UnsupportedOperationException("stub"); }
-    public String[] getLobbyPlayerNames() { throw new UnsupportedOperationException("stub"); }
-    public boolean[] getLobbyReadyFlags() { throw new UnsupportedOperationException("stub"); }
+    public int getLobbyRequiredCount() { return lobbyRequiredCount; }
+    public String[] getLobbyPlayerNames() { return lobbyPlayerNames; }
+    public boolean[] getLobbyReadyFlags() { return lobbyReadyFlags; }
+
+    /** True once the client has received at least one game-state snapshot. */
+    public boolean hasReceivedSnapshot() { return roundNumber != NO_ROUND; }
 }

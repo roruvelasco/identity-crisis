@@ -88,7 +88,7 @@ LobbyManager lobbyMgr     = new LobbyManager(server);        // step 3
 server.setRouter(router);              // step 4 — resolve cycle
 server.setLobbyManager(lobbyMgr);      // step 4
 lobbyMgr.setGameState(gameState);      // step 5 — lobby needs GameState to populate players on start
-lobbyMgr.setSafeZoneManager(szm);      // step 5 — lobby spawns safe zone for round 1
+lobbyMgr.setSafeZoneManager(szm);      // step 5 — lobby spawns round-1 zones via spawnRoundZones(n)
 ```
 `GameServer.start()` throws `IllegalStateException` if setters were not called.
 

@@ -102,9 +102,11 @@ public class MessageEncoder {
         }
         tmp.writeInt(zones.length);
         for (SafeZoneNetData z : zones) {
+            tmp.writeInt(z.id());
             tmp.writeDouble(z.x());
             tmp.writeDouble(z.y());
-            tmp.writeDouble(z.radius());
+            tmp.writeDouble(z.w());
+            tmp.writeDouble(z.h());
         }
         tmp.flush();
         byte[] payload = buf.toByteArray();
@@ -125,15 +127,22 @@ public class MessageEncoder {
         out.write(payload);
     }
 
-    public void encodeSafeZoneUpdate(double[] xs, double[] ys,
-                                     double[] radii) throws IOException {
+    /**
+     * Sends the round's active safe-zone rectangles.  Used as a stand-alone
+     * update outside the game-state snapshot (e.g. on round transition).
+     * Arrays must all be the same length and aligned by index.
+     */
+    public void encodeSafeZoneUpdate(int[] ids, double[] xs, double[] ys,
+                                     double[] ws, double[] hs) throws IOException {
         ByteArrayOutputStream buf = new ByteArrayOutputStream();
         DataOutputStream tmp = new DataOutputStream(buf);
         tmp.writeInt(xs.length);
         for (int i = 0; i < xs.length; i++) {
+            tmp.writeInt(ids[i]);
             tmp.writeDouble(xs[i]);
             tmp.writeDouble(ys[i]);
-            tmp.writeDouble(radii[i]);
+            tmp.writeDouble(ws[i]);
+            tmp.writeDouble(hs[i]);
         }
         tmp.flush();
         byte[] payload = buf.toByteArray();
@@ -216,5 +225,15 @@ public class MessageEncoder {
                                 int facing, boolean inSafeZone,
                                 int carriedBy, int carrying) { }
 
-    public record SafeZoneNetData(double x, double y, double radius) { }
+    /**
+     * Wire form of a single safe-zone rectangle in world-pixel space.
+     *
+     * @param id Stable id (1–8) matching the TMX layer name; lets the client
+     *           render and deduplicate by identity.
+     * @param x  Top-left X in world pixels.
+     * @param y  Top-left Y in world pixels.
+     * @param w  Width in world pixels.
+     * @param h  Height in world pixels.
+     */
+    public record SafeZoneNetData(int id, double x, double y, double w, double h) { }
 }
