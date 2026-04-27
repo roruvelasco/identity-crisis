@@ -213,7 +213,7 @@ public class GameArena {
 
         // Load countdown audio (3 seconds)
         try {
-            java.net.URL audioUrl = getClass().getResource("/sprites/ui/3sectimer.mp3");
+            java.net.URL audioUrl = getClass().getResource("/sprites/ui/3sectimer.wav");
             if (audioUrl != null) {
                 countdownAudio = new MediaPlayer(new Media(audioUrl.toExternalForm()));
                 countdownAudio.setVolume(0.8);

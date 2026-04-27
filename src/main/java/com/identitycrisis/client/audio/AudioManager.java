@@ -34,7 +34,9 @@ public class AudioManager {
                 return;
             }
             Media media = new Media(resource.toExternalForm());
+            media.setOnError(() -> System.err.println("Media Error: " + media.getError()));
             bgmPlayer = new MediaPlayer(media);
+            bgmPlayer.setOnError(() -> System.err.println("MediaPlayer Error: " + bgmPlayer.getError()));
             bgmPlayer.setVolume(volume);
             bgmPlayer.setMute(muted);
             bgmPlayer.setCycleCount(MediaPlayer.INDEFINITE);
@@ -42,6 +44,7 @@ public class AudioManager {
             currentBgmPath = resourcePath;
         } catch (Exception e) {
             System.err.println("Error playing BGM: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
