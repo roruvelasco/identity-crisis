@@ -349,6 +349,34 @@ public class GameArena {
 
         if (isPaused) return;
 
+        // ── Round start popup countdown ─────────────────────────────────────
+        // Tick the countdown first so its state is up-to-date this frame.
+        if (roundPopupActive) {
+            roundPopupTimer -= dt;
+            if (roundPopupTimer <= 0) {
+                roundPopupActive = false;
+                roundPopupTimer  = 0;
+            }
+        }
+
+        // ── FREEZE: no movement, zone detection, or round advances during popup
+        if (roundPopupActive) {
+            // Still tick the idle animation so the character breathes in place.
+            isMoving = false;
+            animTimer += dt;
+            if (animTimer >= FRAME_DURATION) {
+                animTimer -= FRAME_DURATION;
+                animFrame = (animFrame + 1) % IDLE_FRAMES;
+            }
+            pulseTimer += dt;
+            // Sync round state from server (read-only, no side-effects on movement).
+            if (!syncRoundStateFromServer()) {
+                // offline: also tick the room timer so the HUD doesn't freeze
+                tickLocalRoundTimer(dt);
+            }
+            return; // skip movement & zone-advance logic below
+        }
+
         InputSnapshot input = inputManager.snapshot();
 
         boolean reversed = false;
@@ -423,15 +451,6 @@ public class GameArena {
             tickLocalRoundTimer(dt);
             ensureOfflineZone();
             tryAdvanceFromOfflineZoneEntry();
-        }
-
-        // ── Round start popup countdown ─────────────────────────────────────
-        if (roundPopupActive) {
-            roundPopupTimer -= dt;
-            if (roundPopupTimer <= 0) {
-                roundPopupActive = false;
-                roundPopupTimer = 0;
-            }
         }
     }
 
@@ -622,6 +641,10 @@ public class GameArena {
 
         // 2. Safe-zone indicators
         //
+        // Hidden during the between-round countdown so the new safe zone is
+        // not revealed before the round actually starts.  Once the popup
+        // dismisses (roundPopupActive == false) they appear normally.
+        //
         // Source priority:
         //   1. Server snapshot — the round's active rectangles, possibly with
         //      decoys mixed in under FAKE_SAFE_ZONES chaos.
@@ -630,17 +653,19 @@ public class GameArena {
         //      single-player tester always has a visible target without ever
         //      having to step into it first.  This matches the server's
         //      single-player zone count (max(1, aliveCount - 1) = 1).
-        java.util.List<com.identitycrisis.shared.model.SafeZone> szs = null;
-        if (sceneManager != null && sceneManager.getLocalGameState() != null) {
-            szs = sceneManager.getLocalGameState().getSafeZones();
-        }
-        if (szs != null && !szs.isEmpty()) {
-            for (com.identitycrisis.shared.model.SafeZone z : szs) {
-                drawSafeZoneIndicator(gc, w, h, z);
+        if (!roundPopupActive) {
+            java.util.List<com.identitycrisis.shared.model.SafeZone> szs = null;
+            if (sceneManager != null && sceneManager.getLocalGameState() != null) {
+                szs = sceneManager.getLocalGameState().getSafeZones();
             }
-        } else {
-            com.identitycrisis.shared.model.SafeZone offline = ensureOfflineZone();
-            if (offline != null) drawSafeZoneIndicator(gc, w, h, offline);
+            if (szs != null && !szs.isEmpty()) {
+                for (com.identitycrisis.shared.model.SafeZone z : szs) {
+                    drawSafeZoneIndicator(gc, w, h, z);
+                }
+            } else {
+                com.identitycrisis.shared.model.SafeZone offline = ensureOfflineZone();
+                if (offline != null) drawSafeZoneIndicator(gc, w, h, offline);
+            }
         }
 
         // 3. Player sprite
