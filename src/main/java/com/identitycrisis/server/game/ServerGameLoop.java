@@ -19,38 +19,34 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * Authoritative game loop. Runs on its own thread at a fixed tick rate
  * ({@link GameConfig#TICK_RATE} tps).
  *
- * <p>Each tick:
- * <ol>
- *   <li>Drain {@link #inputQueue} → apply inputs via {@link PhysicsEngine}.</li>
- *   <li>Step physics ({@link PhysicsEngine#step}) and resolve collisions
- *       ({@link CollisionDetector#resolve}).</li>
- *   <li>Tick game managers in order: carry → safe-zone → chaos → round.</li>
- *   <li>Build a personalized {@code GameStateSnapshot} for every client and
- *       send via {@link GameServer#sendToClient}.</li>
- * </ol>
+ * Each tick:
+ * Drain {@link #inputQueue} -> apply inputs via {@link PhysicsEngine}.
+ * Step physics ({@link PhysicsEngine#step}) and resolve collisions
+ * ({@link CollisionDetector#resolve}).
+ * Tick game managers in order: carry -> safe-zone -> chaos -> round
+ * Build a personalized {@code GameStateSnapshot} for every client and
+ * send via {@link GameServer#sendToClient}.
  *
- * <h2>DI pattern</h2>
- * All collaborators are <em>injected</em> via the constructor; none are created
+ * DI pattern
+ * All collaborators are injected via the constructor; none are created
  * here. The Composition Root ({@code ServerApp.main()}) is the only place that
  * calls {@code new} on these objects.
  *
- * <h2>Thread safety</h2>
- * <ul>
- *   <li>{@link #inputQueue} is a {@link ConcurrentLinkedQueue} — network threads
- *       enqueue, this thread drains. No lock needed.</li>
- *   <li>{@link #running} is {@code volatile} — {@link #stop()} from any thread
- *       is visible immediately.</li>
- *   <li>Do <em>NOT</em> call {@code Thread.interrupt()} on this thread while
- *       sockets are open — it will close them abruptly.</li>
- * </ul>
+ * Thread safety
+ * {@link #inputQueue} is a {@link ConcurrentLinkedQueue} — network threads
+ * enqueue, this thread drains. No lock needed.
+ * {@link #running} is {@code volatile} — {@link #stop()} from any thread
+ * is visible immediately.
+ * Do not call {@code Thread.interrupt()} on this thread while
+ * sockets are open — it will close them abruptly.
  */
 public class ServerGameLoop implements Runnable {
 
     // ── Injected dependencies ────────────────────────────────────────────────
-    private final GameServer         server;
-    private final GameContext        ctx;
-    private final PhysicsEngine      physics;
-    private final CollisionDetector  collisions;
+    private final GameServer server;
+    private final GameContext ctx;
+    private final PhysicsEngine physics;
+    private final CollisionDetector collisions;
 
     // ── Owned internals ──────────────────────────────────────────────────────
     private final ConcurrentLinkedQueue<QueuedInput> inputQueue;
@@ -60,20 +56,21 @@ public class ServerGameLoop implements Runnable {
      * Full constructor-injection entry point.
      *
      * @param server     the TCP server used to send per-client snapshots
-     * @param ctx        all game-manager collaborators, pre-wired to the same GameState
+     * @param ctx        all game-manager collaborators, pre-wired to the same
+     *                   GameState
      * @param physics    stateless physics integrator
      * @param collisions stateless collision resolver
      */
     public ServerGameLoop(GameServer server,
-                          GameContext ctx,
-                          PhysicsEngine physics,
-                          CollisionDetector collisions) {
-        this.server     = server;
-        this.ctx        = ctx;
-        this.physics    = physics;
+            GameContext ctx,
+            PhysicsEngine physics,
+            CollisionDetector collisions) {
+        this.server = server;
+        this.ctx = ctx;
+        this.physics = physics;
         this.collisions = collisions;
         this.inputQueue = new ConcurrentLinkedQueue<>();
-        this.running    = false;
+        this.running = false;
     }
 
     // ── Runnable ─────────────────────────────────────────────────────────────
@@ -81,8 +78,10 @@ public class ServerGameLoop implements Runnable {
     @Override
     public void run() {
         running = true;
-        // Fixed timestep: dt is always 1/TICK_RATE regardless of actual wall-clock time.
-        // This keeps physics and round timers deterministic across machines and load spikes.
+        // Fixed timestep: dt is always 1/TICK_RATE regardless of actual wall-clock
+        // time.
+        // This keeps physics and round timers deterministic across machines and load
+        // spikes.
         final double dt = 1.0 / GameConfig.TICK_RATE;
 
         while (running) {
@@ -103,13 +102,16 @@ public class ServerGameLoop implements Runnable {
         while ((qi = inputQueue.poll()) != null) {
             Map<Integer, Integer> controlMap = ctx.gameState().getControlMap();
             int controlledPlayer = controlMap.getOrDefault(qi.clientId(), qi.clientId());
-            // REVERSED_CONTROLS inversion is handled client-side (ClientGameLoop.applyChaosModifications).
+            // REVERSED_CONTROLS inversion is handled client-side
+            // (ClientGameLoop.applyChaosModifications).
             // The server receives already-inverted input and must not invert again.
             boolean[] f = qi.flags();
             physics.applyInput(ctx.gameState(), controlledPlayer,
-                               f[0], f[1], f[2], f[3], false);
-            if (f[4]) ctx.carryManager().tryCarry(controlledPlayer);
-            if (f[5]) ctx.carryManager().throwCarried(controlledPlayer);
+                    f[0], f[1], f[2], f[3], false);
+            if (f[4])
+                ctx.carryManager().tryCarry(controlledPlayer);
+            if (f[5])
+                ctx.carryManager().throwCarried(controlledPlayer);
         }
     }
 
@@ -140,7 +142,8 @@ public class ServerGameLoop implements Runnable {
                     enc.encodePlayerEliminated(pid, eName);
                     enc.flush();
                     server.broadcastToAll(baos.toByteArray());
-                } catch (IOException e) { /* continue */ }
+                } catch (IOException e) {
+                    /* continue */ }
             }
         }
 
@@ -156,7 +159,8 @@ public class ServerGameLoop implements Runnable {
                 enc.encodeGameOver(winnerId, winnerName);
                 enc.flush();
                 server.broadcastToAll(baos.toByteArray());
-            } catch (IOException e) { /* continue */ }
+            } catch (IOException e) {
+                /* continue */ }
         }
 
         for (ClientConnection client : server.getClients()) {
@@ -165,37 +169,33 @@ public class ServerGameLoop implements Runnable {
 
             List<SafeZone> zones = ctx.safeZoneManager().generateClientSafeZones(clientId, fakeSafeZones);
 
-            MessageEncoder.PlayerNetData[] playerData =
-                new MessageEncoder.PlayerNetData[allPlayers.size()];
+            MessageEncoder.PlayerNetData[] playerData = new MessageEncoder.PlayerNetData[allPlayers.size()];
             for (int i = 0; i < allPlayers.size(); i++) {
                 Player p = allPlayers.get(i);
                 playerData[i] = new MessageEncoder.PlayerNetData(
-                    p.getPlayerId(), p.getDisplayName(),
-                    p.getPosition().x(), p.getPosition().y(),
-                    p.getVelocity().x(), p.getVelocity().y(),
-                    (byte) p.getState().ordinal(), p.getFacingDirection(),
-                    p.isInSafeZone(), p.getCarriedByPlayerId(), p.getCarryingPlayerId()
-                );
+                        p.getPlayerId(), p.getDisplayName(),
+                        p.getPosition().x(), p.getPosition().y(),
+                        p.getVelocity().x(), p.getVelocity().y(),
+                        (byte) p.getState().ordinal(), p.getFacingDirection(),
+                        p.isInSafeZone(), p.getCarriedByPlayerId(), p.getCarryingPlayerId());
             }
 
-            MessageEncoder.SafeZoneNetData[] zoneData =
-                new MessageEncoder.SafeZoneNetData[zones.size()];
+            MessageEncoder.SafeZoneNetData[] zoneData = new MessageEncoder.SafeZoneNetData[zones.size()];
             for (int i = 0; i < zones.size(); i++) {
                 SafeZone z = zones.get(i);
                 zoneData[i] = new MessageEncoder.SafeZoneNetData(
-                    z.id(), z.x(), z.y(), z.w(), z.h());
+                        z.id(), z.x(), z.y(), z.w(), z.h());
             }
 
             try {
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 MessageEncoder enc = new MessageEncoder(new DataOutputStream(baos));
                 enc.encodeGameState(
-                    gs.getRoundNumber(), gs.getRoundTimer(),
-                    (byte) gs.getPhase().ordinal(),
-                    (byte) gs.getActiveChaosEvent().ordinal(),
-                    gs.getChaosEventTimer(), controlledPlayerId,
-                    playerData, zoneData
-                );
+                        gs.getRoundNumber(), gs.getRoundTimer(),
+                        (byte) gs.getPhase().ordinal(),
+                        (byte) gs.getActiveChaosEvent().ordinal(),
+                        gs.getChaosEventTimer(), controlledPlayerId,
+                        playerData, zoneData);
                 enc.flush();
                 server.sendToClient(client, baos.toByteArray());
             } catch (IOException e) {
@@ -233,13 +233,16 @@ public class ServerGameLoop implements Runnable {
     /**
      * Signal the loop to exit cleanly. Do NOT use Thread.interrupt().
      */
-    public void stop() { running = false; }
+    public void stop() {
+        running = false;
+    }
 
     /**
      * Releases any game-state resources held for the given client.
      * Called by {@link com.identitycrisis.server.net.GameServer#removeClient} when
      * a client disconnects so the carried/carrying player is not permanently stuck.
-     * Safe to call from any thread — delegates to {@link CarryManager#releaseCarry}.
+     * Safe to call from any thread — delegates to
+     * {@link CarryManager#releaseCarry}.
      */
     public void cleanupClient(int clientId) {
         ctx.carryManager().releaseCarry(clientId);
@@ -252,6 +255,9 @@ public class ServerGameLoop implements Runnable {
 
     // ── Inner types ───────────────────────────────────────────────────────────
 
-    /** Immutable record of a single client's input snapshot queued for processing. */
-    public record QueuedInput(int clientId, boolean[] flags) { }
+    /**
+     * Immutable record of a single client's input snapshot queued for processing.
+     */
+    public record QueuedInput(int clientId, boolean[] flags) {
+    }
 }

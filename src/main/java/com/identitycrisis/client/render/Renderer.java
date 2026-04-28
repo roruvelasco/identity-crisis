@@ -5,8 +5,8 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 
 /**
- * Master renderer. Orchestrates sub-renderers in z-order:
- * 1. Clear → 2. Arena → 3. SafeZone → 4. Players → 5. HUD → 6. Chat
+ * Master renderer. Loads sprites in order so everything shows properly:
+ * Arena -> SafeZone -> Players -> HUD -> Chat
  */
 public class Renderer {
 

@@ -8,8 +8,8 @@ import java.util.List;
 
 /**
  * Drives the round state machine.
- * LOBBY → COUNTDOWN → ACTIVE → ROUND_END → ELIMINATION → COUNTDOWN → ...
- * When 1 player left → GAME_OVER
+ * LOBBY -> COUNTDOWN -> ACTIVE -> ROUND_END -> ELIMINATION -> COUNTDOWN -> ...
+ * When 1 player left -> GAME_OVER
  */
 public class RoundManager {
 
@@ -19,16 +19,17 @@ public class RoundManager {
     private final EliminationManager eliminationManager;
 
     public RoundManager(GameState gs, SafeZoneManager szm,
-                        ChaosEventManager cem, EliminationManager em) {
-        this.gameState          = gs;
-        this.safeZoneManager    = szm;
-        this.chaosEventManager  = cem;
+            ChaosEventManager cem, EliminationManager em) {
+        this.gameState = gs;
+        this.safeZoneManager = szm;
+        this.chaosEventManager = cem;
         this.eliminationManager = em;
     }
 
     public void tick(double dt) {
         switch (gameState.getPhase()) {
-            case LOBBY -> { /* LobbyManager handles this externally */ }
+            case LOBBY -> {
+                /* LobbyManager handles this externally */ }
 
             case COUNTDOWN -> {
                 gameState.setRoundTimer(gameState.getRoundTimer() - dt);
@@ -41,10 +42,10 @@ public class RoundManager {
 
             case ACTIVE -> {
                 gameState.setRoundTimer(gameState.getRoundTimer() - dt);
-                
+
                 // Fast-forward timer if all alive players are in the safe zone during warmup
                 if (isWarmupRound() && gameState.getAliveCount() > 0 &&
-                    gameState.getAlivePlayers().stream().allMatch(Player::isInSafeZone)) {
+                        gameState.getAlivePlayers().stream().allMatch(Player::isInSafeZone)) {
                     gameState.setRoundTimer(0);
                 }
 
@@ -82,42 +83,45 @@ public class RoundManager {
                 }
             }
 
-            case GAME_OVER -> { /* Game is done */ }
+            case GAME_OVER -> {
+                /* Game is done */ }
         }
     }
 
-    private void transitionTo(RoundPhase phase) { gameState.setPhase(phase); }
+    private void transitionTo(RoundPhase phase) {
+        gameState.setPhase(phase);
+    }
 
     /**
      * Begins the next round by selecting that round's safe zones and resetting
      * player positions / per-round flags.
      *
-     * <p>Zone-count formula:
-     * <ul>
-     *   <li><b>Warm-up rounds (1–2):</b> {@code zoneCount = aliveCount} —
-     *       everyone can fit, occupancy is unlimited.  All players outside
-     *       any zone at round end are eliminated.</li>
-     *   <li><b>Elimination rounds (3+):</b>
-     *       {@code zoneCount = max(SAFE_ZONE_MIN_ZONES, aliveCount - 1)} with
-     *       capacity 1 per zone.  The {@code max(1, …)} clamp is the
-     *       single-player placeholder: with one alive player, the formula
-     *       {@code aliveCount - 1} would give zero zones and instant loss;
-     *       clamping to one keeps the lone player playable for milestone
-     *       testing (combined with
-     *       {@link EliminationManager#evaluateEliminations()}'s sole-survivor
-     *       guard that prevents the last alive player from being eliminated).</li>
-     * </ul>
+     * Zone-count formula:
+     * Warm-up rounds (1–2):
+     * {@code zoneCount = aliveCount} —
+     * everyone can fit, occupancy is unlimited. All players outside
+     * any zone at round end are eliminated.
+     * 
+     * Elimination rounds (3+):
+     * {@code zoneCount = max(SAFE_ZONE_MIN_ZONES, aliveCount - 1)} with
+     * capacity 1 per zone. The {@code max(1, …)} clamp is the
+     * single-player placeholder: with one alive player, the formula
+     * {@code aliveCount - 1} would give zero zones and instant loss;
+     * clamping to one keeps the lone player playable for milestone
+     * testing (combined with
+     * {@link EliminationManager#evaluateEliminations()}'s sole-survivor
+     * guard that prevents the last alive player from being eliminated).
      */
     private void startNewRound() {
         int aliveCount = gameState.getAliveCount();
         boolean isWarmup = gameState.getRoundNumber() <= GameConfig.WARMUP_ROUNDS;
         int zoneCount = isWarmup
-            ? aliveCount
-            : Math.max(GameConfig.SAFE_ZONE_MIN_ZONES, aliveCount - 1);
+                ? aliveCount
+                : Math.max(GameConfig.SAFE_ZONE_MIN_ZONES, aliveCount - 1);
         safeZoneManager.spawnRoundZones(zoneCount);
 
         List<Player> alive = gameState.getAlivePlayers();
-        double cx = gameState.getArena().getWidth()  / 2.0;
+        double cx = gameState.getArena().getWidth() / 2.0;
         double cy = gameState.getArena().getHeight() / 2.0;
         for (int i = 0; i < alive.size(); i++) {
             double angle = 2 * Math.PI * i / alive.size();

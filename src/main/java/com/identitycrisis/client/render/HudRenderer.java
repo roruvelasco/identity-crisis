@@ -5,13 +5,16 @@ import javafx.scene.canvas.GraphicsContext;
 
 /**
  * HUD: round number, countdown timer, players remaining,
- * chaos event toast, elimination toast, YOU WIN / YOU WERE ELIMINATED overlay.
+ * chaos event toast, elimination toast, win/lose overlay.
  */
 public class HudRenderer {
 
-    public HudRenderer() { }
+    public HudRenderer() {
+    }
 
-    public void render(GraphicsContext gc, LocalGameState state) { }
+    public void render(GraphicsContext gc, LocalGameState state) {
+    }
 
-    private void drawToast(GraphicsContext gc, String message, double x, double y) { }
+    private void drawToast(GraphicsContext gc, String message, double x, double y) {
+    }
 }

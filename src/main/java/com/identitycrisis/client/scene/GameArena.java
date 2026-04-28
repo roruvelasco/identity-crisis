@@ -28,135 +28,140 @@ import java.io.InputStream;
 /**
  * Game arena screen.
  *
- * <p>Renders the full TMX map (scaled to fit the window at all times) and a
+ * Renders the full TMX map (scaled to fit the window at all times) and a
  * single local player that:
- * <ol>
- *   <li>Moves with WASD / arrow keys at {@code GameConfig.PLAYER_SPEED} px/sec
- *       in <em>world-pixel</em> coordinates.</li>
- *   <li>Is blocked by wall, water, and void tiles via {@link MapManager#isSolid}.
- *       Axis-separated collision lets the player slide along walls.</li>
- *   <li>Shows a pulsing safe-zone indicator when standing on one of the 8 zones.</li>
- *   <li>Is rendered at the correct screen position for both windowed and fullscreen modes.</li>
- * </ol>
+ * Moves with WASD / arrow keys at {@code GameConfig.PLAYER_SPEED} px/sec
+ * in world-pixel coordinates.
+ * Is blocked by wall, water, and void tiles via {@link MapManager#isSolid}.
+ * Axis-separated collision lets the player slide along walls.
+ * Shows a pulsing safe-zone indicator when standing on one of the 8 zones.
+ * Is rendered at the correct screen position for both windowed and fullscreen
+ * modes.
  */
 public class GameArena {
 
     // ── Sprite-sheet constants ───────────────────────────────────────────────
     /** Width/height of one frame in the source PNG (pixels). */
-    private static final int    SPRITE_NATIVE  = 32;
-    private static final int    IDLE_FRAMES    = 4;
-    private static final int    WALK_FRAMES    = 6;
+    private static final int SPRITE_NATIVE = 32;
+    private static final int IDLE_FRAMES = 4;
+    private static final int WALK_FRAMES = 6;
     /** Animation speed: 8 fps → frame advances every 0.125 s. */
     private static final double FRAME_DURATION = 1.0 / 8.0;
 
-    // ── Tight hitbox — ALL values are in WORLD-PIXEL units (same space as playerX/Y) ──────────
+    // ── Tight hitbox — ALL values are in WORLD-PIXEL units (same space as
+    // playerX/Y) ──────────
     //
-    // The tile grid uses TILE_SIZE = 16 world px per tile.  The character sprite is
-    // displayed at SPRITE_NATIVE (32 px) = 2 tiles wide, but the actual body art only
-    // covers about 6 px of that width and ~10 px of the height.  The centre of the
+    // The tile grid uses TILE_SIZE = 16 world px per tile. The character sprite is
+    // displayed at SPRITE_NATIVE (32 px) = 2 tiles wide, but the actual body art
+    // only
+    // covers about 6 px of that width and ~10 px of the height. The centre of the
     // sprite frame is the origin; the body sits in the lower-centre portion.
     //
-    // A 1-tile-wide door/corridor is 16 world px. Half-width must stay well below 8 px
-    // so the player can squeeze through.  3 px gives comfortable passage while still
+    // A 1-tile-wide door/corridor is 16 world px. Half-width must stay well below 8
+    // px
+    // so the player can squeeze through. 3 px gives comfortable passage while still
     // blocking on solid tiles on either side.
     //
-    //   hitbox half-extents (world px)
-    private static final double HIT_HALF_W =  3.0;   // body ≈ 6 px wide  (fits 1-tile door)
-    private static final double HIT_HALF_H =  5.0;   // body ≈ 10 px tall
-    //   hitbox centre offset from the sprite-frame centre (world px)
-    private static final double HIT_OFS_X  =  0.0;   // horizontally centred
-    private static final double HIT_OFS_Y  =  4.0;   // feet/body in lower half of the 32-px frame
+    // hitbox half-extents (world px)
+    private static final double HIT_HALF_W = 3.0; // body ≈ 6 px wide (fits 1-tile door)
+    private static final double HIT_HALF_H = 5.0; // body ≈ 10 px tall
+    // hitbox centre offset from the sprite-frame centre (world px)
+    private static final double HIT_OFS_X = 0.0; // horizontally centred
+    private static final double HIT_OFS_Y = 4.0; // feet/body in lower half of the 32-px frame
 
     // ── Colour palette (shared with other scenes) ────────────────────────────
-    private static final String GOLD           = "#c9a84c";
-    private static final String GOLD_DARK      = "#8a6a1a";
-    private static final String STONE_PANEL    = "#1c1c26";
-    private static final String STONE_BORDER   = "#2a2a36";
-    private static final String TEXT_MUTED     = "#7a7060";
+    private static final String GOLD = "#c9a84c";
+    private static final String GOLD_DARK = "#8a6a1a";
+    private static final String STONE_PANEL = "#1c1c26";
+    private static final String STONE_BORDER = "#2a2a36";
+    private static final String TEXT_MUTED = "#7a7060";
     private static final String TEXT_PARCHMENT = "#e8dfc4";
 
     // ── Timer-panel colours (sampled directly from timer_ui.svg) ─────────────
     /** Dark outline / text on the panel face. */
-    private static final Color TIMER_DARK    = Color.web("#181425");
+    private static final Color TIMER_DARK = Color.web("#181425");
     /** Panel face background (used to clear behind text). */
-    private static final Color TIMER_FACE    = Color.web("#8B9BB4");
+    private static final Color TIMER_FACE = Color.web("#8B9BB4");
     /** Header strip text colour. */
-    private static final Color TIMER_HEADER  = Color.web("#C0CBDC");
+    private static final Color TIMER_HEADER = Color.web("#C0CBDC");
     /** Urgent colour when ≤ 10 s remain. */
-    private static final Color TIMER_URGENT  = Color.web("#D04648");
+    private static final Color TIMER_URGENT = Color.web("#D04648");
 
     // ── Timer-panel layout (native SVG px → screen at TIMER_SCALE ×) ─────────
     /** Scale factor applied to the 64×32 SVG panel. */
-    private static final int    TIMER_SCALE      = 2;
+    private static final int TIMER_SCALE = 2;
     /** Native panel dimensions (px). */
-    private static final int    TIMER_W_NATIVE   = 64;
-    private static final int    TIMER_H_NATIVE   = 32;
+    private static final int TIMER_W_NATIVE = 64;
+    private static final int TIMER_H_NATIVE = 32;
     /** Panel screen size. */
-    private static final double TIMER_W          = TIMER_W_NATIVE * TIMER_SCALE;  // 128
-    private static final double TIMER_H          = TIMER_H_NATIVE * TIMER_SCALE;  //  64
+    private static final double TIMER_W = TIMER_W_NATIVE * TIMER_SCALE; // 128
+    private static final double TIMER_H = TIMER_H_NATIVE * TIMER_SCALE; // 64
     /** Face area in native px (where countdown text lives). */
-    private static final double FACE_X_NATIVE    = 10;
-    private static final double FACE_Y_NATIVE    = 10;
-    private static final double FACE_W_NATIVE    = 44;
-    private static final double FACE_H_NATIVE    = 14;
+    private static final double FACE_X_NATIVE = 10;
+    private static final double FACE_Y_NATIVE = 10;
+    private static final double FACE_W_NATIVE = 44;
+    private static final double FACE_H_NATIVE = 14;
     /** Header strip in native px (where "ROUND N" label lives). */
-    private static final double HDR_X_NATIVE     = 10;
-    private static final double HDR_Y_NATIVE     =  6;
-    private static final double HDR_W_NATIVE     = 44;
-    private static final double HDR_H_NATIVE     =  4;
+    private static final double HDR_X_NATIVE = 10;
+    private static final double HDR_Y_NATIVE = 6;
+    private static final double HDR_W_NATIVE = 44;
+    private static final double HDR_H_NATIVE = 4;
     /** Warm-up round duration (seconds). */
-    private static final double TIMER_DURATION   = 25.0;
+    private static final double TIMER_DURATION = 25.0;
 
     // ── Scene graph ──────────────────────────────────────────────────────────
-    private Scene  scene;
+    private Scene scene;
     private Canvas canvas;
     private final SceneManager sceneManager;
 
     // ── Infrastructure ───────────────────────────────────────────────────────
-    private SpriteManager  spriteManager;
-    private ArenaRenderer  arenaRenderer;
-    private MapManager     mapManager;
-    private InputManager   inputManager;
+    private SpriteManager spriteManager;
+    private ArenaRenderer arenaRenderer;
+    private MapManager mapManager;
+    private InputManager inputManager;
     private AnimationTimer gameLoop;
-    private long           lastNano;
+    private long lastNano;
 
     // ── Player state (world-pixel coordinates, native 16 px/tile scale) ──────
-    private double  playerX;
-    private double  playerY;
-    private int     animFrame;
-    private double  animTimer;
+    private double playerX;
+    private double playerY;
+    private int animFrame;
+    private double animTimer;
     private boolean facingLeft;
     private boolean isMoving;
     /** Safe-zone id (1–8) the player is currently in, or -1. */
-    private int     currentZone;
+    private int currentZone;
     /** Accumulator for the safe-zone glow pulse animation. */
-    private double  pulseTimer;
+    private double pulseTimer;
 
     // ── Round / timer state ───────────────────────────────────────────────────
     //
     // The server is authoritative for {@link #roundNumber}, {@link #roundTimer},
-    // and the round phase whenever the client is connected.  These fields then
+    // and the round phase whenever the client is connected. These fields then
     // act as a render-only cache populated each frame from
-    // {@code LocalGameState}.  When no server snapshot has yet been received
+    // {@code LocalGameState}. When no server snapshot has yet been received
     // (pure offline / dev mode) the same fields are driven by the local
     // {@link #lastNano} delta so the scene still works without networking.
 
     /** Current round number (1-based). Rounds 1–2 are timer-based (45 s). */
-    private int    roundNumber;
+    private int roundNumber;
     /** Seconds remaining in the current timer-based round. */
     private double roundTimer;
-    /** True while the round countdown is actively ticking (offline fallback only). */
+    /**
+     * True while the round countdown is actively ticking (offline fallback only).
+     */
     private boolean timerRunning;
     /**
      * Previous server-observed round number — used to detect a round transition
-     * and trigger the {@link #triggerRoundPopup(int)} animation.  {@code 0}
+     * and trigger the {@link #triggerRoundPopup(int)} animation. {@code 0}
      * means we have not yet seen a server snapshot.
      */
-    private int    lastObservedServerRound;
+    private int lastObservedServerRound;
 
     // ── Offline-mode safe-zone placeholder ───────────────────────────────────
     //
-    // When no server snapshot has populated {@link com.identitycrisis.client.game.LocalGameState#getSafeZones},
+    // When no server snapshot has populated {@link
+    // com.identitycrisis.client.game.LocalGameState#getSafeZones},
     // {@link #render} falls back to a single random TMX rectangle so the
     // player always has *one* visible safe zone per round (matching the
     // server's single-player behaviour: zoneCount = max(1, aliveCount-1) = 1
@@ -166,17 +171,23 @@ public class GameArena {
     // stays stable for the duration of a round so the visual doesn't flicker
     // between candidates.
 
-    /** Id (1–8) of the TMX rectangle being shown as the offline placeholder, or -1 before first selection. */
-    private int    offlineActiveZoneId = -1;
+    /**
+     * Id (1–8) of the TMX rectangle being shown as the offline placeholder, or -1
+     * before first selection.
+     */
+    private int offlineActiveZoneId = -1;
     /** {@link #roundNumber} at the moment the current offline zone was picked. */
-    private int    offlineActiveZoneRound = -1;
-    /** RNG dedicated to offline zone selection — separate from any other randomness in the scene. */
+    private int offlineActiveZoneRound = -1;
+    /**
+     * RNG dedicated to offline zone selection — separate from any other randomness
+     * in the scene.
+     */
     private final java.util.Random offlineZoneRng = new java.util.Random();
     /** The timer_ui.png panel image, loaded once. */
-    private Image  timerPanelImage;
+    private Image timerPanelImage;
     /** Cached "Press Start 2P" font at various sizes for the timer HUD. */
-    private Font   fontTimerLabel;
-    private Font   fontTimerFace;
+    private Font fontTimerLabel;
+    private Font fontTimerFace;
 
     // ── Round start popup state ────────────────────────────────────────────
     /** True while the round start popup is being displayed. */
@@ -189,9 +200,9 @@ public class GameArena {
     private Font fontRoundPopup;
     /** Audio player for the 3-second countdown timer sound. */
     private MediaPlayer countdownAudio;
-    
+
     // ── Pause state ──────────────────────────────────────────────────────────
-    private boolean isPaused      = false;
+    private boolean isPaused = false;
     private boolean escWasPressed = false;
     private StackPane pauseOverlay;
     private javafx.scene.layout.VBox pauseMenu;
@@ -202,18 +213,18 @@ public class GameArena {
     // ── Fake safe-zones chaos state ───────────────────────────────────────────
     //
     // Local debug toggle (key O) that mirrors the server-side FAKE_SAFE_ZONES
-    // chaos event.  When active:
-    //   • Every TMX safe-zone rectangle is rendered.
-    //   • Exactly one is the TRUE zone (fakeZoneTrueId); the rest are DECOYS.
-    //   • True zone = normal green indicator; decoys = red/orange indicator.
-    //   • A HUD banner announces the chaos event.
+    // chaos event. When active:
+    // • Every TMX safe-zone rectangle is rendered.
+    // • Exactly one is the TRUE zone (fakeZoneTrueId); the rest are DECOYS.
+    // • True zone = normal green indicator; decoys = red/orange indicator.
+    // • A HUD banner announces the chaos event.
     //
     /** True while the local FAKE_SAFE_ZONES chaos test is active. */
-    private boolean testingFakeZones      = false;
+    private boolean testingFakeZones = false;
     /** All zones to display during the chaos event (true + decoys). */
     private java.util.List<com.identitycrisis.shared.model.SafeZone> fakeZoneList = new java.util.ArrayList<>();
     /** Id of the ONE true safe zone inside fakeZoneList. */
-    private int     fakeZoneTrueId        = -1;
+    private int fakeZoneTrueId = -1;
     /** RNG for decoy zone selection. */
     private final java.util.Random fakeZoneRng = new java.util.Random();
 
@@ -256,15 +267,17 @@ public class GameArena {
 
         // ArenaRenderer loads the TMX map internally
         arenaRenderer = new ArenaRenderer(spriteManager);
-        mapManager    = arenaRenderer.getMapManager();
+        mapManager = arenaRenderer.getMapManager();
 
         // InputManager created here; attached/detached in onEnter/onExit
         inputManager = new InputManager();
 
         // Timer panel sprite
         try (InputStream is = getClass().getResourceAsStream("/sprites/ui/toasts/timer_ui.png")) {
-            if (is != null) timerPanelImage = new Image(is);
-        } catch (Exception ignored) {}
+            if (is != null)
+                timerPanelImage = new Image(is);
+        } catch (Exception ignored) {
+        }
 
         // Load countdown audio (3 seconds)
         try {
@@ -273,12 +286,13 @@ public class GameArena {
                 countdownAudio = new MediaPlayer(new Media(audioUrl.toExternalForm()));
                 countdownAudio.setVolume(0.8);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
 
         // Pre-build fonts (Press Start 2P — loaded via global.css)
-        fontTimerLabel = loadFont("Press Start 2P",  6);   // header strip: "ROUND N"
-        fontTimerFace  = loadFont("Press Start 2P", 10);   // face area:   countdown
-        fontRoundPopup = loadFont("Press Start 2P", 24);   // round announcement popup
+        fontTimerLabel = loadFont("Press Start 2P", 6); // header strip: "ROUND N"
+        fontTimerFace = loadFont("Press Start 2P", 10); // face area: countdown
+        fontRoundPopup = loadFont("Press Start 2P", 24); // round announcement popup
 
         return scene;
     }
@@ -295,40 +309,42 @@ public class GameArena {
             playerX = mapManager.getActiveContentCenterX();
             playerY = mapManager.getActiveContentCenterY();
         } else {
-            double w = (canvas != null) ? canvas.getWidth()  : GameConfig.WINDOW_WIDTH;
+            double w = (canvas != null) ? canvas.getWidth() : GameConfig.WINDOW_WIDTH;
             double h = (canvas != null) ? canvas.getHeight() : GameConfig.WINDOW_HEIGHT;
             playerX = w / 2.0;
             playerY = h / 2.0;
         }
 
-        animFrame  = 0;
-        animTimer  = 0.0;
+        animFrame = 0;
+        animTimer = 0.0;
         facingLeft = false;
-        isMoving   = false;
+        isMoving = false;
         currentZone = -1;
-        pulseTimer  = 0.0;
-        lastNano    = 0L;
+        pulseTimer = 0.0;
+        lastNano = 0L;
 
         // Default round/timer state (used as the offline fallback until the
-        // first server snapshot arrives).  Once snapshots stream in,
+        // first server snapshot arrives). Once snapshots stream in,
         // {@link #syncRoundStateFromServer} replaces these every frame.
-        roundNumber              = 1;
-        roundTimer               = TIMER_DURATION;
-        timerRunning             = true;
-        lastObservedServerRound  = 0;
+        roundNumber = 1;
+        roundTimer = TIMER_DURATION;
+        timerRunning = true;
+        lastObservedServerRound = 0;
 
         // Reset offline-mode safe-zone selection so onEnter() forces a fresh
         // pick on the very first render frame (offlineActiveZoneRound != roundNumber).
-        offlineActiveZoneId      = -1;
-        offlineActiveZoneRound   = -1;
+        offlineActiveZoneId = -1;
+        offlineActiveZoneRound = -1;
 
         isPaused = false;
-        if (pauseOverlay != null) pauseOverlay.setVisible(false);
+        if (pauseOverlay != null)
+            pauseOverlay.setVisible(false);
 
         // Show round start popup for round 1
         triggerRoundPopup(1);
 
-        // Attach keyboard handlers to the permanent scene (the one JavaFX actually delivers events to)
+        // Attach keyboard handlers to the permanent scene (the one JavaFX actually
+        // delivers events to)
         if (inputManager != null) {
             inputManager.attachToScene(sceneManager.getPermanentScene());
         }
@@ -337,10 +353,14 @@ public class GameArena {
         gameLoop = new AnimationTimer() {
             @Override
             public void handle(long now) {
-                if (lastNano == 0L) { lastNano = now; return; }
+                if (lastNano == 0L) {
+                    lastNano = now;
+                    return;
+                }
                 double dt = (now - lastNano) / 1_000_000_000.0;
                 lastNano = now;
-                if (dt > 0.05) dt = 0.05; // cap after window pause
+                if (dt > 0.05)
+                    dt = 0.05; // cap after window pause
                 update(dt);
                 render();
             }
@@ -369,7 +389,8 @@ public class GameArena {
         }
         escWasPressed = escPressed;
 
-        if (isPaused) return;
+        if (isPaused)
+            return;
 
         // ── Round start popup countdown ─────────────────────────────────────
         // Tick the countdown first so its state is up-to-date this frame.
@@ -377,7 +398,7 @@ public class GameArena {
             roundPopupTimer -= dt;
             if (roundPopupTimer <= 0) {
                 roundPopupActive = false;
-                roundPopupTimer  = 0;
+                roundPopupTimer = 0;
             }
         }
 
@@ -400,13 +421,13 @@ public class GameArena {
         }
 
         // ── Fake safe-zones chaos detection (O key) ───────────────────────────
-        // Reads local debug flag from InputManager.  Also activates whenever
+        // Reads local debug flag from InputManager. Also activates whenever
         // the server broadcasts FAKE_SAFE_ZONES so connected clients
         // automatically enter the chaos visual without pressing O.
         boolean serverFakeZones = false;
         if (sceneManager != null && sceneManager.getLocalGameState() != null) {
-            serverFakeZones = (sceneManager.getLocalGameState().getActiveChaos()
-                    == com.identitycrisis.shared.model.ChaosEventType.FAKE_SAFE_ZONES);
+            serverFakeZones = (sceneManager.getLocalGameState()
+                    .getActiveChaos() == com.identitycrisis.shared.model.ChaosEventType.FAKE_SAFE_ZONES);
         }
         boolean wantFakeZones = serverFakeZones
                 || (inputManager != null && inputManager.isTestingFakeZones());
@@ -425,7 +446,8 @@ public class GameArena {
 
         boolean reversed = false;
         if (sceneManager != null && sceneManager.getLocalGameState() != null) {
-            reversed = (sceneManager.getLocalGameState().getActiveChaos() == com.identitycrisis.shared.model.ChaosEventType.REVERSED_CONTROLS);
+            reversed = (sceneManager.getLocalGameState()
+                    .getActiveChaos() == com.identitycrisis.shared.model.ChaosEventType.REVERSED_CONTROLS);
         }
         if (inputManager != null && inputManager.isTestingReversed()) {
             reversed = true;
@@ -434,18 +456,20 @@ public class GameArena {
 
         if (reversed) {
             input = new InputSnapshot(
-                input.down(), input.up(), input.right(), input.left(),
-                input.carry(), input.throwAction(), input.chatToggle()
-            );
+                    input.down(), input.up(), input.right(), input.left(),
+                    input.carry(), input.throwAction(), input.chatToggle());
         }
-
 
         // ── Direction ────────────────────────────────────────────────────────
         double dx = 0, dy = 0;
-        if (input.up())    dy -= 1;
-        if (input.down())  dy += 1;
-        if (input.left())  dx -= 1;
-        if (input.right()) dx += 1;
+        if (input.up())
+            dy -= 1;
+        if (input.down())
+            dy += 1;
+        if (input.left())
+            dx -= 1;
+        if (input.right())
+            dx += 1;
 
         // Normalise diagonal
         if (dx != 0 && dy != 0) {
@@ -457,7 +481,7 @@ public class GameArena {
         isMoving = (dx != 0 || dy != 0);
 
         if (isMoving) {
-            double speed  = GameConfig.PLAYER_SPEED;
+            double speed = GameConfig.PLAYER_SPEED;
 
             // ── Axis-separated collision (tight hitbox — radius param unused) ─
             // Try X
@@ -471,8 +495,10 @@ public class GameArena {
                 playerY = newY;
             }
 
-            if (dx < 0) facingLeft = true;
-            if (dx > 0) facingLeft = false;
+            if (dx < 0)
+                facingLeft = true;
+            if (dx > 0)
+                facingLeft = false;
         }
 
         // ── Animation ────────────────────────────────────────────────────────
@@ -490,7 +516,7 @@ public class GameArena {
         // ── Round / timer ─────────────────────────────────────────────────────
         // Prefer server-driven state when a snapshot is available so the HUD
         // reflects every authoritative event (round transitions, timer skip on
-        // safe-zone entry, etc.).  Otherwise fall back to the local timer so
+        // safe-zone entry, etc.). Otherwise fall back to the local timer so
         // the scene remains usable in pure offline / dev mode.
         if (!syncRoundStateFromServer()) {
             tickLocalRoundTimer(dt);
@@ -501,23 +527,26 @@ public class GameArena {
 
     /**
      * Pulls round number, round timer, and round-start-popup trigger from the
-     * latest server snapshot held in {@code LocalGameState}.  Returns
+     * latest server snapshot held in {@code LocalGameState}. Returns
      * {@code true} if a snapshot was available (server is authoritative) so
      * the caller can skip the local fallback timer.
      *
-     * <p>The popup fires on the rising edge of an observed round change so
+     * <p>
+     * The popup fires on the rising edge of an observed round change so
      * connected clients still see the 3-2-1 countdown — but only once per
      * round transition, regardless of how many snapshots arrive in between.
      */
     private boolean syncRoundStateFromServer() {
-        if (sceneManager == null) return false;
+        if (sceneManager == null)
+            return false;
         com.identitycrisis.client.game.LocalGameState lgs = sceneManager.getLocalGameState();
-        if (lgs == null || !lgs.hasReceivedSnapshot()) return false;
+        if (lgs == null || !lgs.hasReceivedSnapshot())
+            return false;
 
-        int    serverRound = lgs.getRoundNumber();
+        int serverRound = lgs.getRoundNumber();
         double serverTimer = lgs.getTimerRemaining();
 
-        // Detect a fresh round and trigger the popup once.  We use a
+        // Detect a fresh round and trigger the popup once. We use a
         // non-zero "lastObservedServerRound" sentinel to skip the very first
         // synchronisation (the join itself counts as round 1; otherwise we'd
         // double-trigger the popup over the existing onEnter() invocation).
@@ -526,8 +555,8 @@ public class GameArena {
         }
         lastObservedServerRound = serverRound;
 
-        roundNumber  = serverRound;
-        roundTimer   = Math.max(0, serverTimer);
+        roundNumber = serverRound;
+        roundTimer = Math.max(0, serverTimer);
         timerRunning = false; // server owns the clock; local field unused
         return true;
     }
@@ -538,30 +567,35 @@ public class GameArena {
      * Returns {@code null} only when the {@link MapManager} hasn't loaded any
      * safe-zone rectangles (e.g. before TMX parsing completes).
      *
-     * <p>Selection is stable for the duration of a round so the indicator
-     * doesn't flicker between candidates each frame.  In single-player this
+     * <p>
+     * Selection is stable for the duration of a round so the indicator
+     * doesn't flicker between candidates each frame. In single-player this
      * mirrors the server's single-zone-per-round behaviour without requiring
      * a running server.
      */
     private com.identitycrisis.shared.model.SafeZone ensureOfflineZone() {
-        if (mapManager == null) return null;
+        if (mapManager == null)
+            return null;
         java.util.List<MapManager.SafeZoneRect> spots = mapManager.getSafeZones();
-        if (spots == null || spots.isEmpty()) return null;
+        if (spots == null || spots.isEmpty())
+            return null;
 
         if (offlineActiveZoneRound != roundNumber || offlineActiveZoneId < 0) {
             // After a round advance the player is still standing on the
-            // *previous* zone for a brief moment.  Excluding zones the player
+            // *previous* zone for a brief moment. Excluding zones the player
             // is currently inside prevents the new pick from immediately
             // re-triggering {@link #tryAdvanceFromOfflineZoneEntry} on the
             // next frame, which would auto-skip rounds without any walking.
             int playerZone = currentZone;
             java.util.List<MapManager.SafeZoneRect> candidates = new java.util.ArrayList<>();
             for (MapManager.SafeZoneRect r : spots) {
-                if (r.id() != playerZone) candidates.add(r);
+                if (r.id() != playerZone)
+                    candidates.add(r);
             }
-            if (candidates.isEmpty()) candidates = spots; // safety: only one spot exists
+            if (candidates.isEmpty())
+                candidates = spots; // safety: only one spot exists
             MapManager.SafeZoneRect pick = candidates.get(offlineZoneRng.nextInt(candidates.size()));
-            offlineActiveZoneId    = pick.id();
+            offlineActiveZoneId = pick.id();
             offlineActiveZoneRound = roundNumber;
         }
 
@@ -573,7 +607,7 @@ public class GameArena {
         }
         // Fallback: id no longer in pool (shouldn't happen) — pick first.
         MapManager.SafeZoneRect first = spots.get(0);
-        offlineActiveZoneId    = first.id();
+        offlineActiveZoneId = first.id();
         offlineActiveZoneRound = roundNumber;
         return new com.identitycrisis.shared.model.SafeZone(
                 first.id(), first.x(), first.y(), first.width(), first.height());
@@ -582,67 +616,76 @@ public class GameArena {
     /**
      * Single-player offline win condition: when the player walks into the
      * round's offline-active zone, immediately end the round and advance to
-     * the next one.  This mirrors the server-side warm-up behaviour
+     * the next one. This mirrors the server-side warm-up behaviour
      * ({@code RoundManager.tick} fast-forwards the timer when every alive
      * player is in a zone) but works without networking.
      *
-     * <p>The advance only fires when:
+     * <p>
+     * The advance only fires when:
      * <ul>
-     *   <li>No server zones are being received (purely offline play).</li>
-     *   <li>An offline zone has been picked for the current round.</li>
-     *   <li>The player's {@link #currentZone} matches that zone's id.</li>
-     *   <li>The round-start popup is not already animating (otherwise the
-     *       3-2-1 countdown would skip rounds before the player can react).</li>
+     * <li>No server zones are being received (purely offline play).</li>
+     * <li>An offline zone has been picked for the current round.</li>
+     * <li>The player's {@link #currentZone} matches that zone's id.</li>
+     * <li>The round-start popup is not already animating (otherwise the
+     * 3-2-1 countdown would skip rounds before the player can react).</li>
      * </ul>
      *
-     * <p>After advance the popup plays for the new round and
+     * <p>
+     * After advance the popup plays for the new round and
      * {@link #ensureOfflineZone} re-rolls a different rectangle.
      */
     private void tryAdvanceFromOfflineZoneEntry() {
         // Server connected → server owns round transitions.
         if (sceneManager != null) {
             com.identitycrisis.client.game.LocalGameState lgs = sceneManager.getLocalGameState();
-            if (lgs != null && lgs.hasReceivedSnapshot()) return;
+            if (lgs != null && lgs.hasReceivedSnapshot())
+                return;
         }
-        if (roundPopupActive) return;
-        if (offlineActiveZoneId < 0) return;
-        if (currentZone != offlineActiveZoneId) return;
+        if (roundPopupActive)
+            return;
+        if (offlineActiveZoneId < 0)
+            return;
+        if (currentZone != offlineActiveZoneId)
+            return;
 
-        // Advance the round.  Cap the round number at WARMUP_ROUNDS + 1 to
+        // Advance the round. Cap the round number at WARMUP_ROUNDS + 1 to
         // surface the elimination-round HUD switch; without a true game-over
         // condition the milestone-A solo flow is endless on purpose.
         roundNumber += 1;
         triggerRoundPopup(roundNumber);
         if (roundNumber <= GameConfig.WARMUP_ROUNDS) {
-            roundTimer   = TIMER_DURATION;
+            roundTimer = TIMER_DURATION;
             timerRunning = true;
         } else {
             // Elimination rounds have no countdown panel locally — the popup
             // and re-rolled zone are the only feedback.
-            roundTimer   = 0;
+            roundTimer = 0;
             timerRunning = false;
         }
     }
 
     /**
      * Offline fallback: decrements the local round timer using the frame
-     * delta and advances to the next round when it reaches zero.  Only used
+     * delta and advances to the next round when it reaches zero. Only used
      * before the first server snapshot arrives.
      */
     private void tickLocalRoundTimer(double dt) {
-        if (!timerRunning || roundPopupActive) return;
-        if (roundNumber > GameConfig.WARMUP_ROUNDS) return;
+        if (!timerRunning || roundPopupActive)
+            return;
+        if (roundNumber > GameConfig.WARMUP_ROUNDS)
+            return;
 
         roundTimer -= dt;
         if (roundTimer <= 0) {
-            roundTimer   = 0;
+            roundTimer = 0;
             timerRunning = false;
             endGameOffline();
         }
     }
 
     private void endGameOffline() {
-        if (sceneManager == null) return;
+        if (sceneManager == null)
+            return;
         onExit();
         sceneManager.shutdownNetwork();
         javafx.application.Platform.runLater(sceneManager::showMenu);
@@ -650,33 +693,38 @@ public class GameArena {
 
     /**
      * Returns {@code true} if the player's tight hitbox rectangle overlaps any
-     * solid tile.  {@code (cx, cy)} is the world-pixel position of the sprite-
+     * solid tile. {@code (cx, cy)} is the world-pixel position of the sprite-
      * frame centre (i.e. {@link #playerX} / {@link #playerY}).
      *
-     * <p>All HIT_* constants are in <b>world-pixel</b> units — the same coordinate
+     * <p>
+     * All HIT_* constants are in <b>world-pixel</b> units — the same coordinate
      * space as {@link #playerX}/{@link #playerY} and {@link MapManager#isSolid}.
-     * They must <em>not</em> be multiplied by the screen scale factor (which converts
+     * They must <em>not</em> be multiplied by the screen scale factor (which
+     * converts
      * world→screen pixels) because {@code isSolid} works purely in world space.
      *
-     * <p>The hitbox is static: it does not change with animation state.
+     * <p>
+     * The hitbox is static: it does not change with animation state.
      */
     private boolean isBlocked(double cx, double cy, double radius) {
-        if (mapManager == null) return false;
+        if (mapManager == null)
+            return false;
         // Hitbox corners in world-pixel space — no screen-scale multiplication needed.
-        double left   = cx + HIT_OFS_X - HIT_HALF_W;
-        double right  = cx + HIT_OFS_X + HIT_HALF_W;
-        double top    = cy + HIT_OFS_Y - HIT_HALF_H;
+        double left = cx + HIT_OFS_X - HIT_HALF_W;
+        double right = cx + HIT_OFS_X + HIT_HALF_W;
+        double top = cy + HIT_OFS_Y - HIT_HALF_H;
         double bottom = cy + HIT_OFS_Y + HIT_HALF_H;
-        return mapManager.isSolid(left,  top)
-            || mapManager.isSolid(right, top)
-            || mapManager.isSolid(left,  bottom)
-            || mapManager.isSolid(right, bottom);
+        return mapManager.isSolid(left, top)
+                || mapManager.isSolid(right, top)
+                || mapManager.isSolid(left, bottom)
+                || mapManager.isSolid(right, bottom);
     }
 
     // ── Render ───────────────────────────────────────────────────────────────
 
     private void render() {
-        if (canvas == null) return;
+        if (canvas == null)
+            return;
         GraphicsContext gc = canvas.getGraphicsContext2D();
         double w = canvas.getWidth();
         double h = canvas.getHeight();
@@ -687,11 +735,12 @@ public class GameArena {
         // 2. Safe-zone indicators
         //
         // Hidden during the between-round countdown so the new safe zone is
-        // not revealed before the round actually starts.  Once the popup
+        // not revealed before the round actually starts. Once the popup
         // dismisses (roundPopupActive == false) they appear normally.
         //
         // When FAKE_SAFE_ZONES chaos is active we override normal zone drawing:
-        // all 8 TMX zones are shown, only one is real (green), the rest are decoys (red).
+        // all 8 TMX zones are shown, only one is real (green), the rest are decoys
+        // (red).
         if (!roundPopupActive) {
             if (testingFakeZones && !fakeZoneList.isEmpty()) {
                 // Draw every zone; colour depends on whether it is the true zone.
@@ -711,7 +760,8 @@ public class GameArena {
                     }
                 } else {
                     com.identitycrisis.shared.model.SafeZone offline = ensureOfflineZone();
-                    if (offline != null) drawSafeZoneIndicator(gc, w, h, offline, true);
+                    if (offline != null)
+                        drawSafeZoneIndicator(gc, w, h, offline, true);
                 }
             }
         }
@@ -724,8 +774,10 @@ public class GameArena {
 
         // 4b. Chaos HUD banners (stacked below timer, each 34 px tall)
         int bannerSlot = 0;
-        if (reversedControlsActive) drawReversedControlsBanner(gc, w, h, bannerSlot++);
-        if (testingFakeZones)       drawFakeZonesBanner(gc, w, h, bannerSlot);
+        if (reversedControlsActive)
+            drawReversedControlsBanner(gc, w, h, bannerSlot++);
+        if (testingFakeZones)
+            drawFakeZonesBanner(gc, w, h, bannerSlot);
 
         // 5. Round start popup overlay (center)
         drawRoundPopup(gc, w, h);
@@ -739,25 +791,25 @@ public class GameArena {
 
         if (mapManager != null && mapManager.getWorldWidth() > 0) {
             double scale = mapManager.getScale(viewW, viewH);
-            screenX     = mapManager.worldToScreenX(playerX, viewW, viewH);
-            screenY     = mapManager.worldToScreenY(playerY, viewW, viewH);
+            screenX = mapManager.worldToScreenX(playerX, viewW, viewH);
+            screenY = mapManager.worldToScreenY(playerY, viewW, viewH);
             // Display sprite proportionally: 2 tiles wide at the current map scale
             displaySize = SPRITE_NATIVE * scale;
         } else {
             // Fallback: no map, render at 3× native in screen space
-            screenX     = playerX;
-            screenY     = playerY;
+            screenX = playerX;
+            screenY = playerY;
             displaySize = SPRITE_NATIVE * 3.0;
         }
 
-        String key   = isMoving ? "player_1_walk" : "player_1_idle";
-        Image  sheet = spriteManager.get(key);
+        String key = isMoving ? "player_1_walk" : "player_1_idle";
+        Image sheet = spriteManager.get(key);
 
         int maxFrames = isMoving ? WALK_FRAMES : IDLE_FRAMES;
-        int frame     = Math.min(animFrame, maxFrames - 1);
-        double srcX   = frame * SPRITE_NATIVE;
-        double drawX  = screenX - displaySize / 2.0;
-        double drawY  = screenY - displaySize / 2.0;
+        int frame = Math.min(animFrame, maxFrames - 1);
+        double srcX = frame * SPRITE_NATIVE;
+        double drawX = screenX - displaySize / 2.0;
+        double drawY = screenY - displaySize / 2.0;
 
         if (sheet != null) {
             gc.save();
@@ -791,25 +843,29 @@ public class GameArena {
      * Draws a single rectangular safe zone with a translucent green fill, a
      * pulsing dashed border, and a centred {@code "◆ SAFE ZONE N ◆"} label.
      *
-     * <p>The rectangle's coordinates ({@link com.identitycrisis.shared.model.SafeZone#x()},
+     * <p>
+     * The rectangle's coordinates
+     * ({@link com.identitycrisis.shared.model.SafeZone#x()},
      * {@code y()}, {@code w()}, {@code h()}) are in <em>world-pixel</em> space
-     * — the same coordinate system as {@link #playerX}/{@link #playerY}.  We
+     * — the same coordinate system as {@link #playerX}/{@link #playerY}. We
      * convert each corner via {@link MapManager#worldToScreenX} /
      * {@link MapManager#worldToScreenY} so the indicator stays pinned to the
      * map regardless of viewport size or fullscreen mode.
      */
     private void drawSafeZoneIndicator(GraphicsContext gc, double viewW, double viewH,
-                                        com.identitycrisis.shared.model.SafeZone zone,
-                                        boolean isTrue) {
+            com.identitycrisis.shared.model.SafeZone zone,
+            boolean isTrue) {
         double sx, sy, ex, ey;
         if (mapManager != null && mapManager.getWorldWidth() > 0) {
-            sx = mapManager.worldToScreenX(zone.x(),               viewW, viewH);
-            sy = mapManager.worldToScreenY(zone.y(),               viewW, viewH);
-            ex = mapManager.worldToScreenX(zone.x() + zone.w(),    viewW, viewH);
-            ey = mapManager.worldToScreenY(zone.y() + zone.h(),    viewW, viewH);
+            sx = mapManager.worldToScreenX(zone.x(), viewW, viewH);
+            sy = mapManager.worldToScreenY(zone.y(), viewW, viewH);
+            ex = mapManager.worldToScreenX(zone.x() + zone.w(), viewW, viewH);
+            ey = mapManager.worldToScreenY(zone.y() + zone.h(), viewW, viewH);
         } else {
-            sx = zone.x();           sy = zone.y();
-            ex = zone.x() + zone.w(); ey = zone.y() + zone.h();
+            sx = zone.x();
+            sy = zone.y();
+            ex = zone.x() + zone.w();
+            ey = zone.y() + zone.h();
         }
         double rectX = Math.min(sx, ex);
         double rectY = Math.min(sy, ey);
@@ -841,17 +897,19 @@ public class GameArena {
 
     /**
      * Populates {@link #fakeZoneList} with SafeZone objects for every TMX
-     * rectangle.  Randomly selects one as the true zone ({@link #fakeZoneTrueId});
-     * all others are decoys.  If a server snapshot is present its active zones
+     * rectangle. Randomly selects one as the true zone ({@link #fakeZoneTrueId});
+     * all others are decoys. If a server snapshot is present its active zones
      * define the true zone(s) — the rest become decoys drawn from the TMX pool.
      */
     private void buildFakeZones() {
         fakeZoneList.clear();
         fakeZoneTrueId = -1;
-        if (mapManager == null) return;
+        if (mapManager == null)
+            return;
 
         java.util.List<MapManager.SafeZoneRect> all = mapManager.getSafeZones();
-        if (all == null || all.isEmpty()) return;
+        if (all == null || all.isEmpty())
+            return;
 
         // Convert every TMX rectangle into a SafeZone object
         for (MapManager.SafeZoneRect r : all) {
@@ -863,8 +921,8 @@ public class GameArena {
         // Server snapshot available → use the first server-reported zone's id.
         // Otherwise → pick one at random from the full TMX pool.
         if (sceneManager != null && sceneManager.getLocalGameState() != null) {
-            java.util.List<com.identitycrisis.shared.model.SafeZone> serverZones =
-                    sceneManager.getLocalGameState().getSafeZones();
+            java.util.List<com.identitycrisis.shared.model.SafeZone> serverZones = sceneManager.getLocalGameState()
+                    .getSafeZones();
             if (serverZones != null && !serverZones.isEmpty()) {
                 fakeZoneTrueId = serverZones.get(0).id();
             }
@@ -879,16 +937,18 @@ public class GameArena {
     }
 
     /**
-     * Draws a small "⚠ CHAOS: REVERSED CONTROLS" warning banner below the timer panel.
+     * Draws a small "⚠ CHAOS: REVERSED CONTROLS" warning banner below the timer
+     * panel.
      * Uses a purple/violet palette to distinguish from the red fake-zones banner.
      *
-     * @param slot vertical stack slot (0 = first banner directly below timer, 1 = second, …)
+     * @param slot vertical stack slot (0 = first banner directly below timer, 1 =
+     *             second, …)
      */
     private void drawReversedControlsBanner(GraphicsContext gc, double viewW, double viewH, int slot) {
         double bannerW = 340;
         double bannerH = 28;
         double bannerX = Math.round((viewW - bannerW) / 2.0);
-        double bannerY = 16 + TIMER_H + 6 + slot * 34;   // 34 px per banner slot
+        double bannerY = 16 + TIMER_H + 6 + slot * 34; // 34 px per banner slot
 
         double pulse = 0.7 + 0.3 * Math.abs(Math.sin(pulseTimer * 3.0));
 
@@ -917,14 +977,15 @@ public class GameArena {
      * Draws a small "⚠ CHAOS: FAKE ZONES" warning banner below the timer panel
      * so the player knows the chaos event is active.
      *
-     * @param slot vertical stack slot (0 = first banner directly below timer, 1 = second, …)
+     * @param slot vertical stack slot (0 = first banner directly below timer, 1 =
+     *             second, …)
      */
     private void drawFakeZonesBanner(GraphicsContext gc, double viewW, double viewH, int slot) {
         // Pulsing red banner centred horizontally, just below the timer panel area
-        double bannerW  = 320;
-        double bannerH  = 28;
-        double bannerX  = Math.round((viewW - bannerW) / 2.0);
-        double bannerY  = 16 + TIMER_H + 6 + slot * 34;  // 34 px per banner slot
+        double bannerW = 320;
+        double bannerH = 28;
+        double bannerX = Math.round((viewW - bannerW) / 2.0);
+        double bannerY = 16 + TIMER_H + 6 + slot * 34; // 34 px per banner slot
 
         double pulse = 0.7 + 0.3 * Math.abs(Math.sin(pulseTimer * 3.0));
 
@@ -949,18 +1010,17 @@ public class GameArena {
         gc.restore();
     }
 
-
-
     // ── Timer HUD ────────────────────────────────────────────────────────────
 
     /**
      * Draws the pixel-art timer panel (timer_ui.png, scaled 2×) centred at the
-     * top of the screen.  Only visible during timer-based rounds (1–2).
+     * top of the screen. Only visible during timer-based rounds (1–2).
      * Hidden entirely for round 3+ (safe-zone-based rounds).
      */
     private void drawTimerHud(GraphicsContext gc, double viewW, double viewH) {
         // Only shown during warm-up timer rounds
-        if (roundNumber > GameConfig.WARMUP_ROUNDS) return;
+        if (roundNumber > GameConfig.WARMUP_ROUNDS)
+            return;
         // Panel top-left position — centred horizontally, 16 px from top
         double panelX = Math.round((viewW - TIMER_W) / 2.0);
         double panelY = 16;
@@ -972,7 +1032,6 @@ public class GameArena {
             // Fallback: hand-draw the panel using SVG colours
             drawFallbackPanel(gc, panelX, panelY);
         }
-
 
         // ── Header strip — "ROUND N" ──────────────────────────────────────────
         double hdrCX = panelX + (HDR_X_NATIVE + HDR_W_NATIVE / 2.0) * TIMER_SCALE;
@@ -1016,6 +1075,7 @@ public class GameArena {
 
     /**
      * Triggers the round start popup with a 3-2-1 countdown.
+     * 
      * @param round the round number to announce
      */
     private void triggerRoundPopup(int round) {
@@ -1035,7 +1095,8 @@ public class GameArena {
      * Shows "ROUND X" with a pulsing countdown (3... 2... 1...).
      */
     private void drawRoundPopup(GraphicsContext gc, double viewW, double viewH) {
-        if (!roundPopupActive) return;
+        if (!roundPopupActive)
+            return;
 
         double centerX = viewW / 2.0;
         double centerY = viewH / 2.0;
@@ -1096,10 +1157,14 @@ public class GameArena {
 
         // Color based on countdown: 3=green, 2=yellow, 1=red, GO!=gold
         Color countdownColor;
-        if (countdownValue == 3) countdownColor = Color.web("#4a8c5c");
-        else if (countdownValue == 2) countdownColor = Color.web("#d4a017");
-        else if (countdownValue == 1) countdownColor = Color.web("#d04648");
-        else countdownColor = Color.web("#c9a84c");
+        if (countdownValue == 3)
+            countdownColor = Color.web("#4a8c5c");
+        else if (countdownValue == 2)
+            countdownColor = Color.web("#d4a017");
+        else if (countdownValue == 1)
+            countdownColor = Color.web("#d04648");
+        else
+            countdownColor = Color.web("#c9a84c");
 
         gc.setFill(countdownColor);
         gc.fillText(countdownText, centerX, popupY + 145);
@@ -1115,23 +1180,30 @@ public class GameArena {
         double s = TIMER_SCALE;
         gc.save();
         // Outer dark border
-        gc.setFill(Color.web("#181425")); gc.fillRect(ox, oy, 64*s, 2*s);
-        gc.fillRect(ox, oy+2*s, 2*s, 30*s);
-        gc.fillRect(ox+62*s, oy+2*s, 2*s, 30*s);
-        gc.fillRect(ox+2*s, oy+30*s, 60*s, 2*s);
+        gc.setFill(Color.web("#181425"));
+        gc.fillRect(ox, oy, 64 * s, 2 * s);
+        gc.fillRect(ox, oy + 2 * s, 2 * s, 30 * s);
+        gc.fillRect(ox + 62 * s, oy + 2 * s, 2 * s, 30 * s);
+        gc.fillRect(ox + 2 * s, oy + 30 * s, 60 * s, 2 * s);
         // Panel face
-        gc.setFill(Color.web("#8B9BB4")); gc.fillRect(ox+4*s, oy+4*s, 56*s, 24*s);
+        gc.setFill(Color.web("#8B9BB4"));
+        gc.fillRect(ox + 4 * s, oy + 4 * s, 56 * s, 24 * s);
         // Top highlight
-        gc.setFill(Color.web("#FFFFFF")); gc.fillRect(ox+4*s, oy+4*s, 56*s, 2*s);
+        gc.setFill(Color.web("#FFFFFF"));
+        gc.fillRect(ox + 4 * s, oy + 4 * s, 56 * s, 2 * s);
         // Side shadows
-        gc.setFill(Color.web("#8B9BB4")); gc.fillRect(ox+2*s, oy+4*s, 2*s, 24*s);
-        gc.fillRect(ox+60*s, oy+4*s, 2*s, 24*s);
+        gc.setFill(Color.web("#8B9BB4"));
+        gc.fillRect(ox + 2 * s, oy + 4 * s, 2 * s, 24 * s);
+        gc.fillRect(ox + 60 * s, oy + 4 * s, 2 * s, 24 * s);
         // Header strip
-        gc.setFill(Color.web("#5A6988")); gc.fillRect(ox+10*s, oy+6*s, 44*s, 4*s);
-        gc.setFill(Color.web("#3A4466")); gc.fillRect(ox+8*s,  oy+6*s,  2*s, 4*s);
-        gc.fillRect(ox+54*s, oy+6*s, 2*s, 4*s);
+        gc.setFill(Color.web("#5A6988"));
+        gc.fillRect(ox + 10 * s, oy + 6 * s, 44 * s, 4 * s);
+        gc.setFill(Color.web("#3A4466"));
+        gc.fillRect(ox + 8 * s, oy + 6 * s, 2 * s, 4 * s);
+        gc.fillRect(ox + 54 * s, oy + 6 * s, 2 * s, 4 * s);
         // Bottom strip
-        gc.setFill(Color.web("#C0CBDC")); gc.fillRect(ox+8*s, oy+24*s, 48*s, 4*s);
+        gc.setFill(Color.web("#C0CBDC"));
+        gc.fillRect(ox + 8 * s, oy + 24 * s, 48 * s, 4 * s);
         gc.restore();
     }
 
@@ -1151,7 +1223,7 @@ public class GameArena {
         Button btn = new Button("◀  Back");
         btn.setStyle(backStyle(false));
         btn.setOnMouseEntered(e -> btn.setStyle(backStyle(true)));
-        btn.setOnMouseExited(e  -> btn.setStyle(backStyle(false)));
+        btn.setOnMouseExited(e -> btn.setStyle(backStyle(false)));
         btn.setOnAction(e -> {
             onExit();
             sceneManager.shutdownNetwork();
@@ -1169,7 +1241,7 @@ public class GameArena {
         btn.setMaxSize(32, 32);
         btn.setStyle(fsStyle(false));
         btn.setOnMouseEntered(e -> btn.setStyle(fsStyle(true)));
-        btn.setOnMouseExited(e  -> btn.setStyle(fsStyle(false)));
+        btn.setOnMouseExited(e -> btn.setStyle(fsStyle(false)));
         btn.setOnAction(e -> sceneManager.toggleFullscreen());
         StackPane.setAlignment(btn, Pos.TOP_RIGHT);
         StackPane.setMargin(btn, new Insets(20, 20, 0, 0));
@@ -1180,25 +1252,25 @@ public class GameArena {
 
     private String backStyle(boolean hover) {
         return "-fx-font-family: 'Cinzel', serif;" +
-               "-fx-font-size: 11px;" +
-               "-fx-font-weight: 700;" +
-               "-fx-text-fill: " + (hover ? TEXT_PARCHMENT : TEXT_MUTED) + ";" +
-               "-fx-letter-spacing: 2px;" +
-               "-fx-background-color: transparent;" +
-               "-fx-border-color: " + (hover ? GOLD_DARK : STONE_BORDER) + ";" +
-               "-fx-border-width: 1px;" +
-               "-fx-padding: 7px 14px;" +
-               "-fx-cursor: hand;";
+                "-fx-font-size: 11px;" +
+                "-fx-font-weight: 700;" +
+                "-fx-text-fill: " + (hover ? TEXT_PARCHMENT : TEXT_MUTED) + ";" +
+                "-fx-letter-spacing: 2px;" +
+                "-fx-background-color: transparent;" +
+                "-fx-border-color: " + (hover ? GOLD_DARK : STONE_BORDER) + ";" +
+                "-fx-border-width: 1px;" +
+                "-fx-padding: 7px 14px;" +
+                "-fx-cursor: hand;";
     }
 
     private String fsStyle(boolean hover) {
         return "-fx-font-family: 'Press Start 2P', monospace;" +
-               "-fx-font-size: 12px;" +
-               "-fx-text-fill: " + GOLD + ";" +
-               "-fx-background-color: " + (hover ? "rgba(201,168,76,0.1)" : STONE_PANEL) + ";" +
-               "-fx-border-color: " + (hover ? GOLD : GOLD_DARK) + ";" +
-               "-fx-border-width: 1px;" +
-               "-fx-cursor: hand;";
+                "-fx-font-size: 12px;" +
+                "-fx-text-fill: " + GOLD + ";" +
+                "-fx-background-color: " + (hover ? "rgba(201,168,76,0.1)" : STONE_PANEL) + ";" +
+                "-fx-border-color: " + (hover ? GOLD : GOLD_DARK) + ";" +
+                "-fx-border-width: 1px;" +
+                "-fx-cursor: hand;";
     }
 
     // ── Utilities ────────────────────────────────────────────────────────────
@@ -1214,9 +1286,9 @@ public class GameArena {
         box.setMaxSize(360, 280);
         box.setMinSize(360, 280);
         box.setStyle("-fx-background-color: #1c1c26; " +
-                     "-fx-border-color: #3a3a50; " +
-                     "-fx-border-width: 3px; " +
-                     "-fx-effect: dropshadow(gaussian, black, 20, 0, 0, 0);");
+                "-fx-border-color: #3a3a50; " +
+                "-fx-border-width: 3px; " +
+                "-fx-effect: dropshadow(gaussian, black, 20, 0, 0, 0);");
 
         // Use a StackPane to swap menus in the same spot
         StackPane menuContainer = new StackPane();
@@ -1265,7 +1337,8 @@ public class GameArena {
         Button yesBtn = createMenuButton("YES");
         yesBtn.setMinWidth(110);
         yesBtn.setOnAction(e -> {
-            if (confirmAction != null) confirmAction.run();
+            if (confirmAction != null)
+                confirmAction.run();
         });
 
         Button noBtn = createMenuButton("NO");
@@ -1292,15 +1365,15 @@ public class GameArena {
 
     private String pauseButtonStyle(boolean hover) {
         return "-fx-font-family: 'Press Start 2P', monospace;" +
-               "-fx-font-size: 10px;" +
-               "-fx-text-fill: " + (hover ? "#ffffff" : "#b0a890") + ";" +
-               "-fx-background-color: " + (hover ? "#3a3a50" : "#252535") + ";" +
-               "-fx-border-color: " + (hover ? "#e8dfc4" : "#3a3a50") + ";" +
-               "-fx-border-width: 2px;" +
-               "-fx-padding: 12px 15px;" +
-               "-fx-cursor: hand;" +
-               "-fx-background-radius: 0;" +
-               "-fx-border-radius: 0;";
+                "-fx-font-size: 10px;" +
+                "-fx-text-fill: " + (hover ? "#ffffff" : "#b0a890") + ";" +
+                "-fx-background-color: " + (hover ? "#3a3a50" : "#252535") + ";" +
+                "-fx-border-color: " + (hover ? "#e8dfc4" : "#3a3a50") + ";" +
+                "-fx-border-width: 2px;" +
+                "-fx-padding: 12px 15px;" +
+                "-fx-cursor: hand;" +
+                "-fx-background-radius: 0;" +
+                "-fx-border-radius: 0;";
     }
 
     private void togglePause() {
@@ -1332,7 +1405,8 @@ public class GameArena {
 
     /** Legacy accessor kept for SceneManager compatibility. */
     public Scene getScene() {
-        if (scene == null) scene = createScene();
+        if (scene == null)
+            scene = createScene();
         return scene;
     }
 }

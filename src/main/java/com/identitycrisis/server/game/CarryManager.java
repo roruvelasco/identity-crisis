@@ -7,7 +7,7 @@ import com.identitycrisis.shared.model.PlayerState;
 import com.identitycrisis.shared.util.Vector2D;
 
 /**
- * Carry/throw mechanics, server-authoritative.
+ * Carry/throw mechanics, done by server.
  * - Carry: within CARRY_RANGE, neither in existing carry.
  * - Carrier speed reduced, carried position locked to carrier + offset.
  * - Carrier CANNOT be marked safe while carrying.
@@ -17,19 +17,26 @@ public class CarryManager {
 
     private final GameState gameState;
 
-    public CarryManager(GameState gameState) { this.gameState = gameState; }
+    public CarryManager(GameState gameState) {
+        this.gameState = gameState;
+    }
 
     public boolean tryCarry(int carrierPlayerId) {
         Player carrier = gameState.getPlayerById(carrierPlayerId);
-        if (carrier == null || carrier.getState() != PlayerState.ALIVE) return false;
-        if (carrier.getCarryingPlayerId() != -1) return false;
+        if (carrier == null || carrier.getState() != PlayerState.ALIVE)
+            return false;
+        if (carrier.getCarryingPlayerId() != -1)
+            return false;
 
         int targetId = findNearestCarryTarget(carrierPlayerId);
-        if (targetId == -1) return false;
+        if (targetId == -1)
+            return false;
 
         Player target = gameState.getPlayerById(targetId);
-        if (target == null || target.getState() != PlayerState.ALIVE) return false;
-        if (target.getCarriedByPlayerId() != -1) return false;
+        if (target == null || target.getState() != PlayerState.ALIVE)
+            return false;
+        if (target.getCarriedByPlayerId() != -1)
+            return false;
 
         carrier.setState(PlayerState.CARRYING);
         carrier.setCarryingPlayerId(targetId);
@@ -41,12 +48,15 @@ public class CarryManager {
 
     public void throwCarried(int carrierPlayerId) {
         Player carrier = gameState.getPlayerById(carrierPlayerId);
-        if (carrier == null) return;
+        if (carrier == null)
+            return;
         int carriedId = carrier.getCarryingPlayerId();
-        if (carriedId == -1) return;
+        if (carriedId == -1)
+            return;
 
         Player carried = gameState.getPlayerById(carriedId);
-        if (carried == null) return;
+        if (carried == null)
+            return;
 
         Vector2D throwDir = facingToVector(carrier.getFacingDirection());
         carried.setVelocity(throwDir.multiply(GameConfig.THROW_SPEED));
@@ -66,7 +76,7 @@ public class CarryManager {
             Player carried = gameState.getPlayerById(cs.carriedPlayerId());
             if (carrier != null && carried != null) {
                 carried.setPosition(carrier.getPosition().add(
-                    new Vector2D(0, -GameConfig.PLAYER_RADIUS)));
+                        new Vector2D(0, -GameConfig.PLAYER_RADIUS)));
                 carried.setVelocity(Vector2D.zero());
             }
         }
@@ -79,7 +89,8 @@ public class CarryManager {
      */
     public void releaseCarry(int playerId) {
         Player p = gameState.getPlayerById(playerId);
-        if (p == null) return;
+        if (p == null)
+            return;
 
         if (p.getCarryingPlayerId() != -1) {
             Player carried = gameState.getPlayerById(p.getCarryingPlayerId());
@@ -100,7 +111,7 @@ public class CarryManager {
             p.setCarriedByPlayerId(-1);
         }
         gameState.getActiveCarries().removeIf(
-            cs -> cs.carrierPlayerId() == playerId || cs.carriedPlayerId() == playerId);
+                cs -> cs.carrierPlayerId() == playerId || cs.carriedPlayerId() == playerId);
     }
 
     private int findNearestCarryTarget(int carrierPlayerId) {
@@ -108,8 +119,10 @@ public class CarryManager {
         double minDist = Double.MAX_VALUE;
         int targetId = -1;
         for (Player p : gameState.getAlivePlayers()) {
-            if (p.getPlayerId() == carrierPlayerId) continue;
-            if (p.getCarriedByPlayerId() != -1) continue;
+            if (p.getPlayerId() == carrierPlayerId)
+                continue;
+            if (p.getCarriedByPlayerId() != -1)
+                continue;
             double dist = carrier.getPosition().distanceTo(p.getPosition());
             if (dist <= GameConfig.CARRY_RANGE && dist < minDist) {
                 minDist = dist;
@@ -122,10 +135,10 @@ public class CarryManager {
     private Vector2D facingToVector(int facing) {
         return switch (facing) {
             case 0 -> new Vector2D(0, -1);
-            case 1 -> new Vector2D(1,  0);
-            case 2 -> new Vector2D(0,  1);
+            case 1 -> new Vector2D(1, 0);
+            case 2 -> new Vector2D(0, 1);
             case 3 -> new Vector2D(-1, 0);
-            default -> new Vector2D(0,  1);
+            default -> new Vector2D(0, 1);
         };
     }
 }

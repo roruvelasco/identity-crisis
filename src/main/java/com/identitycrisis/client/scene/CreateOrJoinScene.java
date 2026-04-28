@@ -23,9 +23,11 @@ import com.identitycrisis.shared.util.NetworkUtils;
 import com.identitycrisis.shared.util.RoomCodec;
 
 /**
- * Create or Join scene - allows players to choose between creating a game or joining one.
- * Play → CreateOrJoin → Lobby → Loading → GameArena flow.
- * Features dungeon background with LobbyScene-style corner glow effects and Press Start 2P typography.
+ * Create or Join scene - allows players to choose between creating a game or
+ * joining one.
+ * Play -> CreateOrJoin -> Lobby -> Loading -> GameArena flow.
+ * Features dungeon background with LobbyScene-style corner glow effects and
+ * Press Start 2P typography.
  */
 public class CreateOrJoinScene {
 
@@ -102,7 +104,8 @@ public class CreateOrJoinScene {
 
         // Vignette overlay - fill entire root
         StackPane vignette = new StackPane();
-        vignette.setStyle("-fx-background-color: radial-gradient(center 50% 50%, radius 100%, transparent 30%, rgba(0,0,0,0.7) 100%);");
+        vignette.setStyle(
+                "-fx-background-color: radial-gradient(center 50% 50%, radius 100%, transparent 30%, rgba(0,0,0,0.7) 100%);");
         vignette.setMouseTransparent(true);
         // Bind vignette to fill root
         vignette.prefWidthProperty().bind(root.widthProperty());
@@ -112,9 +115,9 @@ public class CreateOrJoinScene {
         // Bottom gradient - use percent-based binding
         VBox bottomGradient = new VBox();
         LinearGradient grad = new LinearGradient(0, 1, 0, 0, true, CycleMethod.NO_CYCLE,
-            new Stop(0, Color.rgb(8, 8, 12, 0.97)),
-            new Stop(0.5, Color.rgb(8, 8, 12, 0.8)),
-            new Stop(1, Color.TRANSPARENT));
+                new Stop(0, Color.rgb(8, 8, 12, 0.97)),
+                new Stop(0.5, Color.rgb(8, 8, 12, 0.8)),
+                new Stop(1, Color.TRANSPARENT));
         bottomGradient.setBackground(new Background(new BackgroundFill(grad, null, null)));
         bottomGradient.setMouseTransparent(true);
         // Bind to 55% of root height
@@ -130,9 +133,9 @@ public class CreateOrJoinScene {
      */
     private void addCornerGlows(StackPane root) {
         String glowStyle = "-fx-background-color: radial-gradient(center 50% 50%, radius 50%, rgba(232,116,60,0.12), transparent 70%);";
-        double[] delays = {0, 0.5, 1.0, 1.5};
-        Pos[] positions = {Pos.TOP_LEFT, Pos.TOP_RIGHT, Pos.BOTTOM_LEFT, Pos.BOTTOM_RIGHT};
-        double[][] offsets = {{-60, -60}, {60, -60}, {-60, 60}, {60, 60}};
+        double[] delays = { 0, 0.5, 1.0, 1.5 };
+        Pos[] positions = { Pos.TOP_LEFT, Pos.TOP_RIGHT, Pos.BOTTOM_LEFT, Pos.BOTTOM_RIGHT };
+        double[][] offsets = { { -60, -60 }, { 60, -60 }, { -60, 60 }, { 60, 60 } };
 
         for (int i = 0; i < 4; i++) {
             Pane glow = new Pane();
@@ -146,15 +149,14 @@ public class CreateOrJoinScene {
 
             // Pulse animation
             Timeline pulse = new Timeline(
-                new KeyFrame(Duration.ZERO,
-                    new KeyValue(glow.opacityProperty(), 0.6),
-                    new KeyValue(glow.scaleXProperty(), 0.95),
-                    new KeyValue(glow.scaleYProperty(), 0.95)),
-                new KeyFrame(Duration.seconds(2.0),
-                    new KeyValue(glow.opacityProperty(), 1.0),
-                    new KeyValue(glow.scaleXProperty(), 1.05),
-                    new KeyValue(glow.scaleYProperty(), 1.05))
-            );
+                    new KeyFrame(Duration.ZERO,
+                            new KeyValue(glow.opacityProperty(), 0.6),
+                            new KeyValue(glow.scaleXProperty(), 0.95),
+                            new KeyValue(glow.scaleYProperty(), 0.95)),
+                    new KeyFrame(Duration.seconds(2.0),
+                            new KeyValue(glow.opacityProperty(), 1.0),
+                            new KeyValue(glow.scaleXProperty(), 1.05),
+                            new KeyValue(glow.scaleYProperty(), 1.05)));
             pulse.setDelay(Duration.seconds(delays[i]));
             pulse.setAutoReverse(true);
             pulse.setCycleCount(Animation.INDEFINITE);
@@ -168,41 +170,38 @@ public class CreateOrJoinScene {
     private void addBackButton(StackPane root) {
         Button backBtn = new Button("◀  Back");
         backBtn.setStyle(
-            "-fx-font-family: 'Cinzel', serif;" +
-            "-fx-font-size: 11px;" +
-            "-fx-font-weight: 700;" +
-            "-fx-text-fill: " + TEXT_MUTED + ";" +
-            "-fx-letter-spacing: 2px;" +
-            "-fx-background-color: transparent;" +
-            "-fx-border-color: " + STONE_BORDER + ";" +
-            "-fx-border-width: 1px;" +
-            "-fx-padding: 7px 14px;" +
-            "-fx-cursor: hand;"
-        );
+                "-fx-font-family: 'Cinzel', serif;" +
+                        "-fx-font-size: 11px;" +
+                        "-fx-font-weight: 700;" +
+                        "-fx-text-fill: " + TEXT_MUTED + ";" +
+                        "-fx-letter-spacing: 2px;" +
+                        "-fx-background-color: transparent;" +
+                        "-fx-border-color: " + STONE_BORDER + ";" +
+                        "-fx-border-width: 1px;" +
+                        "-fx-padding: 7px 14px;" +
+                        "-fx-cursor: hand;");
         backBtn.setOnMouseEntered(e -> backBtn.setStyle(
-            "-fx-font-family: 'Cinzel', serif;" +
-            "-fx-font-size: 11px;" +
-            "-fx-font-weight: 700;" +
-            "-fx-text-fill: " + TEXT_PARCHMENT + ";" +
-            "-fx-letter-spacing: 2px;" +
-            "-fx-background-color: transparent;" +
-            "-fx-border-color: " + GOLD_DARK + ";" +
-            "-fx-border-width: 1px;" +
-            "-fx-padding: 7px 14px;" +
-            "-fx-cursor: hand;"
-        ));
+                "-fx-font-family: 'Cinzel', serif;" +
+                        "-fx-font-size: 11px;" +
+                        "-fx-font-weight: 700;" +
+                        "-fx-text-fill: " + TEXT_PARCHMENT + ";" +
+                        "-fx-letter-spacing: 2px;" +
+                        "-fx-background-color: transparent;" +
+                        "-fx-border-color: " + GOLD_DARK + ";" +
+                        "-fx-border-width: 1px;" +
+                        "-fx-padding: 7px 14px;" +
+                        "-fx-cursor: hand;"));
         backBtn.setOnMouseExited(e -> backBtn.setStyle(
-            "-fx-font-family: 'Cinzel', serif;" +
-            "-fx-font-size: 11px;" +
-            "-fx-font-weight: 700;" +
-            "-fx-text-fill: " + TEXT_MUTED + ";" +
-            "-fx-letter-spacing: 2px;" +
-            "-fx-background-color: transparent;" +
-            "-fx-border-color: " + STONE_BORDER + ";" +
-            "-fx-border-width: 1px;" +
-            "-fx-padding: 7px 14px;" +
-            "-fx-cursor: hand;"
-        ));
+                "-fx-font-family: 'Cinzel', serif;" +
+                        "-fx-font-size: 11px;" +
+                        "-fx-font-weight: 700;" +
+                        "-fx-text-fill: " + TEXT_MUTED + ";" +
+                        "-fx-letter-spacing: 2px;" +
+                        "-fx-background-color: transparent;" +
+                        "-fx-border-color: " + STONE_BORDER + ";" +
+                        "-fx-border-width: 1px;" +
+                        "-fx-padding: 7px 14px;" +
+                        "-fx-cursor: hand;"));
         backBtn.setOnAction(e -> sceneManager.showMenu());
 
         StackPane.setAlignment(backBtn, Pos.TOP_LEFT);
@@ -219,37 +218,33 @@ public class CreateOrJoinScene {
         // Page title: "PLAY" in Press Start 2P, gold
         Label title = new Label("PLAY");
         title.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 32px;" +
-            "-fx-text-fill: " + GOLD + ";" +
-            "-fx-letter-spacing: 4px;"
-        );
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 32px;" +
+                        "-fx-text-fill: " + GOLD + ";" +
+                        "-fx-letter-spacing: 4px;");
         VBox.setMargin(title, new Insets(0, 0, 20, 0));
 
         // CREATE section card
         VBox createCard = createOptionCard(
-            "CREATE",
-            "Create Game",
-            "Start a new game and invite friends",
-            this::onCreateClicked
-        );
+                "CREATE",
+                "Create Game",
+                "Start a new game and invite friends",
+                this::onCreateClicked);
 
         // JOIN section card
         VBox joinCard = createOptionCard(
-            "JOIN",
-            "Join Game",
-            "Enter a room code to join an existing game",
-            () -> sceneManager.showJoinRoom()
-        );
+                "JOIN",
+                "Join Game",
+                "Enter a room code to join an existing game",
+                () -> sceneManager.showJoinRoom());
 
         // Status / error label (hidden until there's something to show)
         statusLabel = new Label("");
         statusLabel.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 8px;" +
-            "-fx-text-fill: " + DANGER_RED + ";" +
-            "-fx-letter-spacing: 1px;"
-        );
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 8px;" +
+                        "-fx-text-fill: " + DANGER_RED + ";" +
+                        "-fx-letter-spacing: 1px;");
         statusLabel.setWrapText(true);
         statusLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
         statusLabel.setMaxWidth(440);
@@ -266,7 +261,8 @@ public class CreateOrJoinScene {
      * {@link GameClient} to {@code localhost:port}, sends the join request, and
      * navigates to the lobby.
      *
-     * <p>On any failure, resources are rolled back and the error is surfaced in
+     * <p>
+     * On any failure, resources are rolled back and the error is surfaced in
      * {@link #statusLabel}; the user stays on this scene.
      */
     private void onCreateClicked() {
@@ -296,13 +292,13 @@ public class CreateOrJoinScene {
         LOG.info("Room created: " + code + " (host=" + lanIp + ":" + port + ")");
 
         // 3. Build the client-side networking stack and connect to ourselves.
-        LocalGameState        localState = new LocalGameState();
-        ServerMessageRouter   router     = new ServerMessageRouter(localState);
+        LocalGameState localState = new LocalGameState();
+        ServerMessageRouter router = new ServerMessageRouter(localState);
         router.setOnLobbyStateChanged(() -> {
             int count = localState.getLobbyConnectedCount();
             sceneManager.getLobbyScene().setPlayerCount(count);
         });
-        GameClient            gameClient = new GameClient(router);
+        GameClient gameClient = new GameClient(router);
         if (!connectWithRetry(gameClient, "localhost", port)) {
             embedded.stop();
             showError("Could not connect host client to embedded server.");
@@ -327,8 +323,8 @@ public class CreateOrJoinScene {
      * returning and the daemon accept-loop actually binding the ServerSocket.
      */
     private boolean connectWithRetry(GameClient client, String host, int port) {
-        final int maxAttempts = 20;   // ~20 × 30ms = 600ms total ceiling
-        final long delayMs    = 30;
+        final int maxAttempts = 20; // ~20 × 30ms = 600ms total ceiling
+        final long delayMs = 30;
         IOException last = null;
         for (int i = 0; i < maxAttempts; i++) {
             try {
@@ -336,23 +332,30 @@ public class CreateOrJoinScene {
                 return true;
             } catch (IOException e) {
                 last = e;
-                try { Thread.sleep(delayMs); }
-                catch (InterruptedException ie) { Thread.currentThread().interrupt(); break; }
+                try {
+                    Thread.sleep(delayMs);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
             }
         }
-        if (last != null) LOG.error("connectWithRetry failed", last);
+        if (last != null)
+            LOG.error("connectWithRetry failed", last);
         return false;
     }
 
     private void showError(String msg) {
-        if (statusLabel == null) return;
+        if (statusLabel == null)
+            return;
         statusLabel.setText(msg);
         statusLabel.setVisible(true);
         statusLabel.setManaged(true);
     }
 
     private void clearError() {
-        if (statusLabel == null) return;
+        if (statusLabel == null)
+            return;
         statusLabel.setText("");
         statusLabel.setVisible(false);
         statusLabel.setManaged(false);
@@ -364,19 +367,17 @@ public class CreateOrJoinScene {
         card.setPadding(new Insets(30, 40, 30, 40));
         card.setMaxWidth(400);
         card.setStyle(
-            "-fx-background-color: " + STONE_PANEL + ";" +
-            "-fx-border-color: " + GOLD_DARK + ";" +
-            "-fx-border-width: 1px;"
-        );
+                "-fx-background-color: " + STONE_PANEL + ";" +
+                        "-fx-border-color: " + GOLD_DARK + ";" +
+                        "-fx-border-width: 1px;");
 
         // Section label: CREATE or JOIN in Press Start 2P, gold
         Label label = new Label(sectionLabel);
         label.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 18px;" +
-            "-fx-text-fill: " + GOLD + ";" +
-            "-fx-letter-spacing: 4px;"
-        );
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 18px;" +
+                        "-fx-text-fill: " + GOLD + ";" +
+                        "-fx-letter-spacing: 4px;");
 
         // Horizontal rule below label
         Region line = new Region();
@@ -388,10 +389,9 @@ public class CreateOrJoinScene {
         // Description in Press Start 2P
         Label descLabel = new Label(description);
         descLabel.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 8px;" +
-            "-fx-text-fill: " + TEXT_MUTED + ";"
-        );
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 8px;" +
+                        "-fx-text-fill: " + TEXT_MUTED + ";");
         descLabel.setWrapText(true);
         descLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
 
@@ -410,34 +410,31 @@ public class CreateOrJoinScene {
         btn.setMinSize(220, 48);
         btn.setMaxSize(220, 48);
         btn.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 10px;" +
-            "-fx-text-fill: " + GOLD + ";" +
-            "-fx-background-color: #4a3a1a;" +
-            "-fx-border-color: #1a0e00;" +
-            "-fx-border-width: 2px;" +
-            "-fx-cursor: hand;"
-        );
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 10px;" +
+                        "-fx-text-fill: " + GOLD + ";" +
+                        "-fx-background-color: #4a3a1a;" +
+                        "-fx-border-color: #1a0e00;" +
+                        "-fx-border-width: 2px;" +
+                        "-fx-cursor: hand;");
 
         btn.setOnMouseEntered(e -> btn.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 10px;" +
-            "-fx-text-fill: " + GOLD_LIGHT + ";" +
-            "-fx-background-color: #5c4920;" +
-            "-fx-border-color: #1a0e00;" +
-            "-fx-border-width: 2px;" +
-            "-fx-cursor: hand;"
-        ));
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 10px;" +
+                        "-fx-text-fill: " + GOLD_LIGHT + ";" +
+                        "-fx-background-color: #5c4920;" +
+                        "-fx-border-color: #1a0e00;" +
+                        "-fx-border-width: 2px;" +
+                        "-fx-cursor: hand;"));
 
         btn.setOnMouseExited(e -> btn.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 10px;" +
-            "-fx-text-fill: " + GOLD + ";" +
-            "-fx-background-color: #4a3a1a;" +
-            "-fx-border-color: #1a0e00;" +
-            "-fx-border-width: 2px;" +
-            "-fx-cursor: hand;"
-        ));
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 10px;" +
+                        "-fx-text-fill: " + GOLD + ";" +
+                        "-fx-background-color: #4a3a1a;" +
+                        "-fx-border-color: #1a0e00;" +
+                        "-fx-border-width: 2px;" +
+                        "-fx-cursor: hand;"));
 
         btn.setOnMousePressed(e -> {
             btn.setScaleX(0.97);
@@ -461,7 +458,8 @@ public class CreateOrJoinScene {
         Pane scanlines = new Pane();
         scanlines.prefWidthProperty().bind(root.widthProperty());
         scanlines.prefHeightProperty().bind(root.heightProperty());
-        // Use semi-transparent overlay instead of repeating-linear-gradient (not supported in JavaFX)
+        // Use semi-transparent overlay instead of repeating-linear-gradient (not
+        // supported in JavaFX)
         scanlines.setStyle("-fx-background-color: rgba(0,0,0,0.015);");
         scanlines.setMouseTransparent(true);
         root.getChildren().add(scanlines);
@@ -473,37 +471,34 @@ public class CreateOrJoinScene {
         fullscreenBtn.setMinSize(32, 32);
         fullscreenBtn.setMaxSize(32, 32);
         fullscreenBtn.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 12px;" +
-            "-fx-text-fill: " + GOLD + ";" +
-            "-fx-background-color: " + STONE_PANEL + ";" +
-            "-fx-border-color: " + GOLD_DARK + ";" +
-            "-fx-border-width: 1px;" +
-            "-fx-cursor: hand;"
-        );
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 12px;" +
+                        "-fx-text-fill: " + GOLD + ";" +
+                        "-fx-background-color: " + STONE_PANEL + ";" +
+                        "-fx-border-color: " + GOLD_DARK + ";" +
+                        "-fx-border-width: 1px;" +
+                        "-fx-cursor: hand;");
 
         fullscreenBtn.setOnMouseEntered(e -> {
             fullscreenBtn.setStyle(
-                "-fx-font-family: 'Press Start 2P', monospace;" +
-                "-fx-font-size: 12px;" +
-                "-fx-text-fill: " + GOLD + ";" +
-                "-fx-background-color: rgba(201, 168, 76, 0.1);" +
-                "-fx-border-color: " + GOLD + ";" +
-                "-fx-border-width: 1px;" +
-                "-fx-cursor: hand;"
-            );
+                    "-fx-font-family: 'Press Start 2P', monospace;" +
+                            "-fx-font-size: 12px;" +
+                            "-fx-text-fill: " + GOLD + ";" +
+                            "-fx-background-color: rgba(201, 168, 76, 0.1);" +
+                            "-fx-border-color: " + GOLD + ";" +
+                            "-fx-border-width: 1px;" +
+                            "-fx-cursor: hand;");
         });
 
         fullscreenBtn.setOnMouseExited(e -> {
             fullscreenBtn.setStyle(
-                "-fx-font-family: 'Press Start 2P', monospace;" +
-                "-fx-font-size: 12px;" +
-                "-fx-text-fill: " + GOLD + ";" +
-                "-fx-background-color: " + STONE_PANEL + ";" +
-                "-fx-border-color: " + GOLD_DARK + ";" +
-                "-fx-border-width: 1px;" +
-                "-fx-cursor: hand;"
-            );
+                    "-fx-font-family: 'Press Start 2P', monospace;" +
+                            "-fx-font-size: 12px;" +
+                            "-fx-text-fill: " + GOLD + ";" +
+                            "-fx-background-color: " + STONE_PANEL + ";" +
+                            "-fx-border-color: " + GOLD_DARK + ";" +
+                            "-fx-border-width: 1px;" +
+                            "-fx-cursor: hand;");
         });
 
         fullscreenBtn.setOnAction(e -> sceneManager.toggleFullscreen());

@@ -15,8 +15,9 @@ import com.identitycrisis.shared.util.Logger;
 import com.identitycrisis.shared.util.RoomCodec;
 
 /**
- * Join Room scene - allows players to enter a room code to join an existing game.
- * Part of the Play → CreateOrJoin → Lobby → Loading → GameArena flow.
+ * Join Room scene - allows players to enter a room code to join an existing
+ * game.
+ * Part of the Play -> CreateOrJoin -> Lobby -> Loading -> GameArena flow.
  * Features LobbyScene-style corner glow effects and Press Start 2P typography.
  */
 public class JoinRoomScene {
@@ -93,9 +94,9 @@ public class JoinRoomScene {
      */
     private void addCornerGlows(StackPane root) {
         String glowStyle = "-fx-background-color: radial-gradient(center 50% 50%, radius 50%, rgba(232,116,60,0.12), transparent 70%);";
-        double[] delays = {0, 0.5, 1.0, 1.5};
-        Pos[] positions = {Pos.TOP_LEFT, Pos.TOP_RIGHT, Pos.BOTTOM_LEFT, Pos.BOTTOM_RIGHT};
-        double[][] offsets = {{-60, -60}, {60, -60}, {-60, 60}, {60, 60}};
+        double[] delays = { 0, 0.5, 1.0, 1.5 };
+        Pos[] positions = { Pos.TOP_LEFT, Pos.TOP_RIGHT, Pos.BOTTOM_LEFT, Pos.BOTTOM_RIGHT };
+        double[][] offsets = { { -60, -60 }, { 60, -60 }, { -60, 60 }, { 60, 60 } };
 
         for (int i = 0; i < 4; i++) {
             Pane glow = new Pane();
@@ -109,15 +110,14 @@ public class JoinRoomScene {
 
             // Pulse animation
             Timeline pulse = new Timeline(
-                new KeyFrame(Duration.ZERO,
-                    new KeyValue(glow.opacityProperty(), 0.6),
-                    new KeyValue(glow.scaleXProperty(), 0.95),
-                    new KeyValue(glow.scaleYProperty(), 0.95)),
-                new KeyFrame(Duration.seconds(2.0),
-                    new KeyValue(glow.opacityProperty(), 1.0),
-                    new KeyValue(glow.scaleXProperty(), 1.05),
-                    new KeyValue(glow.scaleYProperty(), 1.05))
-            );
+                    new KeyFrame(Duration.ZERO,
+                            new KeyValue(glow.opacityProperty(), 0.6),
+                            new KeyValue(glow.scaleXProperty(), 0.95),
+                            new KeyValue(glow.scaleYProperty(), 0.95)),
+                    new KeyFrame(Duration.seconds(2.0),
+                            new KeyValue(glow.opacityProperty(), 1.0),
+                            new KeyValue(glow.scaleXProperty(), 1.05),
+                            new KeyValue(glow.scaleYProperty(), 1.05)));
             pulse.setDelay(Duration.seconds(delays[i]));
             pulse.setAutoReverse(true);
             pulse.setCycleCount(Animation.INDEFINITE);
@@ -131,41 +131,38 @@ public class JoinRoomScene {
     private void addBackButton(StackPane root) {
         Button backBtn = new Button("◀  Back");
         backBtn.setStyle(
-            "-fx-font-family: 'Cinzel', serif;" +
-            "-fx-font-size: 11px;" +
-            "-fx-font-weight: 700;" +
-            "-fx-text-fill: " + TEXT_MUTED + ";" +
-            "-fx-letter-spacing: 2px;" +
-            "-fx-background-color: transparent;" +
-            "-fx-border-color: " + STONE_BORDER + ";" +
-            "-fx-border-width: 1px;" +
-            "-fx-padding: 7px 14px;" +
-            "-fx-cursor: hand;"
-        );
+                "-fx-font-family: 'Cinzel', serif;" +
+                        "-fx-font-size: 11px;" +
+                        "-fx-font-weight: 700;" +
+                        "-fx-text-fill: " + TEXT_MUTED + ";" +
+                        "-fx-letter-spacing: 2px;" +
+                        "-fx-background-color: transparent;" +
+                        "-fx-border-color: " + STONE_BORDER + ";" +
+                        "-fx-border-width: 1px;" +
+                        "-fx-padding: 7px 14px;" +
+                        "-fx-cursor: hand;");
         backBtn.setOnMouseEntered(e -> backBtn.setStyle(
-            "-fx-font-family: 'Cinzel', serif;" +
-            "-fx-font-size: 11px;" +
-            "-fx-font-weight: 700;" +
-            "-fx-text-fill: " + TEXT_PARCHMENT + ";" +
-            "-fx-letter-spacing: 2px;" +
-            "-fx-background-color: transparent;" +
-            "-fx-border-color: " + GOLD_DARK + ";" +
-            "-fx-border-width: 1px;" +
-            "-fx-padding: 7px 14px;" +
-            "-fx-cursor: hand;"
-        ));
+                "-fx-font-family: 'Cinzel', serif;" +
+                        "-fx-font-size: 11px;" +
+                        "-fx-font-weight: 700;" +
+                        "-fx-text-fill: " + TEXT_PARCHMENT + ";" +
+                        "-fx-letter-spacing: 2px;" +
+                        "-fx-background-color: transparent;" +
+                        "-fx-border-color: " + GOLD_DARK + ";" +
+                        "-fx-border-width: 1px;" +
+                        "-fx-padding: 7px 14px;" +
+                        "-fx-cursor: hand;"));
         backBtn.setOnMouseExited(e -> backBtn.setStyle(
-            "-fx-font-family: 'Cinzel', serif;" +
-            "-fx-font-size: 11px;" +
-            "-fx-font-weight: 700;" +
-            "-fx-text-fill: " + TEXT_MUTED + ";" +
-            "-fx-letter-spacing: 2px;" +
-            "-fx-background-color: transparent;" +
-            "-fx-border-color: " + STONE_BORDER + ";" +
-            "-fx-border-width: 1px;" +
-            "-fx-padding: 7px 14px;" +
-            "-fx-cursor: hand;"
-        ));
+                "-fx-font-family: 'Cinzel', serif;" +
+                        "-fx-font-size: 11px;" +
+                        "-fx-font-weight: 700;" +
+                        "-fx-text-fill: " + TEXT_MUTED + ";" +
+                        "-fx-letter-spacing: 2px;" +
+                        "-fx-background-color: transparent;" +
+                        "-fx-border-color: " + STONE_BORDER + ";" +
+                        "-fx-border-width: 1px;" +
+                        "-fx-padding: 7px 14px;" +
+                        "-fx-cursor: hand;"));
         backBtn.setOnAction(e -> sceneManager.showCreateOrJoin());
 
         StackPane.setAlignment(backBtn, Pos.TOP_LEFT);
@@ -182,11 +179,10 @@ public class JoinRoomScene {
         // Title: "JOIN GAME" in Press Start 2P, gold
         Label title = new Label("JOIN GAME");
         title.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 24px;" +
-            "-fx-text-fill: " + GOLD + ";" +
-            "-fx-letter-spacing: 4px;"
-        );
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 24px;" +
+                        "-fx-text-fill: " + GOLD + ";" +
+                        "-fx-letter-spacing: 4px;");
         VBox.setMargin(title, new Insets(0, 0, 20, 0));
 
         // Input card container
@@ -195,19 +191,17 @@ public class JoinRoomScene {
         inputCard.setPadding(new Insets(40, 50, 40, 50));
         inputCard.setMaxWidth(450);
         inputCard.setStyle(
-            "-fx-background-color: " + STONE_PANEL + ";" +
-            "-fx-border-color: " + GOLD_DARK + ";" +
-            "-fx-border-width: 1px;"
-        );
+                "-fx-background-color: " + STONE_PANEL + ";" +
+                        "-fx-border-color: " + GOLD_DARK + ";" +
+                        "-fx-border-width: 1px;");
 
         // Input field label in Press Start 2P
         Label inputLabel = new Label("ENTER ROOM CODE");
         inputLabel.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 10px;" +
-            "-fx-text-fill: " + TEXT_MUTED + ";" +
-            "-fx-letter-spacing: 2px;"
-        );
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 10px;" +
+                        "-fx-text-fill: " + TEXT_MUTED + ";" +
+                        "-fx-letter-spacing: 2px;");
 
         // Room code input field - Press Start 2P for both text and placeholder
         roomCodeInput = new TextField();
@@ -216,15 +210,14 @@ public class JoinRoomScene {
         roomCodeInput.setPrefWidth(280);
         roomCodeInput.setMaxWidth(280);
         roomCodeInput.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 12px;" +
-            "-fx-text-fill: " + GOLD + ";" +
-            "-fx-prompt-text-fill: " + TEXT_MUTED + ";" +
-            "-fx-background-color: " + STONE_DARK + ";" +
-            "-fx-border-color: " + GOLD + ";" +
-            "-fx-border-width: 2px;" +
-            "-fx-padding: 15px 20px;"
-        );
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 12px;" +
+                        "-fx-text-fill: " + GOLD + ";" +
+                        "-fx-prompt-text-fill: " + TEXT_MUTED + ";" +
+                        "-fx-background-color: " + STONE_DARK + ";" +
+                        "-fx-border-color: " + GOLD + ";" +
+                        "-fx-border-width: 2px;" +
+                        "-fx-padding: 15px 20px;");
 
         // JOIN button in Press Start 2P
         Button joinBtn = createStyledButton("JOIN");
@@ -237,11 +230,10 @@ public class JoinRoomScene {
         // Inline error label for bad codes / connect failures.
         statusLabel = new Label("");
         statusLabel.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 8px;" +
-            "-fx-text-fill: " + DANGER_RED + ";" +
-            "-fx-letter-spacing: 1px;"
-        );
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 8px;" +
+                        "-fx-text-fill: " + DANGER_RED + ";" +
+                        "-fx-letter-spacing: 1px;");
         statusLabel.setWrapText(true);
         statusLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
         statusLabel.setMaxWidth(400);
@@ -278,13 +270,13 @@ public class JoinRoomScene {
         }
 
         // 2. Build the client networking stack and connect.
-        LocalGameState      localState = new LocalGameState();
-        ServerMessageRouter router     = new ServerMessageRouter(localState);
+        LocalGameState localState = new LocalGameState();
+        ServerMessageRouter router = new ServerMessageRouter(localState);
         router.setOnLobbyStateChanged(() -> {
             int count = localState.getLobbyConnectedCount();
             sceneManager.getLobbyScene().setPlayerCount(count);
         });
-        GameClient          gameClient = new GameClient(router);
+        GameClient gameClient = new GameClient(router);
         try {
             gameClient.connect(hp.ip(), hp.port());
         } catch (IOException e) {
@@ -307,14 +299,16 @@ public class JoinRoomScene {
     }
 
     private void showError(String msg) {
-        if (statusLabel == null) return;
+        if (statusLabel == null)
+            return;
         statusLabel.setText(msg);
         statusLabel.setVisible(true);
         statusLabel.setManaged(true);
     }
 
     private void clearError() {
-        if (statusLabel == null) return;
+        if (statusLabel == null)
+            return;
         statusLabel.setText("");
         statusLabel.setVisible(false);
         statusLabel.setManaged(false);
@@ -326,34 +320,31 @@ public class JoinRoomScene {
         btn.setMinSize(180, 44);
         btn.setMaxSize(180, 44);
         btn.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 12px;" +
-            "-fx-text-fill: " + GOLD + ";" +
-            "-fx-background-color: #4a3a1a;" +
-            "-fx-border-color: #1a0e00;" +
-            "-fx-border-width: 2px;" +
-            "-fx-cursor: hand;"
-        );
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 12px;" +
+                        "-fx-text-fill: " + GOLD + ";" +
+                        "-fx-background-color: #4a3a1a;" +
+                        "-fx-border-color: #1a0e00;" +
+                        "-fx-border-width: 2px;" +
+                        "-fx-cursor: hand;");
 
         btn.setOnMouseEntered(e -> btn.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 12px;" +
-            "-fx-text-fill: " + GOLD_LIGHT + ";" +
-            "-fx-background-color: #5c4920;" +
-            "-fx-border-color: #1a0e00;" +
-            "-fx-border-width: 2px;" +
-            "-fx-cursor: hand;"
-        ));
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 12px;" +
+                        "-fx-text-fill: " + GOLD_LIGHT + ";" +
+                        "-fx-background-color: #5c4920;" +
+                        "-fx-border-color: #1a0e00;" +
+                        "-fx-border-width: 2px;" +
+                        "-fx-cursor: hand;"));
 
         btn.setOnMouseExited(e -> btn.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 12px;" +
-            "-fx-text-fill: " + GOLD + ";" +
-            "-fx-background-color: #4a3a1a;" +
-            "-fx-border-color: #1a0e00;" +
-            "-fx-border-width: 2px;" +
-            "-fx-cursor: hand;"
-        ));
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 12px;" +
+                        "-fx-text-fill: " + GOLD + ";" +
+                        "-fx-background-color: #4a3a1a;" +
+                        "-fx-border-color: #1a0e00;" +
+                        "-fx-border-width: 2px;" +
+                        "-fx-cursor: hand;"));
 
         btn.setOnMousePressed(e -> {
             btn.setScaleX(0.97);
@@ -377,7 +368,8 @@ public class JoinRoomScene {
         Pane scanlines = new Pane();
         scanlines.prefWidthProperty().bind(root.widthProperty());
         scanlines.prefHeightProperty().bind(root.heightProperty());
-        // Use semi-transparent overlay instead of repeating-linear-gradient (not supported in JavaFX)
+        // Use semi-transparent overlay instead of repeating-linear-gradient (not
+        // supported in JavaFX)
         scanlines.setStyle("-fx-background-color: rgba(0,0,0,0.015);");
         scanlines.setMouseTransparent(true);
         root.getChildren().add(scanlines);
@@ -389,37 +381,34 @@ public class JoinRoomScene {
         fullscreenBtn.setMinSize(32, 32);
         fullscreenBtn.setMaxSize(32, 32);
         fullscreenBtn.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 12px;" +
-            "-fx-text-fill: " + GOLD + ";" +
-            "-fx-background-color: " + STONE_PANEL + ";" +
-            "-fx-border-color: " + GOLD_DARK + ";" +
-            "-fx-border-width: 1px;" +
-            "-fx-cursor: hand;"
-        );
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 12px;" +
+                        "-fx-text-fill: " + GOLD + ";" +
+                        "-fx-background-color: " + STONE_PANEL + ";" +
+                        "-fx-border-color: " + GOLD_DARK + ";" +
+                        "-fx-border-width: 1px;" +
+                        "-fx-cursor: hand;");
 
         fullscreenBtn.setOnMouseEntered(e -> {
             fullscreenBtn.setStyle(
-                "-fx-font-family: 'Press Start 2P', monospace;" +
-                "-fx-font-size: 12px;" +
-                "-fx-text-fill: " + GOLD + ";" +
-                "-fx-background-color: rgba(201, 168, 76, 0.1);" +
-                "-fx-border-color: " + GOLD + ";" +
-                "-fx-border-width: 1px;" +
-                "-fx-cursor: hand;"
-            );
+                    "-fx-font-family: 'Press Start 2P', monospace;" +
+                            "-fx-font-size: 12px;" +
+                            "-fx-text-fill: " + GOLD + ";" +
+                            "-fx-background-color: rgba(201, 168, 76, 0.1);" +
+                            "-fx-border-color: " + GOLD + ";" +
+                            "-fx-border-width: 1px;" +
+                            "-fx-cursor: hand;");
         });
 
         fullscreenBtn.setOnMouseExited(e -> {
             fullscreenBtn.setStyle(
-                "-fx-font-family: 'Press Start 2P', monospace;" +
-                "-fx-font-size: 12px;" +
-                "-fx-text-fill: " + GOLD + ";" +
-                "-fx-background-color: " + STONE_PANEL + ";" +
-                "-fx-border-color: " + GOLD_DARK + ";" +
-                "-fx-border-width: 1px;" +
-                "-fx-cursor: hand;"
-            );
+                    "-fx-font-family: 'Press Start 2P', monospace;" +
+                            "-fx-font-size: 12px;" +
+                            "-fx-text-fill: " + GOLD + ";" +
+                            "-fx-background-color: " + STONE_PANEL + ";" +
+                            "-fx-border-color: " + GOLD_DARK + ";" +
+                            "-fx-border-width: 1px;" +
+                            "-fx-cursor: hand;");
         });
 
         fullscreenBtn.setOnAction(e -> sceneManager.toggleFullscreen());

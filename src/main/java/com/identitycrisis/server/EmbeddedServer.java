@@ -8,50 +8,47 @@ import com.identitycrisis.server.physics.PhysicsEngine;
 import com.identitycrisis.shared.util.Logger;
 
 /**
- * Runs a full game server <em>inside</em> the client process on a background
+ * Runs a full game server inside the client process on a background
  * daemon thread. Used by the host player's "Create Room" flow so that one
  * client can act as both host and player without needing a separate server
  * process.
  *
- * <h2>Usage (Create Room flow)</h2>
- * <pre>
- *   int port = NetworkUtils.findFreePort();
- *   EmbeddedServer embedded = new EmbeddedServer();
- *   embedded.start(port);
+ * Usage (Create Room flow)
+ * int port = NetworkUtils.findFreePort();
+ * EmbeddedServer embedded = new EmbeddedServer();
+ * embedded.start(port);
  *
- *   String code = RoomCodec.encode(NetworkUtils.getLanIp(), port);
- *   // display code to user ...
+ * String code = RoomCodec.encode(NetworkUtils.getLanIp(), port);
+ * // display code to user ...
  *
- *   gameClient.connect("localhost", port);
- *   gameClient.sendJoinRequest(displayName);
- *   sceneManager.showLobby();
- * </pre>
+ * gameClient.connect("localhost", port);
+ * gameClient.sendJoinRequest(displayName);
+ * sceneManager.showLobby();
  *
- * <h2>Wiring</h2>
+ * Wiring
  * Mirrors {@link ServerApp#main} exactly — same composition-root wiring order,
  * same objects, same shutdown hook registration. The only difference is that
  * {@link GameServer#start()} runs on a named daemon thread so the JavaFX
  * application thread is not blocked.
  *
- * <h2>Lifecycle</h2>
- * <ul>
- *   <li>Call {@link #start(int)} once to bind and begin accepting connections.</li>
- *   <li>Call {@link #stop()} to shut down cleanly (closes sockets, stops loop).</li>
- *   <li>Do <em>not</em> call {@link #start(int)} more than once per instance.</li>
- * </ul>
+ * Lifecycle
+ * Call {@link #start(int)} once to bind and begin accepting connections.
+ * Call {@link #stop()} to shut down cleanly (closes sockets, stops loop).
+ * Do not call {@link #start(int)} more than once per instance.
  */
 public class EmbeddedServer {
 
     private static final Logger LOG = new Logger("EmbeddedServer");
 
     private GameServer server;
-    private int        port;
+    private int port;
 
     /**
      * Wires and starts the embedded server on the given port.
      * Returns immediately — the accept loop runs on a daemon thread.
      *
-     * @param port TCP port to bind; use {@link com.identitycrisis.shared.util.NetworkUtils#findFreePort()}
+     * @param port TCP port to bind; use
+     *             {@link com.identitycrisis.shared.util.NetworkUtils#findFreePort()}
      *             to obtain a free port automatically.
      * @throws IllegalStateException if this instance has already been started.
      */
@@ -63,19 +60,19 @@ public class EmbeddedServer {
         LOG.info("Starting embedded server on port " + port);
 
         // ── Composition Root (mirrors ServerApp.main) ─────────────────────
-        GameState          gameState = new GameState();
-        SafeZoneManager    szm       = new SafeZoneManager(gameState);
-        ChaosEventManager  cem       = new ChaosEventManager(gameState);
-        CarryManager       cm        = new CarryManager(gameState);
-        EliminationManager em        = new EliminationManager(gameState, cm);
-        RoundManager       rm        = new RoundManager(gameState, szm, cem, em);
-        PhysicsEngine      pe        = new PhysicsEngine();
-        CollisionDetector  cd        = new CollisionDetector();
-        GameContext        ctx       = new GameContext(gameState, szm, cem, cm, em, rm);
+        GameState gameState = new GameState();
+        SafeZoneManager szm = new SafeZoneManager(gameState);
+        ChaosEventManager cem = new ChaosEventManager(gameState);
+        CarryManager cm = new CarryManager(gameState);
+        EliminationManager em = new EliminationManager(gameState, cm);
+        RoundManager rm = new RoundManager(gameState, szm, cem, em);
+        PhysicsEngine pe = new PhysicsEngine();
+        CollisionDetector cd = new CollisionDetector();
+        GameContext ctx = new GameContext(gameState, szm, cem, cm, em, rm);
 
         server = new GameServer(port);
-        ClientMessageRouter router   = new ClientMessageRouter(server);
-        LobbyManager        lobbyMgr = new LobbyManager(server);
+        ClientMessageRouter router = new ClientMessageRouter(server);
+        LobbyManager lobbyMgr = new LobbyManager(server);
         server.setRouter(router);
         server.setLobbyManager(lobbyMgr);
         lobbyMgr.setGameState(gameState);
@@ -110,7 +107,10 @@ public class EmbeddedServer {
         }
     }
 
-    /** @return the port this server is (or was) bound to, or {@code -1} if not started. */
+    /**
+     * @return the port this server is (or was) bound to, or {@code -1} if not
+     *         started.
+     */
     public int getPort() {
         return server != null ? port : -1;
     }

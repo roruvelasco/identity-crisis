@@ -13,7 +13,7 @@ import java.net.Socket;
  * Represents one connected TCP client. Implements {@link Runnable} so it can
  * run its blocking read loop on its own named daemon thread.
  *
- * <h2>Thread safety — synchronized send()</h2>
+ * Thread safety — synchronized send()
  * The game loop thread and the main server thread may both write to the same
  * client's socket concurrently (snapshot vs. lobby state). All writes MUST go
  * through {@link #send(byte[])} which is {@code synchronized} on this
@@ -21,7 +21,7 @@ import java.net.Socket;
  * {@link DataOutputStream} to callers — doing so would bypass the lock and
  * cause interleaved/corrupted frames.
  *
- * <h2>DI note</h2>
+ * DI note
  * The {@link MessageEncoder} and {@link MessageDecoder} are owned (created)
  * here because they are 1:1 wrappers around the socket streams and exist only
  * to serve this connection. Everything else ({@link ClientMessageRouter}) is
@@ -33,9 +33,9 @@ public class ClientConnection implements Runnable {
 
     private final int clientId;
     private final Socket socket;
-    private final DataInputStream  in;
+    private final DataInputStream in;
     private final DataOutputStream out;
-    private final MessageDecoder   decoder;
+    private final MessageDecoder decoder;
     private final ClientMessageRouter router;
     private final GameServer server;
     private volatile boolean connected;
@@ -48,15 +48,15 @@ public class ClientConnection implements Runnable {
      * @throws IOException if stream creation fails (socket already closed, etc.)
      */
     public ClientConnection(int clientId, Socket socket,
-                            ClientMessageRouter router,
-                            GameServer server) throws IOException {
-        this.clientId  = clientId;
-        this.socket    = socket;
-        this.router    = router;
-        this.server    = server;
-        this.in        = new DataInputStream(socket.getInputStream());
-        this.out       = new DataOutputStream(socket.getOutputStream());
-        this.decoder   = new MessageDecoder(in);
+            ClientMessageRouter router,
+            GameServer server) throws IOException {
+        this.clientId = clientId;
+        this.socket = socket;
+        this.router = router;
+        this.server = server;
+        this.in = new DataInputStream(socket.getInputStream());
+        this.out = new DataOutputStream(socket.getOutputStream());
+        this.decoder = new MessageDecoder(in);
         this.connected = true;
     }
 
@@ -84,11 +84,13 @@ public class ClientConnection implements Runnable {
     /**
      * Sends raw encoded bytes to this client.
      *
-     * <p><b>Synchronized</b> — safe to call from the game loop thread and the
+     * <p>
+     * <b>Synchronized</b> — safe to call from the game loop thread and the
      * main/lobby thread concurrently without interleaving bytes.
      */
     public synchronized void send(byte[] data) {
-        if (!connected) return;
+        if (!connected)
+            return;
         try {
             out.write(data);
             out.flush();
@@ -102,40 +104,57 @@ public class ClientConnection implements Runnable {
 
     /** Closes the socket and marks this connection as disconnected. */
     public void disconnect() {
-        if (!connected) return;
+        if (!connected)
+            return;
         connected = false;
         try {
             socket.close();
-        } catch (IOException ignored) { }
+        } catch (IOException ignored) {
+        }
     }
 
     // ── Accessors ─────────────────────────────────────────────────────────────
 
-    public int     getClientId()    { return clientId; }
-    public String  getDisplayName() { return displayName; }
-    public void    setDisplayName(String name) { this.displayName = name; }
-    public boolean isConnected()    { return connected; }
+    public int getClientId() {
+        return clientId;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(String name) {
+        this.displayName = name;
+    }
+
+    public boolean isConnected() {
+        return connected;
+    }
 
     /**
      * @deprecated Do NOT use this method. Calling encoder methods directly writes
-     *             to the raw socket stream without acquiring the synchronization lock
+     *             to the raw socket stream without acquiring the synchronization
+     *             lock
      *             held by {@link #send(byte[])}, which causes interleaved/corrupted
-     *             frames under concurrent writes (game loop thread vs. lobby thread).
+     *             frames under concurrent writes (game loop thread vs. lobby
+     *             thread).
      *
-     * <p><b>Correct pattern:</b>
-     * <pre>
+     *             <p>
+     *             <b>Correct pattern:</b>
+     * 
+     *             <pre>
      *   ByteArrayOutputStream baos = new ByteArrayOutputStream();
      *   MessageEncoder enc = new MessageEncoder(new DataOutputStream(baos));
      *   enc.encodeGameState(...);
      *   enc.flush();
      *   client.send(baos.toByteArray());
-     * </pre>
+     *             </pre>
      */
     @Deprecated
     public MessageEncoder getEncoder() {
         throw new UnsupportedOperationException(
-            "Direct encoder access bypasses send() synchronization. " +
-            "Encode to a ByteArrayOutputStream and pass byte[] to send() instead.");
+                "Direct encoder access bypasses send() synchronization. " +
+                        "Encode to a ByteArrayOutputStream and pass byte[] to send() instead.");
     }
 
     /**
@@ -146,6 +165,6 @@ public class ClientConnection implements Runnable {
     @Deprecated
     public DataOutputStream getOutputStream() {
         throw new UnsupportedOperationException(
-            "Direct output stream access is forbidden. Use send(byte[]) instead.");
+                "Direct output stream access is forbidden. Use send(byte[]) instead.");
     }
 }

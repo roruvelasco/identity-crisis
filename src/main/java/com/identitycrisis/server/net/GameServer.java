@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * TCP server. Accepts connections, manages the client list, and dispatches to
  * game subsystems.
  *
- * <h2>DI pattern — setter injection for circular references</h2>
+ * DI pattern — setter injection for circular references
  * {@code GameServer}, {@link ClientMessageRouter}, and {@link LobbyManager}
  * form a three-way circular reference that cannot be resolved by constructor
  * injection alone. The solution: construct {@code GameServer} with only its
@@ -23,14 +23,15 @@ import java.util.concurrent.atomic.AtomicInteger;
  * the Composition Root ({@code ServerApp.main()}) before calling
  * {@link #start()}.
  *
- * <p>Invariant checked at runtime: {@link #start()} throws
+ * Invariant checked at runtime: {@link #start()} throws
  * {@link IllegalStateException} if any mandatory dep is still {@code null}.
  *
- * <h2>Thread safety</h2>
+ * Thread safety
  * {@link #clients} is a {@link CopyOnWriteArrayList} — rarely modified
  * (connect/disconnect) but iterated every tick for broadcast. COW is ideal
  * for this access pattern. Writes to individual clients go through
- * {@link ClientConnection#send(byte[])} which is internally {@code synchronized}.
+ * {@link ClientConnection#send(byte[])} which is internally
+ * {@code synchronized}.
  */
 public class GameServer {
 
@@ -44,8 +45,8 @@ public class GameServer {
 
     // ── Setter-injected (circular ref trio) ──────────────────────────────────
     private ClientMessageRouter router;
-    private LobbyManager        lobbyManager;
-    private ServerGameLoop      gameLoop;
+    private LobbyManager lobbyManager;
+    private ServerGameLoop gameLoop;
 
     /**
      * Minimal constructor — port only.
@@ -67,7 +68,9 @@ public class GameServer {
         this.lobbyManager = lobbyManager;
     }
 
-    /** Inject the game loop (called after it is constructed by {@code ServerApp}). */
+    /**
+     * Inject the game loop (called after it is constructed by {@code ServerApp}).
+     */
     public void setGameLoop(ServerGameLoop gameLoop) {
         this.gameLoop = gameLoop;
     }
@@ -83,8 +86,8 @@ public class GameServer {
     public void start() {
         if (router == null || lobbyManager == null) {
             throw new IllegalStateException(
-                "GameServer.start() called before router/lobbyManager were injected. " +
-                "Check ServerApp.main() composition order.");
+                    "GameServer.start() called before router/lobbyManager were injected. " +
+                            "Check ServerApp.main() composition order.");
         }
         try {
             serverSocket = new ServerSocket(port);
@@ -95,7 +98,10 @@ public class GameServer {
                 int id = nextClientId.getAndIncrement();
                 if (gameInProgress) {
                     LOG.warn("Rejecting late connection " + id + " — game already in progress.");
-                    try { socket.close(); } catch (IOException ignored) { }
+                    try {
+                        socket.close();
+                    } catch (IOException ignored) {
+                    }
                     continue;
                 }
                 try {
@@ -118,7 +124,9 @@ public class GameServer {
         }
     }
 
-    /** Called when lobby signals all ready. Starts the game loop on a named thread. */
+    /**
+     * Called when lobby signals all ready. Starts the game loop on a named thread.
+     */
     public void startGame() {
         if (gameLoop == null) {
             throw new IllegalStateException("gameLoop not injected before startGame()");
@@ -164,13 +172,25 @@ public class GameServer {
             if (serverSocket != null && !serverSocket.isClosed()) {
                 serverSocket.close();
             }
-        } catch (Exception ignored) { }
+        } catch (Exception ignored) {
+        }
     }
 
     // ── Accessors ─────────────────────────────────────────────────────────────
 
-    public List<ClientConnection> getClients()        { return clients; }
-    public LobbyManager          getLobbyManager()    { return lobbyManager; }
-    public ServerGameLoop        getGameLoop()         { return gameLoop; }
-    public int                   getPort()             { return port; }
+    public List<ClientConnection> getClients() {
+        return clients;
+    }
+
+    public LobbyManager getLobbyManager() {
+        return lobbyManager;
+    }
+
+    public ServerGameLoop getGameLoop() {
+        return gameLoop;
+    }
+
+    public int getPort() {
+        return port;
+    }
 }

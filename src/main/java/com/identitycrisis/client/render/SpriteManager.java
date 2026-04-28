@@ -5,17 +5,18 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Loads, caches, and provides sprite sheet images from resources/sprites/.
+ * Loads sprites from resources/sprites/.
  *
- * Key convention:
- *   "player_1_idle"  → /sprites/players/1/Idle.png  (128×32, 4 frames of 32×32)
- *   "player_1_walk"  → /sprites/players/1/Walk.png  (192×32, 6 frames of 32×32)
+ * Sprites:
+ * "player_1_idle" → /sprites/players/1/Idle.png (128×32, 4 frames of 32×32)
+ * "player_1_walk" → /sprites/players/1/Walk.png (192×32, 6 frames of 32×32)
  */
 public class SpriteManager {
 
     private final Map<String, Image> spriteCache = new HashMap<>();
 
-    public SpriteManager() { }
+    public SpriteManager() {
+    }
 
     /** Loads all known sprites into cache. Call once during scene init. */
     public void loadAll() {

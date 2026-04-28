@@ -7,20 +7,20 @@ import javafx.scene.paint.Color;
 /**
  * Renders the game arena.
  *
- * <p>When the TMX map loads successfully, all visual layers (floor, shadow,
- * water, walls, objects) are rendered via {@link MapManager} at a dynamic
- * scale that always fits the full map within the current viewport.
+ * When TMX map loads, all visual layers (floor, shadow,
+ * water, walls, objects) are rendered via {@link MapManager}
+ * that always fits the full map within the current view.
  *
- * <p>Falls back to the original dark-grid placeholder if the map fails to load.
+ * uses dark grid placeholder if the map fails to load
  */
 public class ArenaRenderer {
 
     // ── Placeholder colours (fallback only) ─────────────────────────────────
-    private static final Color BG_COLOR     = Color.web("#0d0d14");
-    private static final Color GRID_COLOR   = Color.rgb(201, 168, 76, 0.06);
+    private static final Color BG_COLOR = Color.web("#0d0d14");
+    private static final Color GRID_COLOR = Color.rgb(201, 168, 76, 0.06);
     private static final Color BORDER_COLOR = Color.web("#c9a84c");
     private static final double BORDER_WIDTH = 3.0;
-    private static final double GRID_SIZE    = 64.0;
+    private static final double GRID_SIZE = 64.0;
 
     @SuppressWarnings("unused")
     private final SpriteManager spriteManager;
@@ -34,7 +34,8 @@ public class ArenaRenderer {
         this.spriteManager = spriteManager;
         MapManager mm = new MapManager();
         mm.load("/sprites/map/ArenaMap.tmx");
-        // Keep the reference even if load logged errors — isSolid/render guard internally
+        // Keep the reference even if load logged errors — isSolid/render guard
+        // internally
         this.mapManager = mm;
     }
 
@@ -42,10 +43,11 @@ public class ArenaRenderer {
 
     /**
      * Renders the arena into the full canvas.
-     * Scales the TMX map to fit {@code width × height}; centres if aspect ratios differ.
+     * Scales the TMX map to fit {@code width × height}; centres if aspect ratios
+     * differ.
      *
      * @param gc     GraphicsContext of the game canvas
-     * @param width  current canvas width  (supports fullscreen)
+     * @param width  current canvas width (supports fullscreen)
      * @param height current canvas height
      */
     public void render(GraphicsContext gc, double width, double height) {
@@ -64,7 +66,9 @@ public class ArenaRenderer {
      * Returns the {@link MapManager} so callers can query collision and
      * safe zones, or convert between world and screen coordinates.
      */
-    public MapManager getMapManager() { return mapManager; }
+    public MapManager getMapManager() {
+        return mapManager;
+    }
 
     /**
      * Overload consumed by the master {@link Renderer}.
@@ -81,8 +85,10 @@ public class ArenaRenderer {
     private void renderPlaceholder(GraphicsContext gc, double width, double height) {
         gc.setStroke(GRID_COLOR);
         gc.setLineWidth(1.0);
-        for (double x = 0; x <= width; x += GRID_SIZE)  gc.strokeLine(x, 0, x, height);
-        for (double y = 0; y <= height; y += GRID_SIZE) gc.strokeLine(0, y, width, y);
+        for (double x = 0; x <= width; x += GRID_SIZE)
+            gc.strokeLine(x, 0, x, height);
+        for (double y = 0; y <= height; y += GRID_SIZE)
+            gc.strokeLine(0, y, width, y);
 
         gc.setStroke(BORDER_COLOR);
         gc.setLineWidth(BORDER_WIDTH);
