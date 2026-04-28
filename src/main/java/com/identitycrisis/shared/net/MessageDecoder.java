@@ -98,7 +98,10 @@ public class MessageDecoder {
             int zoneCount = p.readInt();
             SafeZoneNetData[] zones = new SafeZoneNetData[zoneCount];
             for (int i = 0; i < zoneCount; i++) {
-                zones[i] = new SafeZoneNetData(p.readDouble(), p.readDouble(), p.readDouble());
+                zones[i] = new SafeZoneNetData(
+                    p.readInt(),
+                    p.readDouble(), p.readDouble(),
+                    p.readDouble(), p.readDouble());
             }
             return new GameStateData(roundNumber, timer, phase, chaos, chaosDur,
                                      controlledId, players, zones);
@@ -119,15 +122,19 @@ public class MessageDecoder {
         try {
             DataInputStream p = payloadStream();
             int count = p.readInt();
+            int[] ids   = new int[count];
             double[] xs = new double[count];
             double[] ys = new double[count];
-            double[] radii = new double[count];
+            double[] ws = new double[count];
+            double[] hs = new double[count];
             for (int i = 0; i < count; i++) {
-                xs[i]    = p.readDouble();
-                ys[i]    = p.readDouble();
-                radii[i] = p.readDouble();
+                ids[i] = p.readInt();
+                xs[i]  = p.readDouble();
+                ys[i]  = p.readDouble();
+                ws[i]  = p.readDouble();
+                hs[i]  = p.readDouble();
             }
-            return new SafeZoneData(xs, ys, radii);
+            return new SafeZoneData(ids, xs, ys, ws, hs);
         } catch (IOException e) { throw new RuntimeException(e); }
     }
 
@@ -188,12 +195,22 @@ public class MessageDecoder {
                                 int facing, boolean inSafeZone,
                                 int carriedBy, int carrying) { }
 
-    public record SafeZoneNetData(double x, double y, double radius) { }
+    /**
+     * Wire form of a single safe-zone rectangle in world-pixel space.  Mirror
+     * of {@link MessageEncoder.SafeZoneNetData} — see that class for field
+     * meanings.
+     */
+    public record SafeZoneNetData(int id, double x, double y, double w, double h) { }
 
     public record RoundStateData(int roundNumber, byte phaseOrdinal,
                                  double timerRemaining) { }
 
-    public record SafeZoneData(double[] xs, double[] ys, double[] radii) { }
+    /**
+     * Bulk safe-zone update payload (S_SAFE_ZONE).  Arrays are aligned by
+     * index: rectangle {@code i} is {@code (ids[i], xs[i], ys[i], ws[i], hs[i])}.
+     */
+    public record SafeZoneData(int[] ids, double[] xs, double[] ys,
+                               double[] ws, double[] hs) { }
 
     public record EliminationData(int playerId, String playerName) { }
 

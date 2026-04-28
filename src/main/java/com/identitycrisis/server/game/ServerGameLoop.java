@@ -183,7 +183,7 @@ public class ServerGameLoop implements Runnable {
             for (int i = 0; i < zones.size(); i++) {
                 SafeZone z = zones.get(i);
                 zoneData[i] = new MessageEncoder.SafeZoneNetData(
-                    z.position().x(), z.position().y(), z.radius());
+                    z.id(), z.x(), z.y(), z.w(), z.h());
             }
 
             try {

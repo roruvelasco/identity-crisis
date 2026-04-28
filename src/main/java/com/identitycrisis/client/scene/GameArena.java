@@ -133,12 +133,45 @@ public class GameArena {
     private double  pulseTimer;
 
     // ── Round / timer state ───────────────────────────────────────────────────
+    //
+    // The server is authoritative for {@link #roundNumber}, {@link #roundTimer},
+    // and the round phase whenever the client is connected.  These fields then
+    // act as a render-only cache populated each frame from
+    // {@code LocalGameState}.  When no server snapshot has yet been received
+    // (pure offline / dev mode) the same fields are driven by the local
+    // {@link #lastNano} delta so the scene still works without networking.
+
     /** Current round number (1-based). Rounds 1–2 are timer-based (45 s). */
     private int    roundNumber;
     /** Seconds remaining in the current timer-based round. */
     private double roundTimer;
-    /** True while the round countdown is actively ticking. */
+    /** True while the round countdown is actively ticking (offline fallback only). */
     private boolean timerRunning;
+    /**
+     * Previous server-observed round number — used to detect a round transition
+     * and trigger the {@link #triggerRoundPopup(int)} animation.  {@code 0}
+     * means we have not yet seen a server snapshot.
+     */
+    private int    lastObservedServerRound;
+
+    // ── Offline-mode safe-zone placeholder ───────────────────────────────────
+    //
+    // When no server snapshot has populated {@link com.identitycrisis.client.game.LocalGameState#getSafeZones},
+    // {@link #render} falls back to a single random TMX rectangle so the
+    // player always has *one* visible safe zone per round (matching the
+    // server's single-player behaviour: zoneCount = max(1, aliveCount-1) = 1
+    // for one player on round 3+, and zoneCount = 1 on rounds 1–2).
+    //
+    // The selection is re-rolled exactly once per local round transition; it
+    // stays stable for the duration of a round so the visual doesn't flicker
+    // between candidates.
+
+    /** Id (1–8) of the TMX rectangle being shown as the offline placeholder, or -1 before first selection. */
+    private int    offlineActiveZoneId = -1;
+    /** {@link #roundNumber} at the moment the current offline zone was picked. */
+    private int    offlineActiveZoneRound = -1;
+    /** RNG dedicated to offline zone selection — separate from any other randomness in the scene. */
+    private final java.util.Random offlineZoneRng = new java.util.Random();
     /** The timer_ui.png panel image, loaded once. */
     private Image  timerPanelImage;
     /** Cached "Press Start 2P" font at various sizes for the timer HUD. */
@@ -254,10 +287,18 @@ public class GameArena {
         pulseTimer  = 0.0;
         lastNano    = 0L;
 
-        // Start from round 1 with a full 45-second timer
-        roundNumber  = 1;
-        roundTimer   = TIMER_DURATION;
-        timerRunning = true;
+        // Default round/timer state (used as the offline fallback until the
+        // first server snapshot arrives).  Once snapshots stream in,
+        // {@link #syncRoundStateFromServer} replaces these every frame.
+        roundNumber              = 1;
+        roundTimer               = TIMER_DURATION;
+        timerRunning             = true;
+        lastObservedServerRound  = 0;
+
+        // Reset offline-mode safe-zone selection so onEnter() forces a fresh
+        // pick on the very first render frame (offlineActiveZoneRound != roundNumber).
+        offlineActiveZoneId      = -1;
+        offlineActiveZoneRound   = -1;
 
         isPaused = false;
         if (pauseOverlay != null) pauseOverlay.setVisible(false);
@@ -373,21 +414,15 @@ public class GameArena {
         currentZone = (mapManager != null) ? mapManager.getSafeZoneAt(playerX, playerY) : -1;
         pulseTimer += dt;
 
-        // ── Round timer (only ticks during warm-up rounds 1–2) ───────────────
-        if (timerRunning && !roundPopupActive && roundNumber <= GameConfig.WARMUP_ROUNDS) {
-            roundTimer -= dt;
-            if (roundTimer <= 0) {
-                roundTimer   = 0;
-                timerRunning = false;
-                // Advance to next round and restart timer if still a warm-up round
-                roundNumber++;
-                // Show round start popup for the new round
-                triggerRoundPopup(roundNumber);
-                if (roundNumber <= GameConfig.WARMUP_ROUNDS) {
-                    roundTimer   = TIMER_DURATION;
-                    timerRunning = true;
-                }
-            }
+        // ── Round / timer ─────────────────────────────────────────────────────
+        // Prefer server-driven state when a snapshot is available so the HUD
+        // reflects every authoritative event (round transitions, timer skip on
+        // safe-zone entry, etc.).  Otherwise fall back to the local timer so
+        // the scene remains usable in pure offline / dev mode.
+        if (!syncRoundStateFromServer()) {
+            tickLocalRoundTimer(dt);
+            ensureOfflineZone();
+            tryAdvanceFromOfflineZoneEntry();
         }
 
         // ── Round start popup countdown ─────────────────────────────────────
@@ -398,6 +433,155 @@ public class GameArena {
                 roundPopupTimer = 0;
             }
         }
+    }
+
+    /**
+     * Pulls round number, round timer, and round-start-popup trigger from the
+     * latest server snapshot held in {@code LocalGameState}.  Returns
+     * {@code true} if a snapshot was available (server is authoritative) so
+     * the caller can skip the local fallback timer.
+     *
+     * <p>The popup fires on the rising edge of an observed round change so
+     * connected clients still see the 3-2-1 countdown — but only once per
+     * round transition, regardless of how many snapshots arrive in between.
+     */
+    private boolean syncRoundStateFromServer() {
+        if (sceneManager == null) return false;
+        com.identitycrisis.client.game.LocalGameState lgs = sceneManager.getLocalGameState();
+        if (lgs == null || !lgs.hasReceivedSnapshot()) return false;
+
+        int    serverRound = lgs.getRoundNumber();
+        double serverTimer = lgs.getTimerRemaining();
+
+        // Detect a fresh round and trigger the popup once.  We use a
+        // non-zero "lastObservedServerRound" sentinel to skip the very first
+        // synchronisation (the join itself counts as round 1; otherwise we'd
+        // double-trigger the popup over the existing onEnter() invocation).
+        if (lastObservedServerRound != 0 && serverRound != lastObservedServerRound) {
+            triggerRoundPopup(serverRound);
+        }
+        lastObservedServerRound = serverRound;
+
+        roundNumber  = serverRound;
+        roundTimer   = Math.max(0, serverTimer);
+        timerRunning = false; // server owns the clock; local field unused
+        return true;
+    }
+
+    /**
+     * Returns the offline-mode placeholder safe zone for the current round,
+     * picking a fresh random TMX rectangle whenever the round number changes.
+     * Returns {@code null} only when the {@link MapManager} hasn't loaded any
+     * safe-zone rectangles (e.g. before TMX parsing completes).
+     *
+     * <p>Selection is stable for the duration of a round so the indicator
+     * doesn't flicker between candidates each frame.  In single-player this
+     * mirrors the server's single-zone-per-round behaviour without requiring
+     * a running server.
+     */
+    private com.identitycrisis.shared.model.SafeZone ensureOfflineZone() {
+        if (mapManager == null) return null;
+        java.util.List<MapManager.SafeZoneRect> spots = mapManager.getSafeZones();
+        if (spots == null || spots.isEmpty()) return null;
+
+        if (offlineActiveZoneRound != roundNumber || offlineActiveZoneId < 0) {
+            // After a round advance the player is still standing on the
+            // *previous* zone for a brief moment.  Excluding zones the player
+            // is currently inside prevents the new pick from immediately
+            // re-triggering {@link #tryAdvanceFromOfflineZoneEntry} on the
+            // next frame, which would auto-skip rounds without any walking.
+            int playerZone = currentZone;
+            java.util.List<MapManager.SafeZoneRect> candidates = new java.util.ArrayList<>();
+            for (MapManager.SafeZoneRect r : spots) {
+                if (r.id() != playerZone) candidates.add(r);
+            }
+            if (candidates.isEmpty()) candidates = spots; // safety: only one spot exists
+            MapManager.SafeZoneRect pick = candidates.get(offlineZoneRng.nextInt(candidates.size()));
+            offlineActiveZoneId    = pick.id();
+            offlineActiveZoneRound = roundNumber;
+        }
+
+        for (MapManager.SafeZoneRect rect : spots) {
+            if (rect.id() == offlineActiveZoneId) {
+                return new com.identitycrisis.shared.model.SafeZone(
+                        rect.id(), rect.x(), rect.y(), rect.width(), rect.height());
+            }
+        }
+        // Fallback: id no longer in pool (shouldn't happen) — pick first.
+        MapManager.SafeZoneRect first = spots.get(0);
+        offlineActiveZoneId    = first.id();
+        offlineActiveZoneRound = roundNumber;
+        return new com.identitycrisis.shared.model.SafeZone(
+                first.id(), first.x(), first.y(), first.width(), first.height());
+    }
+
+    /**
+     * Single-player offline win condition: when the player walks into the
+     * round's offline-active zone, immediately end the round and advance to
+     * the next one.  This mirrors the server-side warm-up behaviour
+     * ({@code RoundManager.tick} fast-forwards the timer when every alive
+     * player is in a zone) but works without networking.
+     *
+     * <p>The advance only fires when:
+     * <ul>
+     *   <li>No server zones are being received (purely offline play).</li>
+     *   <li>An offline zone has been picked for the current round.</li>
+     *   <li>The player's {@link #currentZone} matches that zone's id.</li>
+     *   <li>The round-start popup is not already animating (otherwise the
+     *       3-2-1 countdown would skip rounds before the player can react).</li>
+     * </ul>
+     *
+     * <p>After advance the popup plays for the new round and
+     * {@link #ensureOfflineZone} re-rolls a different rectangle.
+     */
+    private void tryAdvanceFromOfflineZoneEntry() {
+        // Server connected → server owns round transitions.
+        if (sceneManager != null) {
+            com.identitycrisis.client.game.LocalGameState lgs = sceneManager.getLocalGameState();
+            if (lgs != null && lgs.hasReceivedSnapshot()) return;
+        }
+        if (roundPopupActive) return;
+        if (offlineActiveZoneId < 0) return;
+        if (currentZone != offlineActiveZoneId) return;
+
+        // Advance the round.  Cap the round number at WARMUP_ROUNDS + 1 to
+        // surface the elimination-round HUD switch; without a true game-over
+        // condition the milestone-A solo flow is endless on purpose.
+        roundNumber += 1;
+        triggerRoundPopup(roundNumber);
+        if (roundNumber <= GameConfig.WARMUP_ROUNDS) {
+            roundTimer   = TIMER_DURATION;
+            timerRunning = true;
+        } else {
+            // Elimination rounds have no countdown panel locally — the popup
+            // and re-rolled zone are the only feedback.
+            roundTimer   = 0;
+            timerRunning = false;
+        }
+    }
+
+    /**
+     * Offline fallback: decrements the local round timer using the frame
+     * delta and advances to the next round when it reaches zero.  Only used
+     * before the first server snapshot arrives.
+     */
+    private void tickLocalRoundTimer(double dt) {
+        if (!timerRunning || roundPopupActive) return;
+        if (roundNumber > GameConfig.WARMUP_ROUNDS) return;
+
+        roundTimer -= dt;
+        if (roundTimer <= 0) {
+            roundTimer   = 0;
+            timerRunning = false;
+            endGameOffline();
+        }
+    }
+
+    private void endGameOffline() {
+        if (sceneManager == null) return;
+        onExit();
+        sceneManager.shutdownNetwork();
+        javafx.application.Platform.runLater(sceneManager::showMenu);
     }
 
     /**
@@ -436,9 +620,27 @@ public class GameArena {
         // 1. Arena map (tiles, fit-to-window)
         arenaRenderer.render(gc, w, h);
 
-        // 2. Safe-zone indicator
-        if (currentZone != -1) {
-            drawSafeZoneIndicator(gc, w, h);
+        // 2. Safe-zone indicators
+        //
+        // Source priority:
+        //   1. Server snapshot — the round's active rectangles, possibly with
+        //      decoys mixed in under FAKE_SAFE_ZONES chaos.
+        //   2. Offline placeholder — when no server zones are available we
+        //      pick *one* random TMX rectangle per round and render it, so a
+        //      single-player tester always has a visible target without ever
+        //      having to step into it first.  This matches the server's
+        //      single-player zone count (max(1, aliveCount - 1) = 1).
+        java.util.List<com.identitycrisis.shared.model.SafeZone> szs = null;
+        if (sceneManager != null && sceneManager.getLocalGameState() != null) {
+            szs = sceneManager.getLocalGameState().getSafeZones();
+        }
+        if (szs != null && !szs.isEmpty()) {
+            for (com.identitycrisis.shared.model.SafeZone z : szs) {
+                drawSafeZoneIndicator(gc, w, h, z);
+            }
+        } else {
+            com.identitycrisis.shared.model.SafeZone offline = ensureOfflineZone();
+            if (offline != null) drawSafeZoneIndicator(gc, w, h, offline);
         }
 
         // 3. Player sprite
@@ -507,30 +709,47 @@ public class GameArena {
 
     // ── Safe-zone indicator ───────────────────────────────────────────────────
 
-    private void drawSafeZoneIndicator(GraphicsContext gc, double viewW, double viewH) {
-        double screenX, screenY;
+    /**
+     * Draws a single rectangular safe zone with a translucent green fill, a
+     * pulsing dashed border, and a centred {@code "◆ SAFE ZONE N ◆"} label.
+     *
+     * <p>The rectangle's coordinates ({@link com.identitycrisis.shared.model.SafeZone#x()},
+     * {@code y()}, {@code w()}, {@code h()}) are in <em>world-pixel</em> space
+     * — the same coordinate system as {@link #playerX}/{@link #playerY}.  We
+     * convert each corner via {@link MapManager#worldToScreenX} /
+     * {@link MapManager#worldToScreenY} so the indicator stays pinned to the
+     * map regardless of viewport size or fullscreen mode.
+     */
+    private void drawSafeZoneIndicator(GraphicsContext gc, double viewW, double viewH,
+                                        com.identitycrisis.shared.model.SafeZone zone) {
+        double sx, sy, ex, ey;
         if (mapManager != null && mapManager.getWorldWidth() > 0) {
-            screenX = mapManager.worldToScreenX(playerX, viewW, viewH);
-            screenY = mapManager.worldToScreenY(playerY, viewW, viewH);
+            sx = mapManager.worldToScreenX(zone.x(),               viewW, viewH);
+            sy = mapManager.worldToScreenY(zone.y(),               viewW, viewH);
+            ex = mapManager.worldToScreenX(zone.x() + zone.w(),    viewW, viewH);
+            ey = mapManager.worldToScreenY(zone.y() + zone.h(),    viewW, viewH);
         } else {
-            screenX = playerX;
-            screenY = playerY;
+            sx = zone.x();           sy = zone.y();
+            ex = zone.x() + zone.w(); ey = zone.y() + zone.h();
         }
+        double rectX = Math.min(sx, ex);
+        double rectY = Math.min(sy, ey);
+        double rectW = Math.abs(ex - sx);
+        double rectH = Math.abs(ey - sy);
 
-        // Pulsing glow
+        // Pulsing translucent fill — opacity oscillates between 0.18 and 0.30.
         double pulse = 0.18 + 0.12 * Math.sin(pulseTimer * 4.0);
         gc.setFill(Color.rgb(74, 140, 92, pulse));
-        gc.fillOval(screenX - 44, screenY - 44, 88, 88);
+        gc.fillRect(rectX, rectY, rectW, rectH);
 
-        // Label
-        gc.setFill(Color.web("#4a8c5c"));
-        try {
-            gc.setFont(Font.font("Press Start 2P", 7));
-        } catch (Exception ignored) {
-            gc.setFont(Font.font(9));
-        }
-        String label = "◆ SAFE ZONE " + currentZone + " ◆";
-        gc.fillText(label, screenX - 38, screenY - 48);
+        // Dashed gold border — animated dash offset for movement.
+        gc.save();
+        gc.setStroke(Color.web("#c9a84c"));
+        gc.setLineWidth(2.0);
+        gc.setLineDashes(8.0, 6.0);
+        gc.setLineDashOffset(-(pulseTimer * 14.0) % 14.0);
+        gc.strokeRect(rectX + 1, rectY + 1, Math.max(0, rectW - 2), Math.max(0, rectH - 2));
+        gc.restore();
     }
 
     // ── Timer HUD ────────────────────────────────────────────────────────────

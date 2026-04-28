@@ -27,8 +27,16 @@ public final class GameConfig {
     public static final double ELIMINATION_DISPLAY_SECONDS = 3.0;
 
     // Safe Zone
-    public static final double SAFE_ZONE_RADIUS = 64.0;
-    public static final double SAFE_ZONE_MIN_MARGIN = 100.0;
+    /** Total candidate safe-zone spots authored in {@code ArenaMap.tmx}. */
+    public static final int TOTAL_SAFE_ZONE_SPOTS = 8;
+    /** Per-zone capacity used in elimination rounds (3+). Warm-up rounds are unlimited. */
+    public static final int SAFE_ZONE_DEFAULT_CAPACITY = 1;
+    /**
+     * Minimum number of zones to spawn per round, regardless of player count.
+     * Acts as the single-player placeholder: with {@code aliveCount = 1} the
+     * formula {@code aliveCount - 1} would give zero, so we clamp to one zone.
+     */
+    public static final int SAFE_ZONE_MIN_ZONES = 1;
 
     // Carry/Throw
     public static final double CARRY_RANGE = 32.0;
