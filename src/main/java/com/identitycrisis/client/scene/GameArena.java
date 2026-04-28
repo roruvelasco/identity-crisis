@@ -105,7 +105,7 @@ public class GameArena {
     private static final double HDR_W_NATIVE     = 44;
     private static final double HDR_H_NATIVE     =  4;
     /** Warm-up round duration (seconds). */
-    private static final double TIMER_DURATION   = 45.0;
+    private static final double TIMER_DURATION   = 25.0;
 
     // ── Scene graph ──────────────────────────────────────────────────────────
     private Scene  scene;
@@ -191,13 +191,31 @@ public class GameArena {
     private MediaPlayer countdownAudio;
     
     // ── Pause state ──────────────────────────────────────────────────────────
-    private boolean isPaused = false;
+    private boolean isPaused      = false;
     private boolean escWasPressed = false;
     private StackPane pauseOverlay;
     private javafx.scene.layout.VBox pauseMenu;
     private javafx.scene.layout.VBox confirmMenu;
     private javafx.scene.control.Label confirmLabel;
     private Runnable confirmAction;
+
+    // ── Fake safe-zones chaos state ───────────────────────────────────────────
+    //
+    // Local debug toggle (key O) that mirrors the server-side FAKE_SAFE_ZONES
+    // chaos event.  When active:
+    //   • Every TMX safe-zone rectangle is rendered.
+    //   • Exactly one is the TRUE zone (fakeZoneTrueId); the rest are DECOYS.
+    //   • True zone = normal green indicator; decoys = red/orange indicator.
+    //   • A HUD banner announces the chaos event.
+    //
+    /** True while the local FAKE_SAFE_ZONES chaos test is active. */
+    private boolean testingFakeZones      = false;
+    /** All zones to display during the chaos event (true + decoys). */
+    private java.util.List<com.identitycrisis.shared.model.SafeZone> fakeZoneList = new java.util.ArrayList<>();
+    /** Id of the ONE true safe zone inside fakeZoneList. */
+    private int     fakeZoneTrueId        = -1;
+    /** RNG for decoy zone selection. */
+    private final java.util.Random fakeZoneRng = new java.util.Random();
 
     // ────────────────────────────────────────────────────────────────────────
 
@@ -375,6 +393,28 @@ public class GameArena {
                 tickLocalRoundTimer(dt);
             }
             return; // skip movement & zone-advance logic below
+        }
+
+        // ── Fake safe-zones chaos detection (O key) ───────────────────────────
+        // Reads local debug flag from InputManager.  Also activates whenever
+        // the server broadcasts FAKE_SAFE_ZONES so connected clients
+        // automatically enter the chaos visual without pressing O.
+        boolean serverFakeZones = false;
+        if (sceneManager != null && sceneManager.getLocalGameState() != null) {
+            serverFakeZones = (sceneManager.getLocalGameState().getActiveChaos()
+                    == com.identitycrisis.shared.model.ChaosEventType.FAKE_SAFE_ZONES);
+        }
+        boolean wantFakeZones = serverFakeZones
+                || (inputManager != null && inputManager.isTestingFakeZones());
+
+        if (wantFakeZones != testingFakeZones) {
+            testingFakeZones = wantFakeZones;
+            if (testingFakeZones) {
+                buildFakeZones();
+            } else {
+                fakeZoneList.clear();
+                fakeZoneTrueId = -1;
+            }
         }
 
         InputSnapshot input = inputManager.snapshot();
@@ -645,26 +685,29 @@ public class GameArena {
         // not revealed before the round actually starts.  Once the popup
         // dismisses (roundPopupActive == false) they appear normally.
         //
-        // Source priority:
-        //   1. Server snapshot — the round's active rectangles, possibly with
-        //      decoys mixed in under FAKE_SAFE_ZONES chaos.
-        //   2. Offline placeholder — when no server zones are available we
-        //      pick *one* random TMX rectangle per round and render it, so a
-        //      single-player tester always has a visible target without ever
-        //      having to step into it first.  This matches the server's
-        //      single-player zone count (max(1, aliveCount - 1) = 1).
+        // When FAKE_SAFE_ZONES chaos is active we override normal zone drawing:
+        // all 8 TMX zones are shown, only one is real (green), the rest are decoys (red).
         if (!roundPopupActive) {
-            java.util.List<com.identitycrisis.shared.model.SafeZone> szs = null;
-            if (sceneManager != null && sceneManager.getLocalGameState() != null) {
-                szs = sceneManager.getLocalGameState().getSafeZones();
-            }
-            if (szs != null && !szs.isEmpty()) {
-                for (com.identitycrisis.shared.model.SafeZone z : szs) {
-                    drawSafeZoneIndicator(gc, w, h, z);
+            if (testingFakeZones && !fakeZoneList.isEmpty()) {
+                // Draw every zone; colour depends on whether it is the true zone.
+                for (com.identitycrisis.shared.model.SafeZone z : fakeZoneList) {
+                    boolean isTrue = (z.id() == fakeZoneTrueId);
+                    drawSafeZoneIndicator(gc, w, h, z, isTrue);
                 }
             } else {
-                com.identitycrisis.shared.model.SafeZone offline = ensureOfflineZone();
-                if (offline != null) drawSafeZoneIndicator(gc, w, h, offline);
+                // Normal rendering — source priority: server → offline placeholder.
+                java.util.List<com.identitycrisis.shared.model.SafeZone> szs = null;
+                if (sceneManager != null && sceneManager.getLocalGameState() != null) {
+                    szs = sceneManager.getLocalGameState().getSafeZones();
+                }
+                if (szs != null && !szs.isEmpty()) {
+                    for (com.identitycrisis.shared.model.SafeZone z : szs) {
+                        drawSafeZoneIndicator(gc, w, h, z, true);
+                    }
+                } else {
+                    com.identitycrisis.shared.model.SafeZone offline = ensureOfflineZone();
+                    if (offline != null) drawSafeZoneIndicator(gc, w, h, offline, true);
+                }
             }
         }
 
@@ -673,6 +716,9 @@ public class GameArena {
 
         // 4. Round timer HUD (top-centre)
         drawTimerHud(gc, w, h);
+
+        // 4b. Fake-zones chaos HUD banner
+        if (testingFakeZones) drawFakeZonesBanner(gc, w, h);
 
         // 5. Round start popup overlay (center)
         drawRoundPopup(gc, w, h);
@@ -746,7 +792,8 @@ public class GameArena {
      * map regardless of viewport size or fullscreen mode.
      */
     private void drawSafeZoneIndicator(GraphicsContext gc, double viewW, double viewH,
-                                        com.identitycrisis.shared.model.SafeZone zone) {
+                                        com.identitycrisis.shared.model.SafeZone zone,
+                                        boolean isTrue) {
         double sx, sy, ex, ey;
         if (mapManager != null && mapManager.getWorldWidth() > 0) {
             sx = mapManager.worldToScreenX(zone.x(),               viewW, viewH);
@@ -764,18 +811,101 @@ public class GameArena {
 
         // Pulsing translucent fill — opacity oscillates between 0.18 and 0.30.
         double pulse = 0.18 + 0.12 * Math.sin(pulseTimer * 4.0);
-        gc.setFill(Color.rgb(74, 140, 92, pulse));
+        if (isTrue) {
+            // Real zone: classic green
+            gc.setFill(Color.rgb(74, 140, 92, pulse));
+        } else {
+            // Decoy zone: red/orange tint — looks enticing but is a trap
+            gc.setFill(Color.rgb(180, 60, 40, pulse));
+        }
         gc.fillRect(rectX, rectY, rectW, rectH);
 
-        // Dashed gold border — animated dash offset for movement.
+        // Dashed border — animated dash offset for movement.
         gc.save();
-        gc.setStroke(Color.web("#c9a84c"));
+        gc.setStroke(isTrue ? Color.web("#c9a84c") : Color.web("#e05030"));
         gc.setLineWidth(2.0);
         gc.setLineDashes(8.0, 6.0);
         gc.setLineDashOffset(-(pulseTimer * 14.0) % 14.0);
         gc.strokeRect(rectX + 1, rectY + 1, Math.max(0, rectW - 2), Math.max(0, rectH - 2));
         gc.restore();
     }
+
+    // ── Fake-zone chaos helpers ────────────────────────────────────────────────
+
+    /**
+     * Populates {@link #fakeZoneList} with SafeZone objects for every TMX
+     * rectangle.  Randomly selects one as the true zone ({@link #fakeZoneTrueId});
+     * all others are decoys.  If a server snapshot is present its active zones
+     * define the true zone(s) — the rest become decoys drawn from the TMX pool.
+     */
+    private void buildFakeZones() {
+        fakeZoneList.clear();
+        fakeZoneTrueId = -1;
+        if (mapManager == null) return;
+
+        java.util.List<MapManager.SafeZoneRect> all = mapManager.getSafeZones();
+        if (all == null || all.isEmpty()) return;
+
+        // Convert every TMX rectangle into a SafeZone object
+        for (MapManager.SafeZoneRect r : all) {
+            fakeZoneList.add(new com.identitycrisis.shared.model.SafeZone(
+                    r.id(), r.x(), r.y(), r.width(), r.height()));
+        }
+
+        // Determine the true zone.
+        // Server snapshot available → use the first server-reported zone's id.
+        // Otherwise → pick one at random from the full TMX pool.
+        if (sceneManager != null && sceneManager.getLocalGameState() != null) {
+            java.util.List<com.identitycrisis.shared.model.SafeZone> serverZones =
+                    sceneManager.getLocalGameState().getSafeZones();
+            if (serverZones != null && !serverZones.isEmpty()) {
+                fakeZoneTrueId = serverZones.get(0).id();
+            }
+        }
+        if (fakeZoneTrueId < 0) {
+            // Offline / no snapshot — pick randomly
+            fakeZoneTrueId = fakeZoneList
+                    .get(fakeZoneRng.nextInt(fakeZoneList.size())).id();
+        }
+        System.out.println("[CHAOS] FAKE_SAFE_ZONES active — true zone id=" + fakeZoneTrueId
+                + ", decoys=" + (fakeZoneList.size() - 1));
+    }
+
+    /**
+     * Draws a small "⚠ CHAOS: FAKE ZONES" warning banner below the timer panel
+     * so the player knows the chaos event is active.
+     */
+    private void drawFakeZonesBanner(GraphicsContext gc, double viewW, double viewH) {
+        // Pulsing red banner centred horizontally, just below the timer panel area
+        double bannerW  = 320;
+        double bannerH  = 28;
+        double bannerX  = Math.round((viewW - bannerW) / 2.0);
+        double bannerY  = 16 + TIMER_H + 6;   // 6 px gap below the timer panel
+
+        double pulse = 0.7 + 0.3 * Math.abs(Math.sin(pulseTimer * 3.0));
+
+        gc.save();
+        gc.setGlobalAlpha(pulse);
+
+        // Background pill
+        gc.setFill(Color.rgb(160, 30, 20, 0.85));
+        gc.fillRoundRect(bannerX, bannerY, bannerW, bannerH, 6, 6);
+
+        // Border
+        gc.setStroke(Color.web("#e05030"));
+        gc.setLineWidth(1.5);
+        gc.strokeRoundRect(bannerX + 1, bannerY + 1, bannerW - 2, bannerH - 2, 5, 5);
+
+        // Text
+        gc.setFont(loadFont("Press Start 2P", 7));
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setFill(Color.web("#ffe0c0"));
+        gc.fillText("⚠  CHAOS: FAKE SAFE ZONES", viewW / 2.0, bannerY + 18);
+
+        gc.restore();
+    }
+
+
 
     // ── Timer HUD ────────────────────────────────────────────────────────────
 

@@ -23,8 +23,11 @@ public class InputManager {
     private EventHandler<KeyEvent> keyPressedHandler;
     private EventHandler<KeyEvent> keyReleasedHandler;
     
-    private boolean testingReversed = false;
-    private boolean uWasPressed = false;
+    private boolean testingReversed   = false;
+    private boolean uWasPressed        = false;
+
+    private boolean testingFakeZones   = false;
+    private boolean oWasPressed        = false;
 
     public InputManager() { }
 
@@ -37,12 +40,16 @@ public class InputManager {
                 uWasPressed = true;
                 System.out.println("[DEBUG] Reversed bindings debug toggle toggled via U: " + testingReversed);
             }
+            if (e.getCode() == KeyCode.O && !oWasPressed) {
+                testingFakeZones = !testingFakeZones;
+                oWasPressed = true;
+                System.out.println("[DEBUG] Fake safe-zones chaos toggle via O: " + testingFakeZones);
+            }
         };
         keyReleasedHandler = e -> {
             pressedKeys.remove(e.getCode());
-            if (e.getCode() == KeyCode.U) {
-                uWasPressed = false;
-            }
+            if (e.getCode() == KeyCode.U) uWasPressed = false;
+            if (e.getCode() == KeyCode.O) oWasPressed = false;
         };
         scene.addEventHandler(KeyEvent.KEY_PRESSED,  keyPressedHandler);
         scene.addEventHandler(KeyEvent.KEY_RELEASED, keyReleasedHandler);
@@ -76,7 +83,6 @@ public class InputManager {
         return pressedKeys.contains(code);
     }
 
-    public boolean isTestingReversed() {
-        return testingReversed;
-    }
+    public boolean isTestingReversed()   { return testingReversed;  }
+    public boolean isTestingFakeZones()   { return testingFakeZones; }
 }
