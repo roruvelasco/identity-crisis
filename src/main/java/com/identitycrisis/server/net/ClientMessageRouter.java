@@ -48,7 +48,9 @@ public class ClientMessageRouter {
                     // log and continue
                 }
             }
-            default -> { /* unknown message type — ignore */ }
+            default -> {
+                // unknown
+            }
         }
     }
 }
