@@ -16,10 +16,7 @@ public class AudioManager {
 
     public AudioManager() { }
 
-    /**
-     * Plays the BGM from the given resource path. 
-     * If the same BGM is already playing, it does nothing.
-     */
+    /** Plays BGM from the given resource path; no-op if already playing. */
     public void playBGM(String resourcePath) {
         if (resourcePath.equals(currentBgmPath) && bgmPlayer != null && bgmPlayer.getStatus() == MediaPlayer.Status.PLAYING) {
             return;
@@ -68,7 +65,6 @@ public class AudioManager {
     }
 
     public void playSFX(String sfxName) {
-        // TODO: Implement SFX via AudioClip
     }
 
     public void setVolume(double volume) {

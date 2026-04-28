@@ -14,11 +14,7 @@ import javafx.scene.shape.Line;
 import javafx.scene.Group;
 import com.identitycrisis.shared.model.GameConfig;
 
-/**
- * Animated loading/transition screen shown between Menu and Lobby.
- * Displays a spinning crest, a progress bar, status messages, and
- * rotating gameplay tips. Transitions to LobbyScene when complete.
- */
+
 public class LoadingScene {
 
     private Scene scene;

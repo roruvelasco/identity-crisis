@@ -11,25 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Evaluates eliminations at round end.
- *
- * <ul>
- *   <li><b>Warm-up rounds (1–2):</b> every alive player outside any active
- *       zone is eliminated.  Capacity is unlimited so it is normal for nobody
- *       to die here.</li>
- *   <li><b>Elimination rounds (3+):</b> capacity-1 per zone, drawn from
- *       {@link SafeZoneManager#getZoneOccupants()}.  Players who failed to
- *       claim a zone are eliminated.  In the typical {@code n-1} scenario
- *       exactly one player is unclaimed; if the count differs (edge cases
- *       around carry/throw or reconnection), the player <em>farthest</em>
- *       from the nearest zone centre is eliminated as tiebreak.</li>
- * </ul>
- *
- * <p><b>Single-player guard:</b> when only one player is alive the method
- * returns without eliminating anyone, so the milestone-A solo flow remains
- * playable indefinitely.
- */
+/** Evaluates eliminations at round end based on zone occupancy and distance tiebreaks. */
 public class EliminationManager {
 
     private final GameState gameState;
@@ -47,13 +29,11 @@ public class EliminationManager {
 
         List<Player> alive = gameState.getAlivePlayers();
 
-        // Support single-player testing: don't eliminate the sole player
         if (alive.size() <= 1) {
             return eliminated;
         }
 
         if (gameState.getRoundNumber() <= GameConfig.WARMUP_ROUNDS) {
-            // Warm-up: every player outside any active zone is eliminated.
             for (Player p : alive) {
                 if (p.getState() == PlayerState.CARRYING
                  || p.getState() == PlayerState.CARRIED) continue;
@@ -65,7 +45,6 @@ public class EliminationManager {
             return eliminated;
         }
 
-        // Elimination round (3+): exactly one zone per N-1 players, capacity 1.
         Map<Integer, Integer> claimed = computeZoneOccupants(zones, alive);
         Set<Integer> safeIds = new HashSet<>(claimed.values());
 
@@ -74,9 +53,6 @@ public class EliminationManager {
             .toList();
 
         if (unsafe.isEmpty()) {
-            // Edge case: every alive player claimed a zone (shouldn't happen
-            // with N-1 zones and capacity 1).  Eliminate the player farthest
-            // from their claimed zone's centre as tiebreak.
             Player farthest = alive.stream()
                 .max(Comparator.comparingDouble(p -> nearestZoneDistance(p, zones)))
                 .orElse(null);
@@ -85,9 +61,6 @@ public class EliminationManager {
                 eliminated.add(farthest.getPlayerId());
             }
         } else {
-            // Eliminate the unsafe player farthest from the nearest zone
-            // centre.  In the normal n-1 case there is exactly one unsafe
-            // player; the tiebreak only matters under edge-case desync.
             Player farthest = unsafe.stream()
                 .max(Comparator.comparingDouble(p -> nearestZoneDistance(p, zones)))
                 .orElse(null);
@@ -99,12 +72,7 @@ public class EliminationManager {
         return eliminated;
     }
 
-    /**
-     * First-claimer-wins occupancy snapshot.  Mirrors
-     * {@link SafeZoneManager#getZoneOccupants()} but operates on local
-     * arguments so this class stays loosely coupled to the manager and is
-     * independently unit-testable.
-     */
+    /** First-claimer-wins occupancy snapshot for unit-testable decoupling. */
     private Map<Integer, Integer> computeZoneOccupants(List<SafeZone> zones, List<Player> alive) {
         java.util.LinkedHashMap<Integer, Integer> claimed = new java.util.LinkedHashMap<>();
         Set<Integer> alreadySafe = new HashSet<>();
@@ -135,14 +103,9 @@ public class EliminationManager {
     private void eliminatePlayer(int playerId) {
         Player p = gameState.getPlayerById(playerId);
         if (p != null) {
-            carryManager.releaseCarry(playerId); // frees partner; may temporarily set p to ALIVE
-            p.setState(PlayerState.ELIMINATED);  // override — eliminated wins
+            carryManager.releaseCarry(playerId);
+            p.setState(PlayerState.ELIMINATED);
             p.setInSafeZone(false);
-            // Prune controlMap so the eliminated player can no longer control anyone,
-            // and any living client currently CONTROL_SWAP'd onto this player is restored
-            // to self-control. Without this, applyControlSwap() would include dead
-            // players in the derangement shuffle, potentially assigning a living client
-            // to control an eliminated (immovable) player.
             Map<Integer, Integer> cm = gameState.getControlMap();
             cm.remove(playerId);
             cm.replaceAll((clientId, controlled) ->
@@ -150,9 +113,7 @@ public class EliminationManager {
         }
     }
 
-    public boolean isGameOver() { 
-        // Support single-player testing: if the game started with 1 player,
-        // don't end the game immediately, wait until they actually die.
+    public boolean isGameOver() {
         if (gameState.getPlayers().size() == 1) {
             return gameState.getAliveCount() == 0;
         }

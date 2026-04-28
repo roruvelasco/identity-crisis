@@ -11,16 +11,12 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.Group;
 import com.identitycrisis.shared.model.GameConfig;
 
-/**
- * About screen matching about.html pixel-perfect design.
- * Game info, team credits, and tech stack.
- */
+/** About screen with game info, team credits, and tech stack. */
 public class AboutScene {
 
     private Scene scene;
     private SceneManager sceneManager;
 
-    // Color constants
     private static final String GOLD = "#c9a84c";
     private static final String GOLD_LIGHT = "#e8c86a";
     private static final String GOLD_DARK = "#8a6a1a";
@@ -40,31 +36,24 @@ public class AboutScene {
     public Scene createScene() {
         StackPane root = new StackPane();
         root.setStyle("-fx-background-color: " + STONE_DARK + ";");
-        // Responsive - fill entire scene
         root.setAlignment(Pos.CENTER);
 
-        // Stone tile pattern background
         addStonePattern(root);
 
-        // Torch corner glows
         addTorchGlows(root);
 
-        // Main content - wrapped in ScrollPane for fullscreen responsiveness
         VBox content = createContent();
         ScrollPane scrollPane = new ScrollPane(content);
         scrollPane.setFitToWidth(true);
         scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-vbar-policy: never;");
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        // Bind scrollPane to root size
         scrollPane.prefWidthProperty().bind(root.widthProperty());
         scrollPane.prefHeightProperty().bind(root.heightProperty());
         root.getChildren().add(scrollPane);
 
-        // Scanlines overlay
         addScanlines(root);
 
-        // Fullscreen button
         addFullscreenButton(root);
 
         scene = new Scene(root, GameConfig.WINDOW_WIDTH, GameConfig.WINDOW_HEIGHT);
@@ -75,17 +64,14 @@ public class AboutScene {
 
     private void addStonePattern(StackPane root) {
         Pane pattern = new Pane();
-        // Bind to root for fullscreen responsiveness
         pattern.prefWidthProperty().bind(root.widthProperty());
         pattern.prefHeightProperty().bind(root.heightProperty());
-        // Use solid background color - JavaFX doesn't support multiple gradients in background-image
         pattern.setStyle("-fx-background-color: " + STONE_DARK + ";");
         pattern.setMouseTransparent(true);
         root.getChildren().add(pattern);
     }
 
     private void addTorchGlows(StackPane root) {
-        // Top-left glow
         Pane tlGlow = new Pane();
         tlGlow.setPrefSize(250, 250);
         tlGlow.setStyle("-fx-background-color: radial-gradient(center 50% 50%, radius 50%, rgba(232,116,60,0.1), transparent 70%);");
@@ -95,7 +81,6 @@ public class AboutScene {
         tlGlow.setTranslateY(-50);
         root.getChildren().add(tlGlow);
 
-        // Top-right glow
         Pane trGlow = new Pane();
         trGlow.setPrefSize(250, 250);
         trGlow.setStyle("-fx-background-color: radial-gradient(center 50% 50%, radius 50%, rgba(232,116,60,0.1), transparent 70%);");

@@ -14,24 +14,15 @@ import java.util.List;
 
 public final class SafeZoneTmxLoader {
 
-    /** Native tile size in world pixels (must match {@code MapManager.TILE_SIZE}). */
     private static final int TILE_SIZE = 16;
 
-    /**
-     * Tiled stores horizontal/vertical/diagonal flip flags in the top three GID
-     * bits.  We mask these off so flipped tiles are still recognised as
-     * non-empty when scanning the safe-zone layers.
-     */
     private static final int GID_MASK = 0x1FFFFFFF;
 
     private SafeZoneTmxLoader() {}
 
     /**
-     * Parses the TMX at the given classpath resource path and returns the
-     * eight safe-zone rectangles, sorted ascending by zone id.
-     *
-     * @throws IllegalStateException if the TMX cannot be read or contains
-     *                               fewer than one safezone layer
+     * Parses the TMX and returns safe-zone rectangles sorted by id.
+     * @throws IllegalStateException if the TMX is unreadable or empty
      */
     public static List<SafeZone> load(String tmxResourcePath) {
         try (InputStream is = SafeZoneTmxLoader.class.getResourceAsStream(tmxResourcePath)) {
@@ -44,7 +35,7 @@ public final class SafeZoneTmxLoader {
             doc.getDocumentElement().normalize();
             Element mapEl = doc.getDocumentElement();
 
-            int[] origin = scanChunkBounds(mapEl); // [originTileX, originTileY]
+            int[] origin = scanChunkBounds(mapEl);
             int originX  = origin[0];
             int originY  = origin[1];
 
@@ -67,16 +58,7 @@ public final class SafeZoneTmxLoader {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Origin scan
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Returns {@code [originTileX, originTileY]} — the smallest chunk
-     * {@code x} and {@code y} found anywhere in the document.  All other
-     * chunk coordinates are made non-negative by subtracting this origin
-     * before being placed into the unified world grid.
-     */
+    /** Returns the smallest chunk x and y as origin. */
     private static int[] scanChunkBounds(Element mapEl) {
         NodeList chunks = mapEl.getElementsByTagName("chunk");
         int minX = Integer.MAX_VALUE;
@@ -87,22 +69,13 @@ public final class SafeZoneTmxLoader {
             minY = Math.min(minY, Integer.parseInt(ch.getAttribute("y")));
         }
         if (minX == Integer.MAX_VALUE) {
-            // Non-infinite map — fall back to (0, 0).
             minX = 0;
             minY = 0;
         }
         return new int[] { minX, minY };
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Per-layer rect extraction
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Finds the bounding rectangle of every non-zero tile in the named layer
-     * and returns it as a {@link SafeZone}, or {@code null} if the layer is
-     * absent or completely empty.
-     */
+    /** Finds bounding rectangle of non-zero tiles in named layer. */
     private static SafeZone extractZoneRect(Element mapEl, String layerName,
                                             int zoneId, int originX, int originY) {
         Element layerEl = findLayerByName(mapEl, layerName);
@@ -137,7 +110,6 @@ public final class SafeZoneTmxLoader {
                 }
             }
         } else {
-            // Non-infinite layer fallback: single <data> block.
             NodeList dataNodes = layerEl.getElementsByTagName("data");
             if (dataNodes.getLength() == 0) return null;
             int width  = Integer.parseInt(layerEl.getAttribute("width"));
@@ -161,15 +133,10 @@ public final class SafeZoneTmxLoader {
         return new SafeZone(zoneId, x, y, w, h);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Helpers
-    // ─────────────────────────────────────────────────────────────────────────
-
     private static Element findLayerByName(Element mapEl, String layerName) {
         NodeList layers = mapEl.getElementsByTagName("layer");
         for (int i = 0; i < layers.getLength(); i++) {
             Element layerEl = (Element) layers.item(i);
-            // Only direct <layer> children of <map>
             if (!layerEl.getParentNode().equals(mapEl)) continue;
             if (layerName.equals(layerEl.getAttribute("name"))) return layerEl;
         }

@@ -6,10 +6,7 @@ import com.identitycrisis.shared.model.Player;
 import com.identitycrisis.shared.model.PlayerState;
 import com.identitycrisis.shared.util.Vector2D;
 
-/**
- * Movement: Euler integration. position += velocity * dt.
- * Applies throw velocity decay and stun timers.
- */
+/** Euler integration movement with velocity damping and stun handling. */
 public class PhysicsEngine {
 
     public PhysicsEngine() { }
@@ -34,10 +31,6 @@ public class PhysicsEngine {
                            boolean up, boolean down, boolean left, boolean right,
                            boolean reversedControls) {
         Player p = state.getPlayerById(playerId);
-        // Stun guard: while stunTimer > 0 the entire method is skipped, which
-        // preserves throw velocity set by CarryManager.throwCarried(). step() decays
-        // that velocity via VELOCITY_DAMPING each tick. Once stun expires the player
-        // regains control and any subsequent directional input overrides residual momentum.
         if (p == null || p.getState() == PlayerState.ELIMINATED
                       || p.getState() == PlayerState.SPECTATING
                       || p.getState() == PlayerState.CARRIED

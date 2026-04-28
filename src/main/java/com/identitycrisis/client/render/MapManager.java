@@ -11,111 +11,45 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.InputStream;
 import java.util.*;
 
-/**
- * Loads, parses, and renders an infinite-format Tiled TMX map.
- *
- * <p>Responsibilities:
- * <ol>
- *   <li>Parse tileset definitions (firstgid, columns, PNG image)</li>
- *   <li>Parse per-tile collision shapes from {@code <objectgroup>} elements</li>
- *   <li>Stitch infinite {@code <chunk>} CSV data into unified tile grids per layer</li>
- *   <li>Build a per-tile solid-cell grid from tiles that carry collision shapes,
- *       plus void cells (no floor) and water</li>
- *   <li>Extract safe-zone rectangles from the 8 {@code safezoneN} layers</li>
- *   <li>Render all visual layers in order, fitting the full map to any viewport size</li>
- * </ol>
- */
+/** Loads, parses, and renders infinite-format Tiled TMX maps. */
 public class MapManager {
 
-    // ── Constants ─────────────────────────────────────────────────────────────
-    private static final int TILE_SIZE = 16; // native px per tile in the TMX
-
-    /**
-     * Tiled encodes flip flags in the three most-significant bits of each GID
-     * stored in the layer CSV data:
-     *   bit 31 (0x80000000) = horizontal flip
-     *   bit 30 (0x40000000) = vertical flip
-     *   bit 29 (0x20000000) = diagonal (anti-diagonal) flip
-     * Stripping these bits gives the actual tileset GID used for tileset lookup
-     * and collision-shape lookup.  Without this mask, flipped tiles produce
-     * large/negative GIDs that match nothing in the tileset or collision maps,
-     * making them both invisible and non-solid.
-     */
+    private static final int TILE_SIZE = 16;
     private static final int GID_MASK = 0x1FFFFFFF;
 
-    /** Render order: bottom-to-top visual layer names (safezone layers excluded). */
     private static final List<String> RENDER_LAYERS = List.of(
             "floor_ground", "shadow", "water", "floor_2", "walls", "objects", "objects2"
     );
 
-    /** Layers whose non-zero tiles carry collision regardless of objectgroup presence. */
     private static final Set<String> ALWAYS_SOLID_LAYERS = Set.of("water");
 
-    /** If a tile is in one of these layers AND has no objectgroup, it is walkable (floor). */
     private static final Set<String> FLOOR_LAYERS = Set.of("floor_ground", "floor_2");
 
-    // ── Tileset record ────────────────────────────────────────────────────────
     private record TilesetInfo(int firstGid, int lastGid, int columns, Image image) {}
 
-    // ── Animation data ────────────────────────────────────────────────────────
-    /**
-     * One frame in a tile animation: local tile-id to display and its duration in ms.
-     */
+    /** One frame in a tile animation: local tile-id and duration in ms. */
     private record AnimFrame(int localId, int durationMs) {}
 
-    /**
-     * Animation sequences keyed by global tile ID (the "trigger" tile placed in the map).
-     * Value = ordered list of frames (localId within the same tileset, durationMs).
-     */
     private final Map<Integer, List<AnimFrame>> tileAnimations = new HashMap<>();
 
-    /**
-     * Elapsed wall-clock time in milliseconds, advanced each {@link #render} call.
-     * Used to index into animation sequences without storing per-tile state.
-     */
     private long elapsedMs = 0;
     private long lastRenderNano = 0;
 
-    // ── Parsed data ───────────────────────────────────────────────────────────
-    /** All tilesets sorted by firstGid ascending. */
     private final List<TilesetInfo> tilesets = new ArrayList<>();
 
-    /**
-     * Per-tile collision rectangles keyed by global tile ID.
-     * Each list entry is a rect in tile-local coordinates (0–15 px).
-     */
     private final Map<Integer, List<Rectangle2D>> tileCollisionShapes = new HashMap<>();
 
-    /** Layer name → 2-D tile GID grid [row][col] in the unified world grid. */
     private final Map<String, int[][]> layerGrids = new LinkedHashMap<>();
 
-    // ── World bounds ──────────────────────────────────────────────────────────
-    /** World size in tiles, set after all chunks are scanned. */
     private int worldCols, worldRows;
     private int originTileX, originTileY;
 
-    /**
-     * Bounding box (in grid indices) of all non-zero tiles across visual layers.
-     * Used so the scale and offsets are relative to actual content, not the full
-     * 64×48 grid which has large void borders.
-     */
     private int activeMinRow, activeMaxRow, activeMinCol, activeMaxCol;
 
-    // ── Collision & safe zones ────────────────────────────────────────────────
-    /**
-     * solid[row][col] = true when a player cannot occupy the center of that tile.
-     * Built after all layers are parsed.
-     */
     private boolean[][] solid;
 
-    /** The 8 safe-zone regions extracted from safezoneN layers. */
     private final List<SafeZoneRect> safeZones = new ArrayList<>();
 
-    // ── Cached render geometry ────────────────────────────────────────────────
-    /**
-     * Independent X and Y scale factors so the map fills the viewport exactly
-     * on both axes with no black bars. Recalculated lazily when the viewport changes.
-     */
     private double lastScaleX  = 1.0;
     private double lastScaleY  = 1.0;
     private double lastOffsetX = 0.0;
@@ -123,24 +57,14 @@ public class MapManager {
     private double lastViewW   = -1;
     private double lastViewH   = -1;
 
-    // ── Public records ────────────────────────────────────────────────────────
-    /** A named safe-zone rectangle in world-pixel coordinates (native 16 px scale). */
     public record SafeZoneRect(int id, double x, double y, double width, double height) {
         public boolean contains(double px, double py) {
             return px >= x && px < x + width && py >= y && py < y + height;
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Public API
-    // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Loads and parses the TMX file from the given classpath resource path.
-     * Call once during scene initialisation.
-     *
-     * @param tmxResourcePath e.g. {@code "/sprites/map/ArenaMap.tmx"}
-     */
+    /** Loads and parses TMX file from classpath resource path. */
     public void load(String tmxResourcePath) {
         try (InputStream is = getClass().getResourceAsStream(tmxResourcePath)) {
             if (is == null) {
@@ -169,15 +93,11 @@ public class MapManager {
         }
     }
 
-    /**
-     * Renders all visual map layers, scaled to fit the given viewport exactly.
-     * The map is centred if the viewport aspect ratio differs from the map's.
-     */
+    /** Renders all visual map layers scaled to fit viewport exactly. */
     public void render(GraphicsContext gc, double viewW, double viewH) {
         if (tilesets.isEmpty()) return;
         recomputeScale(viewW, viewH);
 
-        // ── Advance animation clock ───────────────────────────────────────────
         long now = System.nanoTime();
         if (lastRenderNano != 0) {
             elapsedMs += (now - lastRenderNano) / 1_000_000L;
@@ -204,13 +124,11 @@ public class MapManager {
                     TilesetInfo ts = findTileset(gid);
                     if (ts == null || ts.image() == null) continue;
 
-                    // ── Animation: resolve current frame local-id ─────────────
                     int localId = resolveAnimLocalId(gid, ts.firstGid());
 
                     double srcX = (localId % ts.columns()) * TILE_SIZE;
                     double srcY = (localId / ts.columns()) * TILE_SIZE;
 
-                    // Position relative to active content origin, not full grid
                     double destX = Math.floor(offX + (col - activeMinCol) * TILE_SIZE * sx);
                     double destY = Math.floor(offY + (row - activeMinRow) * TILE_SIZE * sy);
                     double destW = Math.ceil(TILE_SIZE * sx + 0.5);
@@ -226,22 +144,15 @@ public class MapManager {
         }
     }
 
-    /**
-     * Resolves the current animation frame local-id for a given global tile id.
-     * If the tile has no animation, returns the base local-id (gid - firstGid).
-     * Uses the shared {@link #elapsedMs} clock so all instances of the same
-     * tile stay in sync regardless of map position.
-     */
+    /** Resolves current animation frame local-id for a given global tile id. */
     private int resolveAnimLocalId(int gid, int firstGid) {
         List<AnimFrame> frames = tileAnimations.get(gid);
         if (frames == null || frames.isEmpty()) return gid - firstGid;
 
-        // Compute total cycle duration
         int totalMs = 0;
         for (AnimFrame f : frames) totalMs += f.durationMs();
         if (totalMs <= 0) return gid - firstGid;
 
-        // Position within the cycle
         long pos = elapsedMs % totalMs;
         long acc = 0;
         for (AnimFrame f : frames) {
@@ -251,25 +162,15 @@ public class MapManager {
         return frames.get(frames.size() - 1).localId();
     }
 
-    /**
-     * Returns {@code true} if a player cannot stand at the given world-pixel position.
-     *
-     * @param worldX x in native (16 px/tile) world coordinates
-     * @param worldY y in native (16 px/tile) world coordinates
-     */
+    /** Returns true if player cannot stand at given world-pixel position. */
     public boolean isSolid(double worldX, double worldY) {
-        // World pixel coords: worldX = col * TILE_SIZE, worldY = row * TILE_SIZE
-        // (grid[0][0] is at world pixel (0,0), no origin offset needed here)
         int col = (int) Math.floor(worldX / TILE_SIZE);
         int row = (int) Math.floor(worldY / TILE_SIZE);
         if (row < 0 || col < 0 || row >= worldRows || col >= worldCols) return true;
         return solid[row][col];
     }
 
-    /**
-     * Returns the safe-zone id (1–8) if the given world-pixel point is inside one,
-     * or {@code -1} if not in any safe zone.
-     */
+    /** Returns safe-zone id (1–8) if point is inside one, or -1 otherwise. */
     public int getSafeZoneAt(double worldX, double worldY) {
         for (SafeZoneRect sz : safeZones) {
             if (sz.contains(worldX, worldY)) return sz.id();
@@ -277,82 +178,62 @@ public class MapManager {
         return -1;
     }
 
-    /** All 8 safe-zone rectangles (world-pixel coords, native scale). */
     public List<SafeZoneRect> getSafeZones() { return Collections.unmodifiableList(safeZones); }
 
-    /** World width in native pixels (worldCols × TILE_SIZE). */
     public double getWorldWidth()  { return (double) worldCols * TILE_SIZE; }
 
-    /** World height in native pixels (worldRows × TILE_SIZE). */
     public double getWorldHeight() { return (double) worldRows * TILE_SIZE; }
 
-    /** World-pixel X of the horizontal center of the active content region. */
     public double getActiveContentCenterX() {
         return ((activeMinCol + activeMaxCol) / 2.0 + 0.5) * TILE_SIZE;
     }
 
-    /** World-pixel Y of the vertical center of the active content region. */
     public double getActiveContentCenterY() {
         return ((activeMinRow + activeMaxRow) / 2.0 + 0.5) * TILE_SIZE;
     }
 
-    /** Horizontal scale factor (viewport width / map native width). */
     public double getScaleX(double viewW, double viewH) {
         recomputeScale(viewW, viewH);
         return lastScaleX;
     }
 
-    /** Vertical scale factor (viewport height / map native height). */
     public double getScaleY(double viewW, double viewH) {
         recomputeScale(viewW, viewH);
         return lastScaleY;
     }
 
-    /**
-     * Uniform scale — geometric mean of X/Y scales.
-     * Use for sizing elements that must stay square (e.g. player sprites).
-     */
     public double getScale(double viewW, double viewH) {
         recomputeScale(viewW, viewH);
         return Math.sqrt(lastScaleX * lastScaleY);
     }
 
-    /** Convert world-pixel X → screen-pixel X (includes centering offsets). */
     public double worldToScreenX(double worldX, double viewW, double viewH) {
         recomputeScale(viewW, viewH);
-        // worldX is in full-grid pixel space; subtract active-content origin first
         double contentX = worldX - activeMinCol * TILE_SIZE;
         return lastOffsetX + contentX * lastScaleX;
     }
 
-    /** Convert world-pixel Y → screen-pixel Y. */
     public double worldToScreenY(double worldY, double viewW, double viewH) {
         recomputeScale(viewW, viewH);
         double contentY = worldY - activeMinRow * TILE_SIZE;
         return lastOffsetY + contentY * lastScaleY;
     }
 
-    /** Convert screen-pixel X → world-pixel X. */
     public double screenToWorldX(double screenX, double viewW, double viewH) {
         recomputeScale(viewW, viewH);
         return activeMinCol * TILE_SIZE + (screenX - lastOffsetX) / lastScaleX;
     }
 
-    /** Convert screen-pixel Y → world-pixel Y. */
     public double screenToWorldY(double screenY, double viewW, double viewH) {
         recomputeScale(viewW, viewH);
         return activeMinRow * TILE_SIZE + (screenY - lastOffsetY) / lastScaleY;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Parsing — Tilesets
-    // ─────────────────────────────────────────────────────────────────────────
 
     private void parseTilesets(Element mapEl) {
         NodeList tilesetNodes = mapEl.getElementsByTagName("tileset");
         for (int i = 0; i < tilesetNodes.getLength(); i++) {
             Element ts = (Element) tilesetNodes.item(i);
-            // Only process direct children of <map> (not <tile><objectgroup> etc.)
             if (!ts.getParentNode().equals(mapEl)) continue;
 
             int firstGid   = Integer.parseInt(ts.getAttribute("firstgid"));
@@ -360,29 +241,24 @@ public class MapManager {
             int columns    = Integer.parseInt(ts.getAttribute("columns"));
             int lastGid    = firstGid + tileCount - 1;
 
-            // Load tileset PNG
             NodeList imageNodes = ts.getElementsByTagName("image");
             Image img = null;
             if (imageNodes.getLength() > 0) {
                 String src = ((Element) imageNodes.item(0)).getAttribute("source");
-                // src is like "decorative_cracks_walls.png" — relative to the TMX
                 String resourcePath = "/sprites/map/tileSets/" + src;
                 img = loadImage(resourcePath);
             }
 
             tilesets.add(new TilesetInfo(firstGid, lastGid, columns, img));
 
-            // Parse per-tile collision shapes AND animation sequences
             NodeList tileNodes = ts.getElementsByTagName("tile");
             for (int t = 0; t < tileNodes.getLength(); t++) {
                 Element tileEl = (Element) tileNodes.item(t);
-                // Only direct <tile> children of this <tileset>
                 if (!tileEl.getParentNode().equals(ts)) continue;
 
                 int localId = Integer.parseInt(tileEl.getAttribute("id"));
                 int globalId = firstGid + localId;
 
-                // ── Collision shapes ──────────────────────────────────────────
                 NodeList ogList = tileEl.getElementsByTagName("objectgroup");
                 if (ogList.getLength() > 0) {
                     Element og = (Element) ogList.item(0);
@@ -414,9 +290,6 @@ public class MapManager {
                     if (!shapes.isEmpty()) tileCollisionShapes.put(globalId, shapes);
                 }
 
-                // ── Animation frames ──────────────────────────────────────────
-                // Each <tile> may have one <animation> child with ordered <frame> elements.
-                // Frames reference local tile-ids within the same tileset.
                 NodeList animList = tileEl.getElementsByTagName("animation");
                 if (animList.getLength() > 0) {
                     Element animEl = (Element) animList.item(0);
@@ -433,13 +306,9 @@ public class MapManager {
             }
         }
 
-        // Sort by firstGid ascending for findTileset binary search
         tilesets.sort(Comparator.comparingInt(TilesetInfo::firstGid));
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Parsing — World bounds (first pass over chunks)
-    // ─────────────────────────────────────────────────────────────────────────
 
     private void scanChunkBounds(Element mapEl) {
         NodeList chunks = mapEl.getElementsByTagName("chunk");
@@ -459,7 +328,6 @@ public class MapManager {
         }
 
         if (chunks.getLength() == 0) {
-            // Fallback: read width/height from <map> element directly
             worldCols = Integer.parseInt(mapEl.getAttribute("width"));
             worldRows = Integer.parseInt(mapEl.getAttribute("height"));
             originTileX = 0;
@@ -472,9 +340,6 @@ public class MapManager {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Parsing — Layers + chunks (second pass)
-    // ─────────────────────────────────────────────────────────────────────────
 
     private void parseLayers(Element mapEl) {
         NodeList layerNodes = mapEl.getElementsByTagName("layer");
@@ -485,10 +350,8 @@ public class MapManager {
             String name = layerEl.getAttribute("name");
             int[][] grid = new int[worldRows][worldCols];
 
-            // Collect all chunks for this layer
             NodeList chunks = layerEl.getElementsByTagName("chunk");
             if (chunks.getLength() > 0) {
-                // Infinite map: stitch chunks
                 for (int c = 0; c < chunks.getLength(); c++) {
                     Element ch = (Element) chunks.item(c);
                     int chX  = Integer.parseInt(ch.getAttribute("x"))  - originTileX;
@@ -511,7 +374,6 @@ public class MapManager {
                     }
                 }
             } else {
-                // Non-infinite: single <data> block
                 NodeList dataNodes = layerEl.getElementsByTagName("data");
                 if (dataNodes.getLength() > 0) {
                     String csv = dataNodes.item(0).getTextContent().trim();
@@ -529,9 +391,6 @@ public class MapManager {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Collision grid construction
-    // ─────────────────────────────────────────────────────────────────────────
 
     private void buildCollisionGrid() {
         solid = new boolean[worldRows][worldCols];
@@ -544,12 +403,6 @@ public class MapManager {
 
         for (int row = 0; row < worldRows; row++) {
             for (int col = 0; col < worldCols; col++) {
-                // 1. Void: no floor tile of any kind → solid.
-                // For floor_2, a tile only grants walkable floor when it has no
-                // centre-covering collision shape (i.e. it is a pure floor tile).
-                // Wall-edge/ledge tiles in floor_2 DO have collision and must be
-                // handled in step 4 below, so we allow them to pass the hasFloor
-                // gate here — the void check is only about whether there is ANY tile.
                 boolean hasFloor = (floorGrid  != null && floorGrid[row][col]  != 0)
                                 || (floor2Grid != null && floor2Grid[row][col] != 0);
                 if (!hasFloor) {
@@ -557,32 +410,16 @@ public class MapManager {
                     continue;
                 }
 
-                // 2. Water → always solid
                 if (waterGrid != null && waterGrid[row][col] != 0) {
                     solid[row][col] = true;
                     continue;
                 }
 
-                // 3. Walls layer — every non-zero tile is solid.
-                //    The walls_floor tileset does not define objectgroups for most
-                //    of its tiles (they have implicit full-tile collision in Tiled).
-                //    Relying on tileHasAnyCollision would silently skip those tiles.
-                //    Treat the walls layer exactly like water: presence == solid.
-                //    Exception: tile GIDs that ARE in tileCollisionShapes with
-                //    explicitly empty shapes (none added) are still treated as solid
-                //    because the layer itself implies obstruction.
                 if (wallsGrid != null && (wallsGrid[row][col] & GID_MASK) != 0) {
                     solid[row][col] = true;
                     continue;
                 }
 
-                // 4. Per-tile collision shapes: check floor_2 layer.
-                //    floor_2 mixes truly walkable floor tiles (no objectgroup at all
-                //    in the tileset) with wall-edge and ledge tiles (with objectgroups).
-                //    We use tileHasAnyCollision so that edge tiles whose shapes do NOT
-                //    cover the tile centre (8,8) — such as fire-pit ledges (height=7)
-                //    and treasure-chest borders — are still caught and marked solid.
-                //    Walkable floor tiles have no objectgroup and return false.
                 if (floor2Grid != null) {
                     int gid = floor2Grid[row][col];
                     if (gid != 0 && tileHasAnyCollision(floor2Grid, row, col)) {
@@ -591,11 +428,6 @@ public class MapManager {
                     }
                 }
 
-                // 5. Objects with collision shapes block movement.
-                //    Object tiles are never walkable floor, so ANY defined collision
-                //    shape (not just one covering the centre) makes the tile solid.
-                //    This catches fire-edge, chest-edge, and other partial-shape tiles
-                //    that do not reach tile centre (8,8).
                 boolean objectSolid = tileHasAnyCollision(objGrid,  row, col)
                                    || tileHasAnyCollision(obj2Grid, row, col);
                 if (objectSolid) {
@@ -605,14 +437,7 @@ public class MapManager {
         }
     }
 
-    /**
-     * Returns {@code true} if the tile at {@code (row,col)} in {@code grid} has
-     * a collision shape whose bounding rectangle contains the tile centre (8,8).
-     *
-     * <p>Kept as a utility for future use.  {@link #buildCollisionGrid} now uses
-     * {@link #tileHasAnyCollision} for all layers, which catches partial-shape
-     * tiles that miss the centre point.
-     */
+    /** Returns true if tile at (row,col) has collision shape containing tile centre (8,8). */
     private boolean checkLayerForCollision(int[][] grid, int row, int col) {
         if (grid == null) return false;
         int gid = grid[row][col] & GID_MASK;
@@ -625,16 +450,7 @@ public class MapManager {
         return false;
     }
 
-    /**
-     * Returns {@code true} if the tile at {@code (row,col)} in {@code grid} has
-     * <em>any</em> collision shape defined in the tileset — regardless of shape
-     * position or size.
-     *
-     * <p>Used for {@code objects} and {@code objects2}: these tiles are never
-     * walkable floor, so the presence of <em>any</em> objectgroup is sufficient
-     * to mark the cell solid.  This catches partial-shape tiles such as fire-pit
-     * edges and chest edges whose shapes do not cover the tile centre (8,8).
-     */
+    /** Returns true if tile at (row,col) has any collision shape defined. */
     private boolean tileHasAnyCollision(int[][] grid, int row, int col) {
         if (grid == null) return false;
         int gid = grid[row][col] & GID_MASK;
@@ -642,9 +458,6 @@ public class MapManager {
         return tileCollisionShapes.containsKey(gid);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Safe-zone extraction
-    // ─────────────────────────────────────────────────────────────────────────
 
     private void extractSafeZones(Element mapEl) {
         for (int id = 1; id <= 8; id++) {
@@ -652,7 +465,6 @@ public class MapManager {
             int[][] grid = layerGrids.get(layerName);
             if (grid == null) continue;
 
-            // Find all non-zero tile positions; compute bounding rect
             int minC = Integer.MAX_VALUE, minR = Integer.MAX_VALUE;
             int maxC = Integer.MIN_VALUE, maxR = Integer.MIN_VALUE;
             boolean found = false;
@@ -671,8 +483,6 @@ public class MapManager {
 
             if (!found) continue;
 
-            // Convert grid indices → world pixel coords
-            // World pixel space: worldX = col * TILE_SIZE (no origin offset)
             double wx = minC * TILE_SIZE;
             double wy = minR * TILE_SIZE;
             double ww = (maxC - minC + 1) * TILE_SIZE;

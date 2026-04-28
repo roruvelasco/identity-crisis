@@ -14,11 +14,7 @@ import com.identitycrisis.shared.model.GameConfig;
 import com.identitycrisis.shared.util.Logger;
 import com.identitycrisis.shared.util.RoomCodec;
 
-/**
- * Join Room scene - allows players to enter a room code to join an existing game.
- * Part of the Play → CreateOrJoin → Lobby → Loading → GameArena flow.
- * Features LobbyScene-style corner glow effects and Press Start 2P typography.
- */
+// join room screen
 public class JoinRoomScene {
 
     private static final Logger LOG = new Logger("JoinRoomScene");
@@ -87,10 +83,6 @@ public class JoinRoomScene {
         root.getChildren().add(pattern);
     }
 
-    /**
-     * Adds animated corner torch glows.
-     * Copied from LobbyScene implementation.
-     */
     private void addCornerGlows(StackPane root) {
         String glowStyle = "-fx-background-color: radial-gradient(center 50% 50%, radius 50%, rgba(232,116,60,0.12), transparent 70%);";
         double[] delays = {0, 0.5, 1.0, 1.5};

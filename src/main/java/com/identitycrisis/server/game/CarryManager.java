@@ -72,11 +72,7 @@ public class CarryManager {
         }
     }
 
-    /**
-     * Releases any carry relationship that involves {@code playerId} — either as
-     * carrier or as the carried player. Called when a client disconnects mid-carry
-     * to prevent the other player from being permanently stuck.
-     */
+    /** Releases carry relationship involving playerId on disconnect. */
     public void releaseCarry(int playerId) {
         Player p = gameState.getPlayerById(playerId);
         if (p == null) return;

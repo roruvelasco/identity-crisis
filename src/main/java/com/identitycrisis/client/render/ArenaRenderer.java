@@ -4,18 +4,9 @@ import com.identitycrisis.client.game.LocalGameState;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
-/**
- * Renders the game arena.
- *
- * <p>When the TMX map loads successfully, all visual layers (floor, shadow,
- * water, walls, objects) are rendered via {@link MapManager} at a dynamic
- * scale that always fits the full map within the current viewport.
- *
- * <p>Falls back to the original dark-grid placeholder if the map fails to load.
- */
+/** Renders game arena with TMX map or fallback grid. */
 public class ArenaRenderer {
 
-    // ── Placeholder colours (fallback only) ─────────────────────────────────
     private static final Color BG_COLOR     = Color.web("#0d0d14");
     private static final Color GRID_COLOR   = Color.rgb(201, 168, 76, 0.06);
     private static final Color BORDER_COLOR = Color.web("#c9a84c");
@@ -28,28 +19,17 @@ public class ArenaRenderer {
     /** Handles TMX parsing and tile rendering. May be null if load fails. */
     private final MapManager mapManager;
 
-    // ── Constructor ──────────────────────────────────────────────────────────
 
     public ArenaRenderer(SpriteManager spriteManager) {
         this.spriteManager = spriteManager;
         MapManager mm = new MapManager();
         mm.load("/sprites/map/ArenaMap.tmx");
-        // Keep the reference even if load logged errors — isSolid/render guard internally
         this.mapManager = mm;
     }
 
-    // ── Public API ────────────────────────────────────────────────────────────
 
-    /**
-     * Renders the arena into the full canvas.
-     * Scales the TMX map to fit {@code width × height}; centres if aspect ratios differ.
-     *
-     * @param gc     GraphicsContext of the game canvas
-     * @param width  current canvas width  (supports fullscreen)
-     * @param height current canvas height
-     */
+    /** Renders arena to canvas, scaling map to fit viewport. */
     public void render(GraphicsContext gc, double width, double height) {
-        // Always paint the background first (covers letterbox bars)
         gc.setFill(BG_COLOR);
         gc.fillRect(0, 0, width, height);
 
@@ -60,24 +40,15 @@ public class ArenaRenderer {
         }
     }
 
-    /**
-     * Returns the {@link MapManager} so callers can query collision and
-     * safe zones, or convert between world and screen coordinates.
-     */
+    /** Returns MapManager for collision queries and coordinate conversion. */
     public MapManager getMapManager() { return mapManager; }
 
-    /**
-     * Overload consumed by the master {@link Renderer}.
-     * Delegates to the state-independent overload; state-based integration
-     * will be wired when the full network pipeline is complete.
-     */
+    /** No-op stub for state-based render overload. */
     public void render(GraphicsContext gc, LocalGameState state) {
-        // no-op stub — active render path uses render(gc, w, h) directly.
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────────
 
-    /** Original placeholder: dark bg + subtle gold grid + border. */
+    /** Renders dark background with gold grid and border. */
     private void renderPlaceholder(GraphicsContext gc, double width, double height) {
         gc.setStroke(GRID_COLOR);
         gc.setLineWidth(1.0);

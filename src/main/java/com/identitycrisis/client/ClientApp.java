@@ -5,15 +5,7 @@ import com.identitycrisis.shared.model.GameConfig;
 import javafx.application.Application;
 import javafx.stage.Stage;
 
-/**
- * JavaFX Application entry point and <strong>client-side Composition Root</strong>.
- *
- * <p>This is the only place on the client that creates top-level collaborating
- * objects. {@link SceneManager} is constructed here with the {@link Stage}, then
- * asked to show the first scene. Everything else ({@code GameClient},
- * {@code LocalGameState}, {@code InputManager}) is wired inside
- * {@code SceneManager} when the player navigates to the lobby or game scene.
- */
+/** JavaFX client entry point; wires SceneManager with the primary Stage. */
 public class ClientApp extends Application {
 
     @Override

@@ -1,29 +1,6 @@
 package com.identitycrisis.shared.util;
 
-/**
- * Encodes and decodes a host IP + port into a short human-readable room code.
- *
- * <h2>Format</h2>
- * A room code is a 10-character uppercase alphanumeric string, displayed with a
- * dash in the middle for readability: {@code XXXXX-XXXXX}. The dash is cosmetic
- * only and is ignored during decoding.
- *
- * <h2>Encoding</h2>
- * The four IPv4 octets and the 16-bit port are packed into a 48-bit {@code long}:
- * <pre>
- *   bits 47-40  octet 1
- *   bits 39-32  octet 2
- *   bits 31-24  octet 3
- *   bits 23-16  octet 4
- *   bits 15-0   port
- * </pre>
- * That {@code long} is then represented in base-36 (digits 0-9, letters A-Z),
- * zero-padded to exactly 10 characters.
- *
- * <h2>Example</h2>
- * {@code 192.168.1.42:5137} → {@code "0C0A8012B1"} → displayed as
- * {@code "0C0A8-012B1"}.
- */
+
 public final class RoomCodec {
 
     private static final int  CODE_LENGTH = 10;
@@ -32,7 +9,7 @@ public final class RoomCodec {
 
     private RoomCodec() {}
 
-    // ── Encoding ─────────────────────────────────────────────────────────────
+    // Encoding 
 
     /**
      * Encodes an IPv4 address and port into a 10-character room code

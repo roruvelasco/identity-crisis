@@ -4,19 +4,14 @@ import com.identitycrisis.shared.model.*;
 import com.identitycrisis.shared.net.MessageDecoder;
 import java.util.List;
 
-/**
- * Client's local copy of game state. Thread-safe via volatile reference swap.
- * Written by network thread, read by render thread.
- */
+/** Client-side volatile game-state cache written by net thread, read by render thread. */
 public class LocalGameState {
 
-    // Lobby
     private volatile int lobbyConnectedCount;
     private volatile int lobbyRequiredCount;
     private volatile String[] lobbyPlayerNames;
     private volatile boolean[] lobbyReadyFlags;
 
-    // Game (from latest snapshot)
     private volatile int roundNumber;
     private volatile double timerRemaining;
     private volatile RoundPhase phase;
@@ -27,21 +22,15 @@ public class LocalGameState {
     private volatile List<Player> players = new java.util.ArrayList<>();
     private volatile List<SafeZone> safeZones = new java.util.ArrayList<>();
 
-    // UI
     private volatile boolean gameOver;
     private volatile int winnerPlayerId;
     private volatile String winnerName;
     private volatile List<String> chatMessages;
     private volatile String lastEliminatedName;
 
-    /**
-     * Sentinel returned by {@link #getRoundNumber()} when the client has not
-     * yet received a snapshot.  Callers (e.g. {@link com.identitycrisis.client.scene.GameArena})
-     * fall back to local state in this case.
-     */
+    /** Sentinel for "no snapshot received yet"; callers fall back to local state. */
     public static final int NO_ROUND = 0;
 
-    // Update methods (network thread)
     public void updateFromSnapshot(MessageDecoder.GameStateData data) {
         this.roundNumber = data.roundNumber();
         this.timerRemaining = data.timerRemaining();
@@ -99,7 +88,6 @@ public class LocalGameState {
     }
     public void setMyPlayerId(int id) { this.myPlayerId = id; }
 
-    // Read methods (render thread)
     public int getRoundNumber() { return roundNumber; }
     public double getTimerRemaining() { return timerRemaining; }
     public RoundPhase getPhase() { return phase; }
@@ -119,6 +107,5 @@ public class LocalGameState {
     public String[] getLobbyPlayerNames() { return lobbyPlayerNames; }
     public boolean[] getLobbyReadyFlags() { return lobbyReadyFlags; }
 
-    /** True once the client has received at least one game-state snapshot. */
     public boolean hasReceivedSnapshot() { return roundNumber != NO_ROUND; }
 }

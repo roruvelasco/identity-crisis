@@ -5,11 +5,7 @@ import com.identitycrisis.client.net.GameClient;
 import com.identitycrisis.client.render.Renderer;
 import javafx.animation.AnimationTimer;
 
-/**
- * Client-side loop via AnimationTimer (~60fps).
- * Each frame: poll input → apply chaos mods → send to server → render.
- * No client-side prediction. Pure server-authoritative.
- */
+/** Client-side AnimationTimer loop: polls input, applies chaos, sends to server, renders. */
 public class ClientGameLoop extends AnimationTimer {
 
     private final InputManager inputManager;

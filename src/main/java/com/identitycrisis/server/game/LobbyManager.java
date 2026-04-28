@@ -25,10 +25,10 @@ public class LobbyManager {
 
     public LobbyManager(GameServer server) { this.server = server; }
 
-    /** Setter injection — called from ServerApp.main() after GameState is created. */
+    /** Setter injection for GameState. */
     public void setGameState(GameState gs) { this.gameState = gs; }
 
-    /** Setter injection — called from ServerApp.main() so lobby can spawn round-1 safe zone. */
+    /** Setter injection for SafeZoneManager. */
     public void setSafeZoneManager(SafeZoneManager szm) { this.safeZoneManager = szm; }
 
     public synchronized void handleJoin(ClientConnection client, String displayName) {
@@ -59,9 +59,6 @@ public class LobbyManager {
                 gameState.getPlayers().add(p);
                 gameState.getControlMap().put(c.getClientId(), c.getClientId());
             }
-            // Round 1 is a warm-up round → unlimited capacity, one zone per player.
-            // The N-zones-for-N-players formula matches RoundManager.startNewRound's
-            // warm-up branch so subsequent rounds use the identical algorithm.
             safeZoneManager.spawnRoundZones(n);
             gameState.setPhase(RoundPhase.COUNTDOWN);
             gameState.setRoundNumber(1);
@@ -95,7 +92,6 @@ public class LobbyManager {
             enc.flush();
             server.broadcastToAll(baos.toByteArray());
         } catch (IOException e) {
-            // log and continue
         }
     }
 }

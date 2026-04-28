@@ -26,20 +26,14 @@ public class SceneManager {
     private AudioManager audioManager;
 
 
-    // Single permanent scene — the Stage's scene is set ONCE and never swapped.
-    // Content is changed via permanentScene.setRoot() so fullscreen is never reset.
     private final Scene permanentScene;
 
-    // Cached root nodes (Parent) for each named screen.
-    // createScene() is called once; the root is extracted and the temp Scene discarded.
     private final Map<String, Parent> roots = new HashMap<>();
 
-    // Room-code / host-lifecycle state
     private EmbeddedServer embeddedServer;
     private String roomCode;
     private boolean isHost;
 
-    // Scene controllers
     private InitialLoadingScene initialLoadingScene;
     private MenuScene menuScene;
     private HowToPlayScene howToPlayScene;
@@ -59,21 +53,16 @@ public class SceneManager {
         this.primaryStage.setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
         this.primaryStage.setOnCloseRequest(e -> shutdownNetwork());
 
-        // Create the one permanent Scene. Its root is swapped via setRoot() on every
-        // navigation so the Stage's scene property never changes — fullscreen is preserved.
         StackPane placeholder = new StackPane();
         placeholder.setStyle("-fx-background-color: #0d0d14;");
         permanentScene = new Scene(placeholder,
                 GameConfig.WINDOW_WIDTH, GameConfig.WINDOW_HEIGHT);
 
-        // Attach global CSS once.
         try {
             var css = getClass().getResource("/styles/global.css");
             if (css != null) permanentScene.getStylesheets().add(css.toExternalForm());
         } catch (Exception ignored) {}
 
-        // F11 / ESCAPE fullscreen toggle — addEventFilter so InputManager's
-        // addEventHandler is not overridden.
         permanentScene.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
             switch (event.getCode()) {
                 case F11  -> { toggleFullscreen(); event.consume(); }
@@ -87,10 +76,8 @@ public class SceneManager {
             }
         });
 
-        // Set the scene exactly once.
         primaryStage.setScene(permanentScene);
 
-        // Initialize scene controllers
         this.initialLoadingScene = new InitialLoadingScene(this);
         this.menuScene = new MenuScene(this);
         this.howToPlayScene = new HowToPlayScene(this);
@@ -103,11 +90,7 @@ public class SceneManager {
         this.aboutScene = new AboutScene(this);
     }
 
-    /**
-     * Disconnects the client and (if host) stops the embedded server. Idempotent.
-     * Called from the window-close hook and from "Back" navigations that leave
-     * a room.
-     */
+    /** Disconnects client and stops embedded server (if host). */
     public void shutdownNetwork() {
         if (audioManager != null) {
             audioManager.stopBGM();
@@ -179,32 +162,20 @@ public class SceneManager {
         primaryStage.setTitle(GameConfig.WINDOW_TITLE + " - About");
     }
 
-    /**
-     * Returns the single permanent scene (always attached to the Stage).
-     * Used by GameArena to attach InputManager to the correct scene.
-     */
+    /** Returns permanent scene attached to Stage. */
     public Scene getPermanentScene() {
         return permanentScene;
     }
 
-    /**
-     * Swaps displayed content by replacing the permanent scene's root.
-     * The Stage's scene is never changed so JavaFX never resets fullscreen.
-     *
-     * @param key     cache key for this screen's root
-     * @param creator called once on first use to build the Scene (root extracted, Scene discarded)
-     */
+    /** Swaps displayed content by replacing permanent scene's root. */
     private void swapRoot(String key, java.util.function.Supplier<Scene> creator) {
         Parent root = roots.computeIfAbsent(key, k -> {
             Scene tmp = creator.get();
             Parent r = tmp.getRoot();
-            // Detach r from tmp so it can be adopted by permanentScene.
-            // JavaFX enforces that a node can only be root of one scene at a time.
             tmp.setRoot(new javafx.scene.layout.StackPane());
             return r;
         });
 
-        // Background Music Control
         if ("gamearena".equals(key) || "initialloading".equals(key) || "loading".equals(key)) {
             audioManager.stopBGM();
         } else {
@@ -259,7 +230,6 @@ public class SceneManager {
     }
 
 
-    // ── Room / host lifecycle ──────────────────────────────────────────────
 
     public EmbeddedServer getEmbeddedServer() { return embeddedServer; }
     public void setEmbeddedServer(EmbeddedServer s) { this.embeddedServer = s; }

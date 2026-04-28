@@ -5,26 +5,7 @@ import com.identitycrisis.shared.util.Logger;
 import java.io.*;
 import java.net.Socket;
 
-/**
- * TCP connection to server. Reader thread + synchronized send methods.
- *
- * <p>Usage:
- * <pre>
- *   GameClient gc = new GameClient(new ServerMessageRouter(localGameState));
- *   gc.connect("192.168.1.42", 5137);   // throws IOException on failure
- *   gc.startListening();                // spawns daemon reader thread
- *   gc.sendJoinRequest("Alice");
- * </pre>
- *
- * <p>Thread-safety:
- * <ul>
- *   <li>All {@code send*} methods are {@code synchronized} on {@code this} to
- *       serialise writes to {@code out} (FX thread + game loop thread both write).</li>
- *   <li>The reader thread is the sole reader of {@code in}.</li>
- *   <li>{@code connected} is {@code volatile} so the reader sees
- *       {@link #disconnect()} immediately.</li>
- * </ul>
- */
+/** TCP connection to server with reader thread and synchronized send methods. */
 public class GameClient {
 
     private static final Logger LOG = new Logger("GameClient");
@@ -84,7 +65,6 @@ public class GameClient {
         }
     }
 
-    // ── Send methods (synchronized — called from JavaFX or game loop thread) ────
 
     public synchronized void sendJoinRequest(String displayName) {
         if (!connected) return;

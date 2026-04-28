@@ -9,12 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-/**
- * Triggers and manages chaos events during ACTIVE phase.
- * REVERSED_CONTROLS: flag sent to client, client inverts input.
- * CONTROL_SWAP: remap controlMap so each client controls different player.
- * FAKE_SAFE_ZONES: SafeZoneManager generates decoys per client.
- */
 public class ChaosEventManager {
 
     private final GameState gameState;
@@ -57,9 +51,6 @@ public class ChaosEventManager {
             if (event == ChaosEventType.CONTROL_SWAP) {
                 applyControlSwap();
             }
-            // Prevent re-triggering within the same round. elapsedInRound continues
-            // to grow but can never exceed MAX_VALUE again until resetForNewRound()
-            // picks a fresh scheduledTriggerTime for the next round.
             scheduledTriggerTime = Double.MAX_VALUE;
         }
     }
@@ -77,9 +68,7 @@ public class ChaosEventManager {
         Map<Integer, Integer> map = gameState.getControlMap();
         List<Integer> clientIds  = new ArrayList<>(map.keySet());
         List<Integer> playerIds  = new ArrayList<>(map.values());
-        // A derangement (no fixed point) is impossible with ≤1 element — the loop
-        // would spin forever. Guard here; in practice this means only 1 player is
-        // left (game should already be GAME_OVER), or controlMap wasn't pruned.
+
         if (clientIds.size() <= 1) return;
         do {
             Collections.shuffle(playerIds, rng);

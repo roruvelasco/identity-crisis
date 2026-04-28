@@ -3,10 +3,7 @@ package com.identitycrisis.client.render;
 import com.identitycrisis.client.game.LocalGameState;
 import javafx.scene.canvas.GraphicsContext;
 
-/**
- * Renders player sprites. Handles: facing direction, walk animation,
- * carrying visual, eliminated ghost, controlled-player highlight.
- */
+/** Renders player sprites with facing, animation, and state visuals. */
 public class PlayerRenderer {
 
     private SpriteManager spriteManager;
