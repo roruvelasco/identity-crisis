@@ -217,6 +217,10 @@ public class GameArena {
     /** RNG for decoy zone selection. */
     private final java.util.Random fakeZoneRng = new java.util.Random();
 
+    // ── Reversed-controls chaos state ─────────────────────────────────────────
+    /** True this frame when REVERSED_CONTROLS chaos is active (local or server). */
+    private boolean reversedControlsActive = false;
+
     // ────────────────────────────────────────────────────────────────────────
 
     public GameArena(SceneManager sceneManager) {
@@ -426,6 +430,7 @@ public class GameArena {
         if (inputManager != null && inputManager.isTestingReversed()) {
             reversed = true;
         }
+        reversedControlsActive = reversed; // persist for render()
 
         if (reversed) {
             input = new InputSnapshot(
@@ -717,8 +722,10 @@ public class GameArena {
         // 4. Round timer HUD (top-centre)
         drawTimerHud(gc, w, h);
 
-        // 4b. Fake-zones chaos HUD banner
-        if (testingFakeZones) drawFakeZonesBanner(gc, w, h);
+        // 4b. Chaos HUD banners (stacked below timer, each 34 px tall)
+        int bannerSlot = 0;
+        if (reversedControlsActive) drawReversedControlsBanner(gc, w, h, bannerSlot++);
+        if (testingFakeZones)       drawFakeZonesBanner(gc, w, h, bannerSlot);
 
         // 5. Round start popup overlay (center)
         drawRoundPopup(gc, w, h);
@@ -872,15 +879,52 @@ public class GameArena {
     }
 
     /**
+     * Draws a small "⚠ CHAOS: REVERSED CONTROLS" warning banner below the timer panel.
+     * Uses a purple/violet palette to distinguish from the red fake-zones banner.
+     *
+     * @param slot vertical stack slot (0 = first banner directly below timer, 1 = second, …)
+     */
+    private void drawReversedControlsBanner(GraphicsContext gc, double viewW, double viewH, int slot) {
+        double bannerW = 340;
+        double bannerH = 28;
+        double bannerX = Math.round((viewW - bannerW) / 2.0);
+        double bannerY = 16 + TIMER_H + 6 + slot * 34;   // 34 px per banner slot
+
+        double pulse = 0.7 + 0.3 * Math.abs(Math.sin(pulseTimer * 3.0));
+
+        gc.save();
+        gc.setGlobalAlpha(pulse);
+
+        // Background pill — same red as fake-zones banner
+        gc.setFill(Color.rgb(160, 30, 20, 0.85));
+        gc.fillRoundRect(bannerX, bannerY, bannerW, bannerH, 6, 6);
+
+        // Border
+        gc.setStroke(Color.web("#e05030"));
+        gc.setLineWidth(1.5);
+        gc.strokeRoundRect(bannerX + 1, bannerY + 1, bannerW - 2, bannerH - 2, 5, 5);
+
+        // Text
+        gc.setFont(loadFont("Press Start 2P", 7));
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setFill(Color.web("#ffe0c0"));
+        gc.fillText("⚠  CHAOS: REVERSED CONTROLS", viewW / 2.0, bannerY + 18);
+
+        gc.restore();
+    }
+
+    /**
      * Draws a small "⚠ CHAOS: FAKE ZONES" warning banner below the timer panel
      * so the player knows the chaos event is active.
+     *
+     * @param slot vertical stack slot (0 = first banner directly below timer, 1 = second, …)
      */
-    private void drawFakeZonesBanner(GraphicsContext gc, double viewW, double viewH) {
+    private void drawFakeZonesBanner(GraphicsContext gc, double viewW, double viewH, int slot) {
         // Pulsing red banner centred horizontally, just below the timer panel area
         double bannerW  = 320;
         double bannerH  = 28;
         double bannerX  = Math.round((viewW - bannerW) / 2.0);
-        double bannerY  = 16 + TIMER_H + 6;   // 6 px gap below the timer panel
+        double bannerY  = 16 + TIMER_H + 6 + slot * 34;  // 34 px per banner slot
 
         double pulse = 0.7 + 0.3 * Math.abs(Math.sin(pulseTimer * 3.0));
 

@@ -3,7 +3,8 @@ package com.identitycrisis.shared.model;
 /** ALL magic numbers. Single source of truth for tuning. */
 public final class GameConfig {
 
-    private GameConfig() { }
+    private GameConfig() {
+    }
 
     // Networking
     public static final int SERVER_PORT = 5137;
@@ -17,7 +18,7 @@ public final class GameConfig {
     // Players
     public static final int MIN_PLAYERS = 4;
     public static final int MAX_PLAYERS = 8;
-    public static final double PLAYER_SPEED = 200.0;    // px/sec
+    public static final double PLAYER_SPEED = 180.0; // px/sec
     public static final double PLAYER_RADIUS = 16.0;
 
     // Rounds
@@ -29,7 +30,10 @@ public final class GameConfig {
     // Safe Zone
     /** Total candidate safe-zone spots authored in {@code ArenaMap.tmx}. */
     public static final int TOTAL_SAFE_ZONE_SPOTS = 8;
-    /** Per-zone capacity used in elimination rounds (3+). Warm-up rounds are unlimited. */
+    /**
+     * Per-zone capacity used in elimination rounds (3+). Warm-up rounds are
+     * unlimited.
+     */
     public static final int SAFE_ZONE_DEFAULT_CAPACITY = 1;
     /**
      * Minimum number of zones to spawn per round, regardless of player count.
@@ -59,7 +63,6 @@ public final class GameConfig {
     public static final int WINDOW_WIDTH = 1280;
     public static final int WINDOW_HEIGHT = 720;
     public static final String WINDOW_TITLE = "Identity Crisis";
-
 
     // Server robustness
     /** Max pending inputs per client connection before silently dropping. */
