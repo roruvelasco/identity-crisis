@@ -232,6 +232,26 @@ public class GameArena {
     /** True this frame when REVERSED_CONTROLS chaos is active (local or server). */
     private boolean reversedControlsActive = false;
 
+    // ── Chaos toast state ──────────────────────────────────────────────────────
+    // A 288×96 px pixel-art toast (3× the 96×32 PNG) slides in from the
+    // top-right for 3 seconds whenever a new chaos event activates.
+    // Images are loaded from /sprites/ui/toasts/*.png in createScene().
+    //
+    /** Toast images indexed by {@code ChaosEventType.ordinal() - 1} (NONE has no toast). */
+    private Image[] toastImages;
+    /** Font pre-loaded for the toast label. */
+    private Font fontToast;
+    /** Last effective chaos type seen — used for rising-edge detection. */
+    private com.identitycrisis.shared.model.ChaosEventType lastToastChaos =
+            com.identitycrisis.shared.model.ChaosEventType.NONE;
+    /** True while the toast is visible. */
+    private boolean toastActive = false;
+    /** Counts down from 3.0 → 0.0 while the toast is visible. */
+    private double  toastTimer  = 0.0;
+    /** Which event the current toast is announcing. */
+    private com.identitycrisis.shared.model.ChaosEventType toastEventType =
+            com.identitycrisis.shared.model.ChaosEventType.NONE;
+
     // ────────────────────────────────────────────────────────────────────────
 
     public GameArena(SceneManager sceneManager) {
@@ -278,6 +298,23 @@ public class GameArena {
                 timerPanelImage = new Image(is);
         } catch (Exception ignored) {
         }
+
+        // Pre-load the 3 chaos-event toast PNGs (96×32 px each, indexed by
+        // ChaosEventType.ordinal()-1: REVERSED_CONTROLS=0, CONTROL_SWAP=1, FAKE_SAFE_ZONES=2).
+        String[] toastPaths = {
+            "/sprites/ui/toasts/toast_reverseControls.png",
+            "/sprites/ui/toasts/toast_swapLocation.png",
+            "/sprites/ui/toasts/toast_fakeSafezone.png"
+        };
+        toastImages = new Image[toastPaths.length];
+        for (int i = 0; i < toastPaths.length; i++) {
+            try (InputStream ts = getClass().getResourceAsStream(toastPaths[i])) {
+                if (ts != null) toastImages[i] = new Image(ts);
+            } catch (Exception e) {
+                System.err.println("[GameArena] Failed to load toast image: " + toastPaths[i]);
+            }
+        }
+        fontToast = loadFont("Press Start 2P", 7);
 
         // Load countdown audio (3 seconds)
         try {
@@ -330,6 +367,11 @@ public class GameArena {
         roundTimer = TIMER_DURATION;
         timerRunning = true;
         lastObservedServerRound = 0;
+
+        // Reset toast so no stale notification bleeds in from a previous session
+        toastActive    = false;
+        toastTimer     = 0;
+        lastToastChaos = com.identitycrisis.shared.model.ChaosEventType.NONE;
 
         // Reset offline-mode safe-zone selection so onEnter() forces a fresh
         // pick on the very first render frame (offlineActiveZoneRound != roundNumber).
@@ -453,6 +495,40 @@ public class GameArena {
             reversed = true;
         }
         reversedControlsActive = reversed; // persist for render()
+
+        // ── Chaos toast trigger (rising-edge: NONE → non-NONE) ──────────────
+        // Determine the unified effective chaos (server wins; debug toggles fill in offline).
+        com.identitycrisis.shared.model.ChaosEventType effectiveChaos =
+                com.identitycrisis.shared.model.ChaosEventType.NONE;
+        if (sceneManager != null && sceneManager.getLocalGameState() != null) {
+            com.identitycrisis.shared.model.ChaosEventType serverChaos =
+                    sceneManager.getLocalGameState().getActiveChaos();
+            // Guard: getActiveChaos() may return null before first snapshot arrives
+            if (serverChaos != null) effectiveChaos = serverChaos;
+        }
+        if (effectiveChaos == com.identitycrisis.shared.model.ChaosEventType.NONE) {
+            // Fall back to local debug toggles in offline / dev mode
+            if (inputManager != null && inputManager.isTestingReversed())
+                effectiveChaos = com.identitycrisis.shared.model.ChaosEventType.REVERSED_CONTROLS;
+            else if (inputManager != null && inputManager.isTestingFakeZones())
+                effectiveChaos = com.identitycrisis.shared.model.ChaosEventType.FAKE_SAFE_ZONES;
+        }
+        // Rising edge: new event started
+        if (effectiveChaos != com.identitycrisis.shared.model.ChaosEventType.NONE
+                && lastToastChaos == com.identitycrisis.shared.model.ChaosEventType.NONE) {
+            toastActive    = true;
+            toastTimer     = 3.0;
+            toastEventType = effectiveChaos;
+        }
+        lastToastChaos = effectiveChaos;
+        // Tick the toast countdown
+        if (toastActive) {
+            toastTimer -= dt;
+            if (toastTimer <= 0) {
+                toastActive = false;
+                toastTimer  = 0;
+            }
+        }
 
         if (reversed) {
             input = new InputSnapshot(
@@ -782,8 +858,91 @@ public class GameArena {
         if (testingFakeZones)
             drawFakeZonesBanner(gc, w, h, bannerSlot);
 
-        // 5. Round start popup overlay (center)
+        // 5. Chaos event toast (top-right, above round popup)
+        drawToast(gc, w, h);
+
+        // 6. Round start popup overlay (center)
         drawRoundPopup(gc, w, h);
+    }
+
+    /**
+     * Draws the chaos-event toast in the top-right corner.
+     *
+     * <p>The toast PNG (96×32 native) is rendered at 3× (288×96 screen px) with
+     * nearest-neighbour upscaling for a crisp pixel-art look. The chaos event
+     * name is drawn centred inside the dark right-panel area of the image.
+     *
+     * <p>Animation: slides in from the right over 0.3 s (ease-out quadratic) and
+     * slides back out over the last 0.3 s (ease-in quadratic). Total: 3 seconds.
+     */
+    private void drawToast(GraphicsContext gc, double viewW, double viewH) {
+        // Null + NONE guard — defensive against race conditions on the volatile fields
+        if (!toastActive || toastEventType == null
+                || toastEventType == com.identitycrisis.shared.model.ChaosEventType.NONE) return;
+
+        final double W        = 288;  // 96 native × 3
+        final double H        = 96;   // 32 native × 3
+        final double PAD      = 16;
+        final double ANIM_DUR = 0.3;
+        final double DURATION = 3.0;
+
+        // ── Slide animation ──────────────────────────────────────────────
+        double finalX = viewW - W - PAD;
+        double drawY  = PAD;
+        double drawX;
+        double elapsed = DURATION - toastTimer;
+
+        if (elapsed < ANIM_DUR) {
+            double t  = elapsed / ANIM_DUR;
+            double et = 1.0 - (1.0 - t) * (1.0 - t);   // ease-out
+            drawX = viewW - et * (W + PAD);
+        } else if (toastTimer < ANIM_DUR) {
+            double t  = 1.0 - (toastTimer / ANIM_DUR);
+            double et = t * t;                            // ease-in
+            drawX = finalX + et * (W + PAD);
+        } else {
+            drawX = finalX;
+        }
+
+        gc.save();
+
+        // ── 1. Draw PNG sprite at 3× (nearest-neighbour) ────────────────
+        int idx = toastEventType.ordinal() - 1; // 0=REVERSED,1=SWAP,2=FAKE
+        boolean hasImage = toastImages != null && idx >= 0
+                && idx < toastImages.length && toastImages[idx] != null;
+        if (hasImage) {
+            gc.setImageSmoothing(false);
+            gc.drawImage(toastImages[idx], 0, 0, 96, 32, drawX, drawY, W, H);
+        } else {
+            // Fallback solid rect so something appears if PNG failed to load
+            gc.setFill(Color.web("#1c1c26"));
+            gc.fillRect(drawX, drawY, W, H);
+            gc.setFill(Color.web("#8B9BB4"));
+            gc.fillRect(drawX + 6, drawY + 6, W - 12, H - 12);
+        }
+
+        // ── 2. Event name text centred in the dark right panel ───────────
+        // Native panel: x 30–86 (56 px) → 3× = +90..+258 (168 px wide)
+        //               y 10–24 (14 px) → 3× = +30..+72  (42 px tall)
+        String label = switch (toastEventType) {
+            case REVERSED_CONTROLS -> "REVERSED!";
+            case CONTROL_SWAP      -> "SWAPPED!";
+            case FAKE_SAFE_ZONES   -> "FAKE ZONES!";
+            default                -> "";
+        };
+        if (!label.isEmpty()) {
+            double textCX = drawX + 90 + 84;  // midpoint of 168-px panel (90 + 84 = 174)
+            double textCY = drawY + 51;        // midpoint of panel (30 + 21) + font baseline
+            Font tf = (fontToast != null) ? fontToast : loadFont("Press Start 2P", 7);
+            gc.setFont(tf);
+            gc.setTextAlign(javafx.scene.text.TextAlignment.CENTER);
+            gc.setFill(Color.web("#181425"));
+            gc.fillText(label, textCX + 1, textCY + 1); // pixel-art drop shadow
+            gc.setFill(Color.web("#C0CBDC"));
+            gc.fillText(label, textCX, textCY);
+        }
+
+        gc.restore();
     }
 
     // ── Player rendering ─────────────────────────────────────────────────────

@@ -20,7 +20,7 @@ public class LocalGameState {
     private volatile int roundNumber;
     private volatile double timerRemaining;
     private volatile RoundPhase phase;
-    private volatile ChaosEventType activeChaos;
+    private volatile ChaosEventType activeChaos = ChaosEventType.NONE;
     private volatile double chaosDurationRemaining;
     private volatile int controlledPlayerId;
     private volatile int myPlayerId;
