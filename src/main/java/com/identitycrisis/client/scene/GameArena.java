@@ -710,14 +710,17 @@ public class GameArena {
         if (mapManager == null)
             return false;
         // Hitbox corners in world-pixel space — no screen-scale multiplication needed.
-        double left = cx + HIT_OFS_X - HIT_HALF_W;
-        double right = cx + HIT_OFS_X + HIT_HALF_W;
-        double top = cy + HIT_OFS_Y - HIT_HALF_H;
+        double left   = cx + HIT_OFS_X - HIT_HALF_W;
+        double right  = cx + HIT_OFS_X + HIT_HALF_W;
+        double top    = cy + HIT_OFS_Y - HIT_HALF_H;
         double bottom = cy + HIT_OFS_Y + HIT_HALF_H;
-        return mapManager.isSolid(left, top)
-                || mapManager.isSolid(right, top)
-                || mapManager.isSolid(left, bottom)
-                || mapManager.isSolid(right, bottom);
+        // isSolidPixel() uses the per-tile alpha bitmask for wall tiles (pixel-perfect)
+        // and falls back to the broad-phase solid[][] grid for water/void — so both
+        // hazard types still block the player correctly.
+        return mapManager.isSolidPixel(left,  top)
+            || mapManager.isSolidPixel(right, top)
+            || mapManager.isSolidPixel(left,  bottom)
+            || mapManager.isSolidPixel(right, bottom);
     }
 
     // ── Render ───────────────────────────────────────────────────────────────

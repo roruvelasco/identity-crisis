@@ -86,6 +86,14 @@ public class MapManager {
      */
     private final Map<Integer, List<Rectangle2D>> tileCollisionShapes = new HashMap<>();
 
+    /**
+     * Per-tile alpha bitmasks keyed by global tile ID, built at load time by
+     * {@link TileHitboxCache}. Each value is a {@code boolean[16][16]} where
+     * {@code true} = pixel is non-transparent and therefore solid.
+     * Used by {@link #isSolidPixel} and {@link #intersectsWallPixels}.
+     */
+    private final Map<Integer, boolean[][]> tileAlphaMasks = new HashMap<>();
+
     /** Layer name → 2-D tile GID grid [row][col] in the unified world grid. */
     private final Map<String, int[][]> layerGrids = new LinkedHashMap<>();
 
@@ -280,6 +288,103 @@ public class MapManager {
     /** All 8 safe-zone rectangles (world-pixel coords, native scale). */
     public List<SafeZoneRect> getSafeZones() { return Collections.unmodifiableList(safeZones); }
 
+    /**
+     * Pixel-perfect solid check using the alpha bitmasks pre-computed at load time.
+     *
+     * <p>More precise than {@link #isSolid} — resolves to the exact sub-tile pixel
+     * rather than treating the whole 16×16 tile as solid.
+     *
+     * <p>Priority chain:
+     * <ol>
+     *   <li>Out-of-bounds → {@code true} (solid boundary)</li>
+     *   <li>Broad-phase {@code solid[][]} says walkable → {@code false} (skip narrow phase)</li>
+     *   <li>Non-walls source (void / water) → defer to broad-phase result</li>
+     *   <li>Walls tile: look up alpha bitmask at sub-pixel; null mask → {@code true} (safe fallback)</li>
+     * </ol>
+     *
+     * @param worldX x in native (16 px/tile) world coordinates
+     * @param worldY y in native (16 px/tile) world coordinates
+     */
+    public boolean isSolidPixel(double worldX, double worldY) {
+        int col = (int) Math.floor(worldX / TILE_SIZE);
+        int row = (int) Math.floor(worldY / TILE_SIZE);
+
+        // 1. Out-of-bounds
+        if (row < 0 || col < 0 || row >= worldRows || col >= worldCols) return true;
+
+        // 2. Broad-phase: if the tile is not solid at all, skip narrow phase
+        if (!solid[row][col]) return false;
+
+        // 3. Check whether the solid flag came from the walls layer
+        int[][] wallsGrid = layerGrids.get("walls");
+        if (wallsGrid == null) return true; // no walls layer → defer to broad-phase
+
+        int gid = wallsGrid[row][col] & GID_MASK;
+        if (gid == 0) {
+            // Solid came from void / water, not the walls bitmask — return broad-phase result
+            return solid[row][col];
+        }
+
+        // 4. Narrow-phase: look up the alpha bitmask and check the exact pixel
+        int subX = (int)(worldX - col * (double) TILE_SIZE);
+        int subY = (int)(worldY - row * (double) TILE_SIZE);
+        return TileHitboxCache.pixelAt(tileAlphaMasks.get(gid), subX, subY);
+    }
+
+    /**
+     * AABB vs wall-pixel bitmask intersection.
+     *
+     * <p>Tests all tiles whose world-pixel bounds overlap the supplied rectangle
+     * {@code [x, x+w) × [y, y+h)}, then checks only the pixels that fall inside
+     * the intersection.  At most 4 tiles are examined per call (a 16 px player
+     * rarely spans more), so this is safe to invoke every frame.
+     *
+     * <p>Returns {@code true} on the first solid pixel found.
+     *
+     * @param x left  edge of the bounding box in world pixels
+     * @param y top   edge of the bounding box in world pixels
+     * @param w width  of the bounding box in world pixels
+     * @param h height of the bounding box in world pixels
+     */
+    public boolean intersectsWallPixels(double x, double y, double w, double h) {
+        int[][] wallsGrid = layerGrids.get("walls");
+        if (wallsGrid == null) return false;
+
+        int colMin = (int) Math.floor(x / TILE_SIZE);
+        int colMax = (int) Math.floor((x + w - 0.001) / TILE_SIZE);
+        int rowMin = (int) Math.floor(y / TILE_SIZE);
+        int rowMax = (int) Math.floor((y + h - 0.001) / TILE_SIZE);
+
+        for (int row = rowMin; row <= rowMax; row++) {
+            for (int col = colMin; col <= colMax; col++) {
+                // Out-of-bounds cell → solid wall
+                if (row < 0 || col < 0 || row >= worldRows || col >= worldCols) return true;
+
+                int gid = wallsGrid[row][col] & GID_MASK;
+                if (gid == 0) continue; // empty walls cell
+
+                boolean[][] mask = tileAlphaMasks.get(gid);
+                if (mask == null) return true; // no bitmask → conservative: solid
+
+                // Compute the overlap of the AABB with this tile in sub-tile coordinates
+                double tileOriginX = col * (double) TILE_SIZE;
+                double tileOriginY = row * (double) TILE_SIZE;
+
+                int pxMin = Math.max(0, (int) Math.floor(x - tileOriginX));
+                int pxMax = Math.min(TILE_SIZE - 1, (int) Math.floor(x + w - tileOriginX));
+                int pyMin = Math.max(0, (int) Math.floor(y - tileOriginY));
+                int pyMax = Math.min(TILE_SIZE - 1, (int) Math.floor(y + h - tileOriginY));
+
+                for (int py = pyMin; py <= pyMax; py++) {
+                    for (int px = pxMin; px <= pxMax; px++) {
+                        if (mask[py][px]) return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     /** World width in native pixels (worldCols × TILE_SIZE). */
     public double getWorldWidth()  { return (double) worldCols * TILE_SIZE; }
 
@@ -368,6 +473,11 @@ public class MapManager {
                 // src is like "decorative_cracks_walls.png" — relative to the TMX
                 String resourcePath = "/sprites/map/tileSets/" + src;
                 img = loadImage(resourcePath);
+                // Build pixel-perfect alpha bitmasks for this tileset (once at load)
+                if (img != null) {
+                    tileAlphaMasks.putAll(
+                            TileHitboxCache.build(img, columns, firstGid, tileCount));
+                }
             }
 
             tilesets.add(new TilesetInfo(firstGid, lastGid, columns, img));

@@ -5,6 +5,7 @@ import com.identitycrisis.server.net.ClientMessageRouter;
 import com.identitycrisis.server.net.GameServer;
 import com.identitycrisis.server.physics.CollisionDetector;
 import com.identitycrisis.server.physics.PhysicsEngine;
+import com.identitycrisis.server.physics.TmxWallsParser;
 import com.identitycrisis.shared.model.GameConfig;
 import com.identitycrisis.shared.util.Logger;
 
@@ -59,7 +60,11 @@ public class ServerApp {
 
         // ── 3. Stateless physics utilities ───────────────────────────────────
         PhysicsEngine pe = new PhysicsEngine();
-        CollisionDetector cd = new CollisionDetector();
+        // Parse wall collision shapes from the TMX once at startup.
+        // WallCollisionData is read-only; safe to share with the game-loop thread.
+        TmxWallsParser.WallCollisionData wallData =
+                TmxWallsParser.load("/sprites/map/ArenaMap.tmx");
+        CollisionDetector cd = new CollisionDetector(wallData);
 
         // ── 4. GameContext — groups all game managers ─────────────────────────
         GameContext ctx = new GameContext(gameState, szm, cem, cm, em, rm);

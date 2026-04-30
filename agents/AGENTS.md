@@ -212,6 +212,22 @@ public record GameContext(
     `REVERSED_CONTROLS` a no-op.** The `reversedControls` parameter of `applyInput()`
     is kept in the method signature for potential future use but must not be set to
     `true` from the game loop.
+21. **Pixel-perfect wall collision — two-layer system.**
+    The collision system is split by runtime context:
+    - **Client** (`MapManager`): `TileHitboxCache.build()` reads each tileset PNG via
+      JavaFX `PixelReader` at `MapManager.load()` time, producing
+      `Map<Integer, boolean[16][16]>` (`tileAlphaMasks`) keyed by global tile ID.
+      `isSolidPixel(worldX, worldY)` does broad-phase via `solid[][]`, then narrows
+      to the exact pixel via the alpha bitmask.
+      `intersectsWallPixels(x, y, w, h)` checks all tiles overlapping an AABB and
+      returns `true` on the first solid pixel — safe to call every frame (≤4 tiles).
+    - **Server** (`CollisionDetector`): `TmxWallsParser.load()` parses the TMX at
+      `ServerApp.main()` time (no image I/O) and returns `WallCollisionData` with
+      the walls GID grid and per-tile objectgroup rectangles.
+      `CollisionDetector.resolveWallCollision()` does circle-vs-AABB push-out using
+      those rectangles; tiles without an objectgroup fall back to a full 16×16 rect.
+    - **Wiring**: called in `ServerApp.main()` at step 3 and injected via
+      `CollisionDetector(WallCollisionData)`. Legacy no-arg constructor retained.
 
 ## 4. Directory & File Tree
 
