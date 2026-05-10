@@ -52,8 +52,8 @@ public class ServerMessageRouter {
                 localGameState.setControlledPlayerId(decoder.decodeControlSwap());
             }
             case S_GAME_OVER -> {
-                // localGameState.setGameOver(decoder.decodeGameOver());
-                // if (onGameOver != null) Platform.runLater(onGameOver);
+                localGameState.setGameOver(decoder.decodeGameOver());
+                if (onGameOver != null) Platform.runLater(onGameOver);
             }
             case S_CHAT_BROADCAST -> {
                 // localGameState.addChatMessage(decoder.decodeChat());

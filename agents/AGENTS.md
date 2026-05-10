@@ -486,6 +486,6 @@ Client opens a 1280×720 window with a green `[HEALTH OK]` label until `SceneMan
 |---|---|---|
 | **MenuScene** | Build UI (buttons, text fields) | Validate inputs, create `GameClient`, connect |
 | **LobbyScene** | Display connected players, register lobby callbacks | Unregister callbacks |
-| **GameScene** | Create `Canvas`, `Renderer`, `SpriteManager.loadAll()`, attach `InputManager`, start `ClientGameLoop` | Stop `ClientGameLoop`, detach `InputManager` |
+| **GameScene** | Create `Canvas`, `Renderer`, `SpriteManager.loadAll()`, attach `InputManager`, start `ClientGameLoop`; show in-place game-over overlay when `S_GAME_OVER` sets `LocalGameState.gameOver` | Stop `ClientGameLoop`, detach `InputManager` |
 | **ResultScene** | Display winner name, show buttons | Disconnect or keep connection for replay |
 | **HowToPlayScene** | Display static content | Nothing |

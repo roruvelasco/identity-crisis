@@ -15,6 +15,7 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
@@ -163,23 +164,7 @@ public class GameArena {
      */
     private int lastObservedServerRound;
 
-    // ── Offline-mode safe-zone placeholder ───────────────────────────────────
-    //
-    // When no server snapshot has populated {@link
-    // com.identitycrisis.client.game.LocalGameState#getSafeZones},
-    // {@link #render} falls back to a single random TMX rectangle so the
-    // player always has *one* visible safe zone per round (matching the
-    // server's single-player behaviour: zoneCount = max(1, aliveCount-1) = 1
-    // for one player on round 3+, and zoneCount = 1 on rounds 1–2).
-    //
-    // The selection is re-rolled exactly once per local round transition; it
-    // stays stable for the duration of a round so the visual doesn't flicker
-    // between candidates.
 
-    /**
-     * Id (1–8) of the TMX rectangle being shown as the offline placeholder, or -1
-     * before first selection.
-     */
     private int offlineActiveZoneId = -1;
     /** {@link #roundNumber} at the moment the current offline zone was picked. */
     private int offlineActiveZoneRound = -1;
@@ -214,6 +199,9 @@ public class GameArena {
     private javafx.scene.layout.VBox confirmMenu;
     private javafx.scene.control.Label confirmLabel;
     private Runnable confirmAction;
+    private StackPane gameOverOverlay;
+    private Label gameOverWinnerLabel;
+    private boolean gameOverShown;
 
     // ── Fake safe-zones chaos state ───────────────────────────────────────────
     //
@@ -284,6 +272,7 @@ public class GameArena {
 
         // Pause Overlay (Initially hidden)
         createPauseOverlay(root);
+        createGameOverOverlay(root);
 
         scene = new Scene(root, GameConfig.WINDOW_WIDTH, GameConfig.WINDOW_HEIGHT);
         scene.getStylesheets().add(
@@ -389,8 +378,11 @@ public class GameArena {
         offlineActiveZoneRound = -1;
 
         isPaused = false;
+        gameOverShown = false;
         if (pauseOverlay != null)
             pauseOverlay.setVisible(false);
+        if (gameOverOverlay != null)
+            gameOverOverlay.setVisible(false);
 
         // Show round start popup for round 1
         triggerRoundPopup(1);
@@ -434,6 +426,10 @@ public class GameArena {
     // ── Update (game logic) ──────────────────────────────────────────────────
 
     private void update(double dt) {
+        if (syncGameOverFromServer()) {
+            return;
+        }
+
         // Handle ESC key for pausing
         boolean escPressed = inputManager != null && inputManager.isPressed(KeyCode.ESCAPE);
         if (escPressed && !escWasPressed) {
@@ -657,6 +653,34 @@ public class GameArena {
         return localChaosEvent;
     }
 
+    private boolean syncGameOverFromServer() {
+        if (gameOverShown)
+            return true;
+        if (sceneManager == null)
+            return false;
+        com.identitycrisis.client.game.LocalGameState lgs = sceneManager.getLocalGameState();
+        if (lgs == null)
+            return false;
+        boolean over = lgs.isGameOver()
+                || lgs.getPhase() == com.identitycrisis.shared.model.RoundPhase.GAME_OVER;
+        if (!over)
+            return false;
+        String winnerName = lgs.getWinnerName();
+        showGameOverOverlay(winnerName == null || winnerName.isBlank() ? "WINNER: UNKNOWN" : "WINNER: " + winnerName);
+        return true;
+    }
+
+    private void showGameOverOverlay(String resultText) {
+        gameOverShown = true;
+        isPaused = false;
+        if (pauseOverlay != null)
+            pauseOverlay.setVisible(false);
+        if (gameOverWinnerLabel != null)
+            gameOverWinnerLabel.setText(resultText);
+        if (gameOverOverlay != null)
+            gameOverOverlay.setVisible(true);
+    }
+
     private void activateNextLocalChaos(ChaosEventType previous) {
         ChaosEventType next;
         do {
@@ -798,11 +822,7 @@ public class GameArena {
     }
 
     private void endGameOffline() {
-        if (sceneManager == null)
-            return;
-        onExit();
-        sceneManager.shutdownNetwork();
-        javafx.application.Platform.runLater(sceneManager::showMenu);
+        showGameOverOverlay("YOU SURVIVED");
     }
 
     /**
@@ -1553,6 +1573,52 @@ public class GameArena {
         box.getChildren().add(menuContainer);
         pauseOverlay.getChildren().add(box);
         root.getChildren().add(pauseOverlay);
+    }
+
+    private void createGameOverOverlay(StackPane root) {
+        gameOverOverlay = new StackPane();
+        gameOverOverlay.setVisible(false);
+        gameOverOverlay.setStyle("-fx-background-color: rgba(0, 0, 0, 0.78);");
+
+        try (InputStream is = getClass().getResourceAsStream("/sprites/effects/Veins_1.png")) {
+            if (is != null) {
+                ImageView veins = new ImageView(new Image(is));
+                veins.fitWidthProperty().bind(root.widthProperty());
+                veins.fitHeightProperty().bind(root.heightProperty());
+                veins.setPreserveRatio(false);
+                veins.setOpacity(0.9);
+                veins.setMouseTransparent(true);
+                gameOverOverlay.getChildren().add(veins);
+            }
+        } catch (Exception ignored) {
+        }
+
+        VBox content = new VBox(22);
+        content.setAlignment(Pos.CENTER);
+        content.setMaxWidth(620);
+
+        Label title = new Label("GAME OVER");
+        title.setStyle("-fx-font-family: 'Press Start 2P', monospace;" +
+                "-fx-font-size: 42px;" +
+                "-fx-text-fill: #d04648;" +
+                "-fx-effect: dropshadow(gaussian, rgba(110, 0, 18, 0.95), 28, 0.45, 0, 0);");
+
+        gameOverWinnerLabel = new Label("WINNER: UNKNOWN");
+        gameOverWinnerLabel.setStyle("-fx-font-family: 'Press Start 2P', monospace;" +
+                "-fx-font-size: 13px;" +
+                "-fx-text-fill: #e8dfc4;" +
+                "-fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.8), 8, 0.25, 0, 2);");
+
+        Button menuBtn = createMenuButton("MAIN MENU");
+        menuBtn.setOnAction(e -> {
+            onExit();
+            sceneManager.shutdownNetwork();
+            sceneManager.showMenu();
+        });
+
+        content.getChildren().addAll(title, gameOverWinnerLabel, menuBtn);
+        gameOverOverlay.getChildren().add(content);
+        root.getChildren().add(gameOverOverlay);
     }
 
     private Button createMenuButton(String text) {
