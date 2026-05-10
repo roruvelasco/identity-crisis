@@ -113,6 +113,7 @@ public class RoundManager {
      * guard that prevents the last alive player from being eliminated).
      */
     private void startNewRound() {
+        chaosEventManager.clearActiveEvent();
         int aliveCount = gameState.getAliveCount();
         boolean isWarmup = gameState.getRoundNumber() <= GameConfig.WARMUP_ROUNDS;
         int zoneCount = isWarmup

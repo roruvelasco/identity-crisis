@@ -381,8 +381,7 @@ public class GameArena {
         toastTimer     = 0;
         lastToastChaos = com.identitycrisis.shared.model.ChaosEventType.NONE;
         toastEventType = com.identitycrisis.shared.model.ChaosEventType.NONE;
-        localChaosEvent = ChaosEventType.NONE;
-        localChaosTimer = 0.0;
+        resetLocalChaosCycle();
 
         // Reset offline-mode safe-zone selection so onEnter() forces a fresh
         // pick on the very first render frame (offlineActiveZoneRound != roundNumber).
@@ -638,14 +637,17 @@ public class GameArena {
             com.identitycrisis.client.game.LocalGameState lgs = sceneManager.getLocalGameState();
             if (lgs != null && lgs.hasReceivedSnapshot()) {
                 localChaosEvent = ChaosEventType.NONE;
-                localChaosTimer = 0.0;
+                localChaosTimer = GameConfig.CHAOS_EVENT_DURATION;
                 ChaosEventType serverChaos = lgs.getActiveChaos();
                 return serverChaos != null ? serverChaos : ChaosEventType.NONE;
             }
         }
 
         if (localChaosEvent == ChaosEventType.NONE) {
-            activateNextLocalChaos(ChaosEventType.NONE);
+            localChaosTimer -= dt;
+            if (localChaosTimer <= 0) {
+                activateNextLocalChaos(ChaosEventType.NONE);
+            }
         } else {
             localChaosTimer -= dt;
             if (localChaosTimer <= 0) {
@@ -662,6 +664,15 @@ public class GameArena {
         } while (LOCAL_CHAOS_EVENTS.length > 1 && next == previous);
         localChaosEvent = next;
         localChaosTimer = GameConfig.CHAOS_EVENT_DURATION;
+    }
+
+    private void resetLocalChaosCycle() {
+        localChaosEvent = ChaosEventType.NONE;
+        localChaosTimer = GameConfig.CHAOS_EVENT_DURATION;
+        reversedControlsActive = false;
+        testingFakeZones = false;
+        fakeZoneList.clear();
+        fakeZoneTrueId = -1;
     }
 
     /**
@@ -1271,6 +1282,7 @@ public class GameArena {
         popupRoundNumber = round;
         roundPopupTimer = GameConfig.COUNTDOWN_SECONDS; // 3 seconds - matches audio length
         roundPopupActive = true;
+        resetLocalChaosCycle();
 
         // Play countdown audio
         if (countdownAudio != null) {

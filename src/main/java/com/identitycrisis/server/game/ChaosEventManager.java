@@ -27,18 +27,22 @@ public class ChaosEventManager {
 
     public void resetForNewRound() {
         clearActiveEvent();
-        activateEvent(pickRandomEvent());
+        gameState.setChaosEventTimer(GameConfig.CHAOS_EVENT_DURATION);
     }
 
     public void tick(double dt) {
         if (gameState.getPhase() != RoundPhase.ACTIVE) return;
 
+        double remaining = gameState.getChaosEventTimer() - dt;
         if (gameState.getActiveChaosEvent() == ChaosEventType.NONE) {
-            activateEvent(pickRandomEvent());
+            if (remaining <= 0) {
+                activateEvent(pickRandomEvent());
+            } else {
+                gameState.setChaosEventTimer(remaining);
+            }
             return;
         }
 
-        double remaining = gameState.getChaosEventTimer() - dt;
         if (remaining <= 0) {
             cycleEvent();
         } else {
