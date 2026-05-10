@@ -85,7 +85,7 @@ COUNTDOWN (3s, players frozen)
     │
     ▼
 ACTIVE (ROUND_DURATION_SECONDS, players move)
-    │  chaos event fires once during this phase
+    │  chaos events cycle every CHAOS_EVENT_DURATION seconds
     ▼
 ROUND_END (instant — evaluate who dies)
     │
@@ -124,18 +124,12 @@ At the start of every round:
    gameState.setActiveRoundZones(activeZones);
    ```
 
-3. **Pick one random chaos event:**
+3. **Start the chaos event cycle:**
    ```java
-   ChaosEventType[] events = {
-       ChaosEventType.REVERSED_CONTROLS,
-       ChaosEventType.CONTROL_SWAP,
-       ChaosEventType.FAKE_SAFE_ZONES
-   };
-   ChaosEventType roundChaos = events[rng.nextInt(events.length)];
+   chaosEventManager.resetForNewRound();
    ```
-   The chaos event is **active for the entire ACTIVE phase** of the round
-   (not just a brief window). It activates immediately when ACTIVE begins
-   and clears when the round ends.
+   `ChaosEventManager` immediately activates one random enabled event, cycles to
+   another every `CHAOS_EVENT_DURATION` seconds, and clears when the round ends.
 
 4. **Reset player positions** (scatter around arena centre).
 
@@ -291,30 +285,24 @@ private double nearestZoneDistance(Player p) {
 
 ## 6. Chaos Events
 
-**One random chaos event is chosen at round start** and stays active for the
-entire ACTIVE phase.
+Chaos events are server-driven during `ACTIVE` phase. One enabled event is active
+at a time for `CHAOS_EVENT_DURATION` seconds, then `ChaosEventManager` deactivates
+it and immediately activates another random enabled event. Events do not overlap.
 
 ### 6.1 Event Pool
 
 | Event | ID | Effect |
 |-------|----|--------|
 | **Reverse Controls** | `REVERSED_CONTROLS` | Client swaps up↔down and left↔right in `InputSnapshot` before sending. Server processes as-is. (See AGENTS.md rule 20) |
-| **Swap Players** | `CONTROL_SWAP` | Server shuffles `controlMap` as a derangement — no client controls its own player. Reverts when round ends. |
 | **Fake Safe Zones** | `FAKE_SAFE_ZONES` | Clients receive decoy zones mixed with real ones. Each client gets different decoy positions (seeded by `clientId + roundNumber`). Server uses only real zones for occupancy checks. |
 
 ### 6.2 Activation / Deactivation
 
 ```java
 // In RoundManager, on transition COUNTDOWN → ACTIVE:
-gameState.setActiveChaosEvent(roundChaos);
-if (roundChaos == ChaosEventType.CONTROL_SWAP) {
-    chaosEventManager.applyControlSwap();
-}
+chaosEventManager.resetForNewRound();
 
 // In RoundManager, on transition ACTIVE → ROUND_END:
-if (gameState.getActiveChaosEvent() == ChaosEventType.CONTROL_SWAP) {
-    chaosEventManager.revertControlSwap();
-}
 chaosEventManager.clearActiveEvent();
 ```
 

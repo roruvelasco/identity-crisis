@@ -18,59 +18,69 @@ import java.util.Random;
 public class ChaosEventManager {
 
     private final GameState gameState;
-    private double scheduledTriggerTime;
-    private double elapsedInRound;
     private final Random rng = new Random();
+    private static final List<ChaosEventType> ENABLED_EVENTS = List.of(
+            ChaosEventType.REVERSED_CONTROLS,
+            ChaosEventType.FAKE_SAFE_ZONES);
 
     public ChaosEventManager(GameState gameState) { this.gameState = gameState; }
 
     public void resetForNewRound() {
-        elapsedInRound = 0;
-        gameState.setActiveChaosEvent(ChaosEventType.NONE);
-        gameState.setChaosEventTimer(0);
-        scheduledTriggerTime = GameConfig.CHAOS_EVENT_MIN_DELAY
-            + rng.nextDouble() * (GameConfig.CHAOS_EVENT_MAX_DELAY - GameConfig.CHAOS_EVENT_MIN_DELAY);
+        clearActiveEvent();
+        activateEvent(pickRandomEvent());
     }
 
     public void tick(double dt) {
         if (gameState.getPhase() != RoundPhase.ACTIVE) return;
 
-        if (gameState.getActiveChaosEvent() != ChaosEventType.NONE) {
-            double remaining = gameState.getChaosEventTimer() - dt;
-            if (remaining <= 0) {
-                if (gameState.getActiveChaosEvent() == ChaosEventType.CONTROL_SWAP) {
-                    revertControlSwap();
-                }
-                gameState.setActiveChaosEvent(ChaosEventType.NONE);
-                gameState.setChaosEventTimer(0);
-            } else {
-                gameState.setChaosEventTimer(remaining);
-            }
+        if (gameState.getActiveChaosEvent() == ChaosEventType.NONE) {
+            activateEvent(pickRandomEvent());
             return;
         }
 
-        elapsedInRound += dt;
-        if (elapsedInRound >= scheduledTriggerTime) {
-            ChaosEventType event = pickRandomEvent();
-            gameState.setActiveChaosEvent(event);
-            gameState.setChaosEventTimer(GameConfig.CHAOS_EVENT_DURATION);
-            if (event == ChaosEventType.CONTROL_SWAP) {
-                applyControlSwap();
-            }
-            // Prevent re-triggering within the same round. elapsedInRound continues
-            // to grow but can never exceed MAX_VALUE again until resetForNewRound()
-            // picks a fresh scheduledTriggerTime for the next round.
-            scheduledTriggerTime = Double.MAX_VALUE;
+        double remaining = gameState.getChaosEventTimer() - dt;
+        if (remaining <= 0) {
+            cycleEvent();
+        } else {
+            gameState.setChaosEventTimer(remaining);
         }
     }
 
     private ChaosEventType pickRandomEvent() {
-        ChaosEventType[] options = {
-            ChaosEventType.REVERSED_CONTROLS,
-            ChaosEventType.CONTROL_SWAP,
-            ChaosEventType.FAKE_SAFE_ZONES
-        };
-        return options[rng.nextInt(options.length)];
+        return ENABLED_EVENTS.get(rng.nextInt(ENABLED_EVENTS.size()));
+    }
+
+    private ChaosEventType pickRandomEventExcept(ChaosEventType current) {
+        if (ENABLED_EVENTS.size() <= 1) {
+            return pickRandomEvent();
+        }
+        ChaosEventType next;
+        do {
+            next = pickRandomEvent();
+        } while (next == current);
+        return next;
+    }
+
+    private void cycleEvent() {
+        ChaosEventType current = gameState.getActiveChaosEvent();
+        deactivateEvent(current);
+        activateEvent(pickRandomEventExcept(current));
+    }
+
+    private void activateEvent(ChaosEventType event) {
+        gameState.setActiveChaosEvent(event);
+        gameState.setChaosEventTimer(GameConfig.CHAOS_EVENT_DURATION);
+        if (event == ChaosEventType.CONTROL_SWAP) {
+            applyControlSwap();
+        }
+    }
+
+    private void deactivateEvent(ChaosEventType event) {
+        if (event == ChaosEventType.CONTROL_SWAP) {
+            revertControlSwap();
+        }
+        gameState.setActiveChaosEvent(ChaosEventType.NONE);
+        gameState.setChaosEventTimer(0);
     }
 
     private void applyControlSwap() {
@@ -109,10 +119,6 @@ public class ChaosEventManager {
 
     /** Clears any active chaos event immediately (called at ACTIVE → ROUND_END). */
     public void clearActiveEvent() {
-        if (gameState.getActiveChaosEvent() == ChaosEventType.CONTROL_SWAP) {
-            revertControlSwap();
-        }
-        gameState.setActiveChaosEvent(ChaosEventType.NONE);
-        gameState.setChaosEventTimer(0);
+        deactivateEvent(gameState.getActiveChaosEvent());
     }
 }

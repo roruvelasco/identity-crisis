@@ -193,9 +193,9 @@ was never reset and is already ≥ the original trigger time).
 - **Duration:** `CHAOS_EVENT_DURATION` seconds. After expiry, clients receive only the true zone again.
 - **IMPORTANT:** Decoy positions must be generated per-client (different clients see different decoys) to prevent trivial elimination of fakes by comparing screens.
 
-### 11.3 Only One Chaos Event Per Round
+### 11.3 Continuous Non-overlapping Chaos Cycle
 
-Keep it simple. One event per round. No overlapping events. Chaos events only fire during `ACTIVE` phase and auto-expire after duration or when the round ends (whichever comes first).
+Keep it simple. One chaos event is active at a time. During `ACTIVE` phase, `ChaosEventManager` immediately activates either `REVERSED_CONTROLS` or `FAKE_SAFE_ZONES`, runs it for `CHAOS_EVENT_DURATION` seconds, deactivates it, and immediately activates a newly selected random event. Events do not overlap. `clearActiveEvent()` still clears the current event when the round ends.
 
 ---
 

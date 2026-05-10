@@ -4,6 +4,7 @@ import com.identitycrisis.server.net.ClientConnection;
 import com.identitycrisis.server.net.GameServer;
 import com.identitycrisis.server.physics.CollisionDetector;
 import com.identitycrisis.server.physics.PhysicsEngine;
+import com.identitycrisis.shared.model.ChaosEventType;
 import com.identitycrisis.shared.model.GameConfig;
 import com.identitycrisis.shared.model.Player;
 import com.identitycrisis.shared.model.SafeZone;
@@ -51,6 +52,7 @@ public class ServerGameLoop implements Runnable {
     // ── Owned internals ──────────────────────────────────────────────────────
     private final ConcurrentLinkedQueue<QueuedInput> inputQueue;
     private volatile boolean running;
+    private ChaosEventType lastBroadcastChaosEvent;
 
     /**
      * Full constructor-injection entry point.
@@ -71,6 +73,7 @@ public class ServerGameLoop implements Runnable {
         this.collisions = collisions;
         this.inputQueue = new ConcurrentLinkedQueue<>();
         this.running = false;
+        this.lastBroadcastChaosEvent = ChaosEventType.NONE;
     }
 
     // ── Runnable ─────────────────────────────────────────────────────────────
@@ -128,6 +131,8 @@ public class ServerGameLoop implements Runnable {
         GameState gs = ctx.gameState();
         List<Player> allPlayers = gs.getPlayers();
         boolean fakeSafeZones = ctx.chaosEventManager().isFakeSafeZonesActive();
+
+        broadcastChaosEventIfChanged(gs);
 
         // Send dedicated S_PLAYER_ELIMINATED messages for this tick's eliminations
         List<Integer> eliminated = List.copyOf(gs.getPendingEliminationIds());
@@ -201,6 +206,26 @@ public class ServerGameLoop implements Runnable {
             } catch (IOException e) {
                 // Client may have disconnected — send() handles this gracefully
             }
+        }
+    }
+
+    private void broadcastChaosEventIfChanged(GameState gs) {
+        ChaosEventType active = gs.getActiveChaosEvent();
+        if (active == null) {
+            active = ChaosEventType.NONE;
+        }
+        if (active == lastBroadcastChaosEvent) {
+            return;
+        }
+        lastBroadcastChaosEvent = active;
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            MessageEncoder enc = new MessageEncoder(new DataOutputStream(baos));
+            enc.encodeChaosEvent((byte) active.ordinal(), gs.getChaosEventTimer());
+            enc.flush();
+            server.broadcastToAll(baos.toByteArray());
+        } catch (IOException e) {
+            /* continue */
         }
     }
 

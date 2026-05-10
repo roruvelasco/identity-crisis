@@ -5,6 +5,7 @@ import com.identitycrisis.client.input.InputSnapshot;
 import com.identitycrisis.client.render.ArenaRenderer;
 import com.identitycrisis.client.render.MapManager;
 import com.identitycrisis.client.render.SpriteManager;
+import com.identitycrisis.shared.model.ChaosEventType;
 import com.identitycrisis.shared.model.GameConfig;
 import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
@@ -108,6 +109,10 @@ public class GameArena {
     private static final double HDR_H_NATIVE = 4;
     /** Warm-up round duration (seconds). */
     private static final double TIMER_DURATION = 25.0;
+    private static final ChaosEventType[] LOCAL_CHAOS_EVENTS = {
+            ChaosEventType.REVERSED_CONTROLS,
+            ChaosEventType.FAKE_SAFE_ZONES
+    };
 
     // ── Scene graph ──────────────────────────────────────────────────────────
     private Scene scene;
@@ -231,6 +236,9 @@ public class GameArena {
     // ── Reversed-controls chaos state ─────────────────────────────────────────
     /** True this frame when REVERSED_CONTROLS chaos is active (local or server). */
     private boolean reversedControlsActive = false;
+    private ChaosEventType localChaosEvent = ChaosEventType.NONE;
+    private double localChaosTimer = 0.0;
+    private final java.util.Random localChaosRng = new java.util.Random();
 
     // ── Chaos toast state ──────────────────────────────────────────────────────
     // A 288×96 px pixel-art toast (3× the 96×32 PNG) slides in from the
@@ -372,6 +380,9 @@ public class GameArena {
         toastActive    = false;
         toastTimer     = 0;
         lastToastChaos = com.identitycrisis.shared.model.ChaosEventType.NONE;
+        toastEventType = com.identitycrisis.shared.model.ChaosEventType.NONE;
+        localChaosEvent = ChaosEventType.NONE;
+        localChaosTimer = 0.0;
 
         // Reset offline-mode safe-zone selection so onEnter() forces a fresh
         // pick on the very first render frame (offlineActiveZoneRound != roundNumber).
@@ -462,16 +473,13 @@ public class GameArena {
             return; // skip movement & zone-advance logic below
         }
 
+        ChaosEventType effectiveChaos = updateEffectiveChaos(dt);
+
         // ── Fake safe-zones chaos detection (O key) ───────────────────────────
         // Reads local debug flag from InputManager. Also activates whenever
         // the server broadcasts FAKE_SAFE_ZONES so connected clients
         // automatically enter the chaos visual without pressing O.
-        boolean serverFakeZones = false;
-        if (sceneManager != null && sceneManager.getLocalGameState() != null) {
-            serverFakeZones = (sceneManager.getLocalGameState()
-                    .getActiveChaos() == com.identitycrisis.shared.model.ChaosEventType.FAKE_SAFE_ZONES);
-        }
-        boolean wantFakeZones = serverFakeZones
+        boolean wantFakeZones = effectiveChaos == ChaosEventType.FAKE_SAFE_ZONES
                 || (inputManager != null && inputManager.isTestingFakeZones());
 
         if (wantFakeZones != testingFakeZones) {
@@ -486,11 +494,7 @@ public class GameArena {
 
         InputSnapshot input = inputManager.snapshot();
 
-        boolean reversed = false;
-        if (sceneManager != null && sceneManager.getLocalGameState() != null) {
-            reversed = (sceneManager.getLocalGameState()
-                    .getActiveChaos() == com.identitycrisis.shared.model.ChaosEventType.REVERSED_CONTROLS);
-        }
+        boolean reversed = effectiveChaos == ChaosEventType.REVERSED_CONTROLS;
         if (inputManager != null && inputManager.isTestingReversed()) {
             reversed = true;
         }
@@ -498,14 +502,6 @@ public class GameArena {
 
         // ── Chaos toast trigger (rising-edge: NONE → non-NONE) ──────────────
         // Determine the unified effective chaos (server wins; debug toggles fill in offline).
-        com.identitycrisis.shared.model.ChaosEventType effectiveChaos =
-                com.identitycrisis.shared.model.ChaosEventType.NONE;
-        if (sceneManager != null && sceneManager.getLocalGameState() != null) {
-            com.identitycrisis.shared.model.ChaosEventType serverChaos =
-                    sceneManager.getLocalGameState().getActiveChaos();
-            // Guard: getActiveChaos() may return null before first snapshot arrives
-            if (serverChaos != null) effectiveChaos = serverChaos;
-        }
         if (effectiveChaos == com.identitycrisis.shared.model.ChaosEventType.NONE) {
             // Fall back to local debug toggles in offline / dev mode
             if (inputManager != null && inputManager.isTestingReversed())
@@ -513,9 +509,9 @@ public class GameArena {
             else if (inputManager != null && inputManager.isTestingFakeZones())
                 effectiveChaos = com.identitycrisis.shared.model.ChaosEventType.FAKE_SAFE_ZONES;
         }
-        // Rising edge: new event started
+        // Event edge: new event started or switched directly from another event
         if (effectiveChaos != com.identitycrisis.shared.model.ChaosEventType.NONE
-                && lastToastChaos == com.identitycrisis.shared.model.ChaosEventType.NONE) {
+                && effectiveChaos != lastToastChaos) {
             toastActive    = true;
             toastTimer     = 3.0;
             toastEventType = effectiveChaos;
@@ -635,6 +631,37 @@ public class GameArena {
         roundTimer = Math.max(0, serverTimer);
         timerRunning = false; // server owns the clock; local field unused
         return true;
+    }
+
+    private ChaosEventType updateEffectiveChaos(double dt) {
+        if (sceneManager != null) {
+            com.identitycrisis.client.game.LocalGameState lgs = sceneManager.getLocalGameState();
+            if (lgs != null && lgs.hasReceivedSnapshot()) {
+                localChaosEvent = ChaosEventType.NONE;
+                localChaosTimer = 0.0;
+                ChaosEventType serverChaos = lgs.getActiveChaos();
+                return serverChaos != null ? serverChaos : ChaosEventType.NONE;
+            }
+        }
+
+        if (localChaosEvent == ChaosEventType.NONE) {
+            activateNextLocalChaos(ChaosEventType.NONE);
+        } else {
+            localChaosTimer -= dt;
+            if (localChaosTimer <= 0) {
+                activateNextLocalChaos(localChaosEvent);
+            }
+        }
+        return localChaosEvent;
+    }
+
+    private void activateNextLocalChaos(ChaosEventType previous) {
+        ChaosEventType next;
+        do {
+            next = LOCAL_CHAOS_EVENTS[localChaosRng.nextInt(LOCAL_CHAOS_EVENTS.length)];
+        } while (LOCAL_CHAOS_EVENTS.length > 1 && next == previous);
+        localChaosEvent = next;
+        localChaosTimer = GameConfig.CHAOS_EVENT_DURATION;
     }
 
     /**

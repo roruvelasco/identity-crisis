@@ -33,7 +33,7 @@ public class ServerMessageRouter {
                 }
             }
             case S_GAME_STATE -> {
-                // localGameState.updateFromSnapshot(decoder.decodeGameState());
+                localGameState.updateFromSnapshot(decoder.decodeGameState());
             }
             case S_ROUND_STATE -> {
                 // localGameState.updateRoundState(decoder.decodeRoundState());
@@ -46,10 +46,10 @@ public class ServerMessageRouter {
                 // if (onElimination != null) Platform.runLater(onElimination);
             }
             case S_CHAOS_EVENT -> {
-                // localGameState.setChaosEvent(decoder.decodeChaosEvent());
+                localGameState.setChaosEvent(decoder.decodeChaosEvent());
             }
             case S_CONTROL_SWAP -> {
-                // localGameState.setControlledPlayerId(decoder.decodeControlSwap());
+                localGameState.setControlledPlayerId(decoder.decodeControlSwap());
             }
             case S_GAME_OVER -> {
                 // localGameState.setGameOver(decoder.decodeGameOver());
