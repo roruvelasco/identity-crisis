@@ -74,10 +74,7 @@ public class LobbyManager {
                 gameState.getPlayers().add(p);
                 gameState.getControlMap().put(c.getClientId(), c.getClientId());
             }
-            // Round 1 is a warm-up round → unlimited capacity, one zone per player.
-            // The N-zones-for-N-players formula matches RoundManager.startNewRound's
-            // warm-up branch so subsequent rounds use the identical algorithm.
-            safeZoneManager.spawnRoundZones(n);
+            safeZoneManager.spawnRoundZones(1);
             gameState.setPhase(RoundPhase.COUNTDOWN);
             gameState.setRoundNumber(1);
             gameState.setRoundTimer(GameConfig.COUNTDOWN_SECONDS);

@@ -18,6 +18,7 @@ import java.util.HashSet;
  */
 public class InputManager {
 
+    private static final boolean CHAOS_DEBUG_KEYS_ENABLED = Boolean.getBoolean("identitycrisis.chaosDebugKeys");
     private final Set<KeyCode> pressedKeys = new HashSet<>();
 
     private EventHandler<KeyEvent> keyPressedHandler;
@@ -35,12 +36,12 @@ public class InputManager {
     public void attachToScene(Scene scene) {
         keyPressedHandler  = e -> {
             pressedKeys.add(e.getCode());
-            if (e.getCode() == KeyCode.U && !uWasPressed) {
+            if (CHAOS_DEBUG_KEYS_ENABLED && e.getCode() == KeyCode.U && !uWasPressed) {
                 testingReversed = !testingReversed;
                 uWasPressed = true;
                 System.out.println("[DEBUG] Reversed bindings debug toggle toggled via U: " + testingReversed);
             }
-            if (e.getCode() == KeyCode.O && !oWasPressed) {
+            if (CHAOS_DEBUG_KEYS_ENABLED && e.getCode() == KeyCode.O && !oWasPressed) {
                 testingFakeZones = !testingFakeZones;
                 oWasPressed = true;
                 System.out.println("[DEBUG] Fake safe-zones chaos toggle via O: " + testingFakeZones);
@@ -83,6 +84,6 @@ public class InputManager {
         return pressedKeys.contains(code);
     }
 
-    public boolean isTestingReversed()   { return testingReversed;  }
-    public boolean isTestingFakeZones()   { return testingFakeZones; }
+    public boolean isTestingReversed()   { return CHAOS_DEBUG_KEYS_ENABLED && testingReversed;  }
+    public boolean isTestingFakeZones()   { return CHAOS_DEBUG_KEYS_ENABLED && testingFakeZones; }
 }

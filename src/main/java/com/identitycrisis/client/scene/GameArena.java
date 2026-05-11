@@ -113,6 +113,7 @@ public class GameArena {
     private static final double HDR_H_NATIVE = 4;
     /** Warm-up round duration (seconds). */
     private static final double TIMER_DURATION = 25.0;
+    private static final boolean LOCAL_CHAOS_ENABLED = Boolean.getBoolean("identitycrisis.localChaos");
     private static final ChaosEventType[] LOCAL_CHAOS_EVENTS = {
             ChaosEventType.REVERSED_CONTROLS,
             ChaosEventType.FAKE_SAFE_ZONES
@@ -703,6 +704,12 @@ public class GameArena {
             }
         }
 
+        if (!LOCAL_CHAOS_ENABLED) {
+            localChaosEvent = ChaosEventType.NONE;
+            localChaosTimer = 0;
+            return ChaosEventType.NONE;
+        }
+
         if (localChaosEvent == ChaosEventType.NONE) {
             localChaosTimer -= dt;
             if (localChaosTimer <= 0) {
@@ -944,6 +951,9 @@ public class GameArena {
         double right  = cx + HIT_OFS_X + HIT_HALF_W;
         double top    = cy + HIT_OFS_Y - HIT_HALF_H;
         double bottom = cy + HIT_OFS_Y + HIT_HALF_H;
+        if (left < 0 || top < 0 || right >= mapManager.getWorldWidth() || bottom >= mapManager.getWorldHeight()) {
+            return true;
+        }
         // isSolidPixel() uses the per-tile alpha bitmask for wall tiles (pixel-perfect)
         // and falls back to the broad-phase solid[][] grid for water/void — so both
         // hazard types still block the player correctly.

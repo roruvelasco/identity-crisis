@@ -16,7 +16,7 @@ public final class GameConfig {
     public static final double ARENA_HEIGHT = 800.0;
 
     // Players
-    public static final int MIN_PLAYERS = 2;
+    public static final int MIN_PLAYERS = 1;
     public static final int MAX_PLAYERS = 8;
     public static final double PLAYER_SPEED = 180.0; // px/sec
     public static final double PLAYER_RADIUS = 16.0;

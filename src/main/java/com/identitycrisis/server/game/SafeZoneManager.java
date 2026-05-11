@@ -50,11 +50,9 @@ public class SafeZoneManager {
      * {@link LobbyManager#handleReady} for round 1.
      */
     public void spawnRoundZones(int count) {
-        int clamped = Math.max(GameConfig.SAFE_ZONE_MIN_ZONES,
-                Math.min(count, GameConfig.TOTAL_SAFE_ZONE_SPOTS));
         List<SafeZone> pool = new ArrayList<>(SafeZoneSpots.ALL);
         Collections.shuffle(pool, rng);
-        gameState.setActiveRoundZones(pool.subList(0, clamped));
+        gameState.setActiveRoundZones(pool.subList(0, 1));
     }
 
     /**

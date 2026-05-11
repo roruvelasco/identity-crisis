@@ -152,13 +152,13 @@ public final class TmxWallsParser {
             boolean[][] spawnable = new boolean[worldRows][worldCols];
             for (int r = 0; r < worldRows; r++)
                 for (int c = 0; c < worldCols; c++) {
-                    solid[r][c] = wallsGid[r][c] != 0;
                     boolean hasFloor = floorGroundGid[r][c] != 0 || floor2Gid[r][c] != 0;
                     boolean blocked = wallsGid[r][c] != 0
                             || waterGid[r][c] != 0
                             || tileShapes.containsKey(floor2Gid[r][c])
                             || tileShapes.containsKey(objectsGid[r][c])
                             || tileShapes.containsKey(objects2Gid[r][c]);
+                    solid[r][c] = !hasFloor || blocked;
                     spawnable[r][c] = hasFloor && !blocked;
                 }
 

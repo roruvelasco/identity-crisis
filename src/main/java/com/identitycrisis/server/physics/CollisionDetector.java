@@ -101,8 +101,10 @@ public class CollisionDetector {
         double halfH = HIT_HALF_H;
 
         // ── Step 1: Arena boundary clamp ─────────────────────────────────────
-        double x = Math.max(halfW - HIT_OFS_X, Math.min(p.getPosition().x(), arena.getWidth() - halfW - HIT_OFS_X));
-        double y = Math.max(halfH - HIT_OFS_Y, Math.min(p.getPosition().y(), arena.getHeight() - halfH - HIT_OFS_Y));
+        double worldW = wallData != null ? wallData.worldCols() * wallData.tileSize() : arena.getWidth();
+        double worldH = wallData != null ? wallData.worldRows() * wallData.tileSize() : arena.getHeight();
+        double x = Math.max(halfW - HIT_OFS_X, Math.min(p.getPosition().x(), worldW - halfW - HIT_OFS_X));
+        double y = Math.max(halfH - HIT_OFS_Y, Math.min(p.getPosition().y(), worldH - halfH - HIT_OFS_Y));
         p.setPosition(new Vector2D(x, y));
 
         if (wallData == null) return;
@@ -120,11 +122,13 @@ public class CollisionDetector {
 
         for (int row = rowMin; row <= rowMax; row++) {
             for (int col = colMin; col <= colMax; col++) {
+                if (!wallData.solidGrid()[row][col]) continue; // empty walkable cell
                 int gid = wallData.wallsGidGrid()[row][col];
-                if (gid == 0) continue; // empty cell
 
                 // Get collision shapes for this tile (objectgroup rects or full-tile fallback)
-                List<double[]> shapes = wallData.shapesFor(gid);
+                List<double[]> shapes = gid != 0
+                        ? wallData.shapesFor(gid)
+                        : List.of(new double[] { 0, 0, ts, ts });
 
                 for (double[] rect : shapes) {
                     // rect = {localX, localY, w, h} in tile-local pixels

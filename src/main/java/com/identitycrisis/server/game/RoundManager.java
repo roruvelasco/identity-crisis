@@ -114,12 +114,7 @@ public class RoundManager {
      */
     private void startNewRound() {
         chaosEventManager.clearActiveEvent();
-        int aliveCount = gameState.getAliveCount();
-        boolean isWarmup = gameState.getRoundNumber() <= GameConfig.WARMUP_ROUNDS;
-        int zoneCount = isWarmup
-                ? aliveCount
-                : Math.max(GameConfig.SAFE_ZONE_MIN_ZONES, aliveCount - 1);
-        safeZoneManager.spawnRoundZones(zoneCount);
+        safeZoneManager.spawnRoundZones(1);
 
         List<Player> alive = gameState.getAlivePlayers();
         double cx = gameState.getArena().getWidth() / 2.0;

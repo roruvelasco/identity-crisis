@@ -19,6 +19,7 @@ public class ChaosEventManager {
 
     private final GameState gameState;
     private final Random rng = new Random();
+    private static final boolean CHAOS_EVENTS_ENABLED = Boolean.getBoolean("identitycrisis.chaosEvents");
     private static final List<ChaosEventType> ENABLED_EVENTS = List.of(
             ChaosEventType.REVERSED_CONTROLS,
             ChaosEventType.FAKE_SAFE_ZONES);
@@ -27,10 +28,14 @@ public class ChaosEventManager {
 
     public void resetForNewRound() {
         clearActiveEvent();
-        gameState.setChaosEventTimer(GameConfig.CHAOS_EVENT_DURATION);
+        gameState.setChaosEventTimer(CHAOS_EVENTS_ENABLED ? GameConfig.CHAOS_EVENT_DURATION : 0);
     }
 
     public void tick(double dt) {
+        if (!CHAOS_EVENTS_ENABLED) {
+            clearActiveEvent();
+            return;
+        }
         if (gameState.getPhase() != RoundPhase.ACTIVE) return;
 
         double remaining = gameState.getChaosEventTimer() - dt;
