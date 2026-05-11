@@ -353,6 +353,13 @@ public class GameArena {
      * Resets player to the world centre and starts the render loop.
      */
     public void onEnter() {
+        // ── Reset networked state for a clean game session ──────────────────
+        // Clears stale game-over / elimination data so a second game in the
+        // same session doesn't show leftover results from the previous one.
+        if (sceneManager != null && sceneManager.getLocalGameState() != null) {
+            sceneManager.getLocalGameState().resetForNewGame();
+        }
+
         // Spawn at centre of the active map content (floor area), not the full grid
         if (mapManager != null && mapManager.getWorldWidth() > 0) {
             playerX = mapManager.getActiveContentCenterX();
@@ -511,31 +518,11 @@ public class GameArena {
         }
         reversedControlsActive = reversed; // persist for render()
 
-        // ── Chaos toast trigger (rising-edge: NONE → non-NONE) ──────────────
-        // Determine the unified effective chaos (server wins; debug toggles fill in offline).
-        if (effectiveChaos == com.identitycrisis.shared.model.ChaosEventType.NONE) {
-            // Fall back to local debug toggles in offline / dev mode
-            if (inputManager != null && inputManager.isTestingReversed())
-                effectiveChaos = com.identitycrisis.shared.model.ChaosEventType.REVERSED_CONTROLS;
-            else if (inputManager != null && inputManager.isTestingFakeZones())
-                effectiveChaos = com.identitycrisis.shared.model.ChaosEventType.FAKE_SAFE_ZONES;
-        }
-        // Event edge: new event started or switched directly from another event
-        if (effectiveChaos != com.identitycrisis.shared.model.ChaosEventType.NONE
-                && effectiveChaos != lastToastChaos) {
-            toastActive    = true;
-            toastTimer     = 3.0;
-            toastEventType = effectiveChaos;
-        }
-        lastToastChaos = effectiveChaos;
-        // Tick the toast countdown
-        if (toastActive) {
-            toastTimer -= dt;
-            if (toastTimer <= 0) {
-                toastActive = false;
-                toastTimer  = 0;
-            }
-        }
+        // Tick the chaos event toast (rising-edge detection + countdown).
+        // Called here for the OFFLINE path; the connected path calls it after
+        // syncNetworkedPlayerState() returns true and then returns early.
+        // tickChaosToast is also called below for the online early-return path.
+        // For offline, defer it to after the send/sync block below.
 
         if (reversed) {
             input = new InputSnapshot(
@@ -552,7 +539,10 @@ public class GameArena {
 
         if (connected && syncNetworkedPlayerState(dt)) {
             pulseTimer += dt;
+            // Sync round and chaos state from server even when in networked mode
             syncRoundStateFromServer();
+            // Tick chaos toast so HUD banners display for all players
+            tickChaosToast(effectiveChaos, dt);
             return;
         }
 
@@ -609,11 +599,8 @@ public class GameArena {
         currentZone = (mapManager != null) ? mapManager.getSafeZoneAt(playerX, playerY) : -1;
         pulseTimer += dt;
 
-        // ── Round / timer ─────────────────────────────────────────────────────
-        // Prefer server-driven state when a snapshot is available so the HUD
-        // reflects every authoritative event (round transitions, timer skip on
-        // safe-zone entry, etc.). Otherwise fall back to the local timer so
-        // the scene remains usable in pure offline / dev mode.
+        // ── Toast + round/timer ───────────────────────────────────────────────
+        tickChaosToast(effectiveChaos, dt);
         if (!syncRoundStateFromServer()) {
             tickLocalRoundTimer(dt);
             ensureOfflineZone();
@@ -726,6 +713,38 @@ public class GameArena {
             }
         }
         return localChaosEvent;
+    }
+
+    /**
+     * Ticks the chaos-event toast (rising-edge detection + countdown). Called
+     * from both the connected and offline update paths so every client sees the
+     * HUD toast banner when a chaos event activates.
+     *
+     * @param effectiveChaos the chaos type active this frame (NONE if no event)
+     * @param dt             frame delta in seconds
+     */
+    private void tickChaosToast(ChaosEventType effectiveChaos, double dt) {
+        // Supplement with local debug toggles when offline
+        if (effectiveChaos == ChaosEventType.NONE) {
+            if (inputManager != null && inputManager.isTestingReversed())
+                effectiveChaos = ChaosEventType.REVERSED_CONTROLS;
+            else if (inputManager != null && inputManager.isTestingFakeZones())
+                effectiveChaos = ChaosEventType.FAKE_SAFE_ZONES;
+        }
+        // Rising edge: a new or changed event
+        if (effectiveChaos != ChaosEventType.NONE && effectiveChaos != lastToastChaos) {
+            toastActive    = true;
+            toastTimer     = 3.0;
+            toastEventType = effectiveChaos;
+        }
+        lastToastChaos = effectiveChaos;
+        if (toastActive) {
+            toastTimer -= dt;
+            if (toastTimer <= 0) {
+                toastActive = false;
+                toastTimer  = 0;
+            }
+        }
     }
 
     private boolean syncGameOverFromServer() {

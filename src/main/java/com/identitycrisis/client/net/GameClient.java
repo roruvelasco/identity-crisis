@@ -8,6 +8,12 @@ import java.net.Socket;
 /**
  * TCP connection to server. Reader thread + synchronized send methods.
  *
+ * Key performance settings applied on every socket:
+ *   TCP_NODELAY = true  → disables Nagle's algorithm so small input
+ *                          packets (4 bytes) are sent immediately instead of
+ *                          being coalesced for up to 200 ms.
+ *   SO_KEEPALIVE = true → lets the OS detect dead peers automatically.
+ *
  * <p>Usage:
  * <pre>
  *   GameClient gc = new GameClient(new ServerMessageRouter(localGameState));
@@ -37,6 +43,10 @@ public class GameClient {
     private final ServerMessageRouter router;
     private Thread readerThread;
     private volatile boolean connected;
+    /** Timestamp (nanoTime) of the last sendInput call — used for rate-limiting. */
+    private long lastInputSendNs = 0;
+    /** Minimum gap between input sends: ~16 ms = 60 sends/sec (matches server tick). */
+    private static final long INPUT_SEND_INTERVAL_NS = 16_000_000L;
 
     public GameClient(ServerMessageRouter router) { this.router = router; }
 
@@ -50,13 +60,25 @@ public class GameClient {
         if (connected) {
             throw new IllegalStateException("GameClient already connected");
         }
-        this.socket  = new Socket(host, port);
-        this.in      = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
-        this.out     = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+        this.socket = new Socket(host, port);
+        // ── Critical for low-latency multiplayer on localhost ──────────────────
+        // TCP_NODELAY disables Nagle's algorithm. Without it the OS may buffer
+        // small packets (our 4-byte input messages) for up to 200 ms before
+        // sending them — making the game feel very laggy even on LAN.
+        this.socket.setTcpNoDelay(true);
+        this.socket.setKeepAlive(true);
+        // 10-second read timeout: lets the reader thread detect a dead server and
+        // exit cleanly rather than blocking forever. 10 s gives enough buffer even
+        // during heavy GC pauses on the server.
+        this.socket.setSoTimeout(10000);
+        this.in      = new DataInputStream(new BufferedInputStream(socket.getInputStream(), 8192));
+        // DataOutputStream is used DIRECTLY (no BufferedOutputStream wrapper)
+        // so that every flush() goes straight to the socket — no double buffering.
+        this.out     = new DataOutputStream(socket.getOutputStream());
         this.encoder = new MessageEncoder(out);
         this.decoder = new MessageDecoder(in);
         this.connected = true;
-        LOG.info("Connected to " + host + ":" + port);
+        LOG.info("Connected to " + host + ":" + port + " (TCP_NODELAY=true)");
     }
 
     /** Starts the reader thread (daemon). Safe to call only after {@link #connect}. */
@@ -77,6 +99,9 @@ public class GameClient {
             }
         } catch (EOFException eof) {
             LOG.info("Server closed the connection.");
+        } catch (java.net.SocketTimeoutException ste) {
+            // SO_TIMEOUT fired — server is silent; treat as disconnect.
+            if (connected) LOG.warn("Server timed out (no data for 5 s) — disconnecting.");
         } catch (IOException e) {
             if (connected) LOG.error("Read error — disconnecting", e);
         } finally {
@@ -112,9 +137,16 @@ public class GameClient {
                                        boolean right, boolean carry,
                                        boolean throwAction) {
         if (!connected) return;
+        // Rate-limit to ~60 sends/sec so we never flood the server loop.
+        // The server processes inputs at TICK_RATE (60 TPS); sending faster
+        // than that only wastes bandwidth. On localhost this matters because
+        // AnimationTimer can fire >60fps under some JVM configurations.
+        long now = System.nanoTime();
+        if (now - lastInputSendNs < INPUT_SEND_INTERVAL_NS) return;
+        lastInputSendNs = now;
         try {
             encoder.encodePlayerInput(up, down, left, right, carry, throwAction);
-            encoder.flush();
+            encoder.flush(); // flushes directly to OS socket buffer (no BufferedOutputStream)
         } catch (IOException e) {
             LOG.error("sendInput failed", e);
             disconnect();

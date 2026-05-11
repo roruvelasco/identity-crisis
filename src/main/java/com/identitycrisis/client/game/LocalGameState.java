@@ -109,7 +109,7 @@ public class LocalGameState {
         this.winnerPlayerId = data.winnerPlayerId();
         this.winnerName     = data.winnerName();
     }
-    public void addChatMessage(MessageDecoder.ChatData data) {
+    public synchronized void addChatMessage(MessageDecoder.ChatData data) {
         if (data == null) return;
         if (this.chatMessages == null) this.chatMessages = new java.util.ArrayList<>();
         this.chatMessages.add(data.senderName() + ": " + data.text());
@@ -138,4 +138,21 @@ public class LocalGameState {
 
     /** True once the client has received at least one game-state snapshot. */
     public boolean hasReceivedSnapshot() { return roundNumber != NO_ROUND; }
+
+    /**
+     * Resets transient per-game state so a fresh game session starts cleanly
+     * without stale game-over / elimination data from the previous round.
+     * Call this from GameArena.onEnter().
+     */
+    public void resetForNewGame() {
+        this.gameOver           = false;
+        this.winnerPlayerId     = 0;
+        this.winnerName         = null;
+        this.lastEliminatedName = null;
+        this.chatMessages       = null;
+        this.roundNumber        = NO_ROUND; // re-arm hasReceivedSnapshot()
+        this.activeChaos        = ChaosEventType.NONE;
+        this.players            = new java.util.ArrayList<>();
+        this.safeZones          = new java.util.ArrayList<>();
+    }
 }

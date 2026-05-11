@@ -36,6 +36,7 @@ public class CreateOrJoinScene {
     private Scene scene;
     private SceneManager sceneManager;
     private Label statusLabel; // shown below cards; used for error feedback
+    private TextField nameInput;
 
     // Color constants matching the game's dark aesthetic
     private static final String GOLD = "#c9a84c";
@@ -293,7 +294,9 @@ public class CreateOrJoinScene {
 
         // 3. Build the client-side networking stack and connect to ourselves.
         LocalGameState localState = new LocalGameState();
-        final String displayName = "Host";
+        String displayName = nameInput.getText();
+        if (displayName == null || displayName.isBlank()) displayName = "Host";
+        displayName = displayName.trim();
         ServerMessageRouter router = new ServerMessageRouter(localState);
         router.setOnLobbyStateChanged(() -> {
             String[] names = localState.getLobbyPlayerNames();
@@ -398,6 +401,36 @@ public class CreateOrJoinScene {
         line.setStyle("-fx-background-color: linear-gradient(to right, transparent, " + GOLD + ", transparent);");
         VBox.setMargin(line, new Insets(-8, 0, 0, 0));
 
+        card.getChildren().addAll(label, line);
+
+        // Name input (only for the CREATE card)
+        if ("CREATE".equals(sectionLabel)) {
+            Label nameLabel = new Label("CHOOSE YOUR NAME");
+            nameLabel.setStyle(
+                    "-fx-font-family: 'Press Start 2P', monospace;" +
+                            "-fx-font-size: 8px;" +
+                            "-fx-text-fill: " + TEXT_MUTED + ";" +
+                            "-fx-letter-spacing: 1px;");
+
+            nameInput = new TextField();
+            nameInput.setPromptText("NAME");
+            nameInput.setAlignment(Pos.CENTER);
+            nameInput.setPrefWidth(220);
+            nameInput.setMaxWidth(220);
+            nameInput.setText("Host");
+            nameInput.setStyle(
+                    "-fx-font-family: 'Press Start 2P', monospace;" +
+                            "-fx-font-size: 10px;" +
+                            "-fx-text-fill: " + GOLD + ";" +
+                            "-fx-prompt-text-fill: " + TEXT_MUTED + ";" +
+                            "-fx-background-color: " + STONE_DARK + ";" +
+                            "-fx-border-color: " + GOLD + ";" +
+                            "-fx-border-width: 2px;" +
+                            "-fx-padding: 10px 15px;");
+
+            card.getChildren().addAll(nameLabel, nameInput);
+        }
+
         // Description in Press Start 2P
         Label descLabel = new Label(description);
         descLabel.setStyle(
@@ -412,7 +445,7 @@ public class CreateOrJoinScene {
         btn.setOnAction(e -> onAction.run());
         VBox.setMargin(btn, new Insets(8, 0, 0, 0));
 
-        card.getChildren().addAll(label, line, descLabel, btn);
+        card.getChildren().addAll(descLabel, btn);
         return card;
     }
 

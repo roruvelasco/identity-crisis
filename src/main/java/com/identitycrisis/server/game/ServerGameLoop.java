@@ -232,13 +232,32 @@ public class ServerGameLoop implements Runnable {
     private void sleepUntilNextTick(long tickStartNs) {
         long elapsed = System.nanoTime() - tickStartNs;
         long sleepNs = GameConfig.TICK_DURATION_NS - elapsed;
-        if (sleepNs > 0) {
-            try {
-                Thread.sleep(sleepNs / 1_000_000, (int) (sleepNs % 1_000_000));
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                running = false;
+        if (sleepNs <= 0) return; // already overran — next tick immediately
+
+        // ── Hybrid sleep + spin for precise 60-TPS timing on Windows ─────────
+        // Windows Thread.sleep has ~15 ms granularity (the OS scheduler quantum).
+        // For a 16.67 ms target a plain sleep overshoots to 31 ms (33 TPS) or
+        // lands at 15 ms (66 TPS). We sleep for most of the interval and busy-
+        // spin for the last 1.5 ms to hit the deadline exactly at any clock
+        // resolution. Cost: ~2 % of one CPU core — negligible for a server loop.
+        final long SPIN_THRESHOLD_NS = 1_500_000L; // 1.5 ms busy-spin margin
+        if (sleepNs > SPIN_THRESHOLD_NS) {
+            long sleepMs = (sleepNs - SPIN_THRESHOLD_NS) / 1_000_000;
+            if (sleepMs > 0) {
+                try {
+                    Thread.sleep(sleepMs);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    running = false;
+                    return;
+                }
             }
+        }
+        // Busy-spin for the final stretch
+        long deadline = tickStartNs + GameConfig.TICK_DURATION_NS;
+        while (System.nanoTime() < deadline) {
+            // Yield to the OS scheduler briefly so we don't starve other threads
+            Thread.onSpinWait();
         }
     }
 

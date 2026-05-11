@@ -39,6 +39,7 @@ public class JoinRoomScene {
     private static final String DANGER_RED = "#e87d7d";
 
     private TextField roomCodeInput;
+    private TextField nameInput;
     private Label statusLabel; // inline error feedback
 
     public JoinRoomScene(SceneManager sceneManager) {
@@ -195,6 +196,33 @@ public class JoinRoomScene {
                         "-fx-border-color: " + GOLD_DARK + ";" +
                         "-fx-border-width: 1px;");
 
+        // Name input label
+        Label nameLabel = new Label("CHOOSE YOUR NAME");
+        nameLabel.setStyle(
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 10px;" +
+                        "-fx-text-fill: " + TEXT_MUTED + ";" +
+                        "-fx-letter-spacing: 2px;");
+
+        // Name input field
+        nameInput = new TextField();
+        nameInput.setPromptText("NAME");
+        nameInput.setAlignment(Pos.CENTER);
+        nameInput.setPrefWidth(280);
+        nameInput.setMaxWidth(280);
+        nameInput.setText("Player");
+        nameInput.setStyle(
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 12px;" +
+                        "-fx-text-fill: " + GOLD + ";" +
+                        "-fx-prompt-text-fill: " + TEXT_MUTED + ";" +
+                        "-fx-background-color: " + STONE_DARK + ";" +
+                        "-fx-border-color: " + GOLD + ";" +
+                        "-fx-border-width: 2px;" +
+                        "-fx-padding: 15px 20px;");
+
+        VBox.setMargin(nameInput, new Insets(0, 0, 10, 0));
+
         // Input field label in Press Start 2P
         Label inputLabel = new Label("ENTER ROOM CODE");
         inputLabel.setStyle(
@@ -240,7 +268,7 @@ public class JoinRoomScene {
         statusLabel.setVisible(false);
         statusLabel.setManaged(false);
 
-        inputCard.getChildren().addAll(inputLabel, roomCodeInput, joinBtn, statusLabel);
+        inputCard.getChildren().addAll(nameLabel, nameInput, inputLabel, roomCodeInput, joinBtn, statusLabel);
 
         content.getChildren().addAll(title, inputCard);
         return content;
@@ -270,7 +298,9 @@ public class JoinRoomScene {
         }
 
         // 2. Build the client networking stack and connect.
-        final String displayName = "Player";
+        String displayName = nameInput.getText();
+        if (displayName == null || displayName.isBlank()) displayName = "Player";
+        displayName = displayName.trim();
         LocalGameState localState = new LocalGameState();
         ServerMessageRouter router = new ServerMessageRouter(localState);
         router.setOnLobbyStateChanged(() -> {

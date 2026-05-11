@@ -54,7 +54,16 @@ public class ClientConnection implements Runnable {
         this.socket = socket;
         this.router = router;
         this.server = server;
-        this.in = new DataInputStream(socket.getInputStream());
+        // ── Critical: disable Nagle's algorithm on the server side ──────────────
+        // Without TCP_NODELAY the OS buffers outgoing game-state snapshots
+        // until the buffer fills or an ACK arrives, adding up to 200 ms of
+        // artificial latency even on localhost.
+        this.socket.setTcpNoDelay(true);
+        this.socket.setKeepAlive(true);
+        this.in = new DataInputStream(new java.io.BufferedInputStream(socket.getInputStream(), 8192));
+        // Unbuffered output: we write pre-encoded byte[] chunks directly.
+        // Using BufferedOutputStream here would re-introduce the coalescing we
+        // just eliminated with TCP_NODELAY.
         this.out = new DataOutputStream(socket.getOutputStream());
         this.decoder = new MessageDecoder(in);
         this.connected = true;

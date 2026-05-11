@@ -19,6 +19,10 @@ public class ServerMessageRouter {
     private Runnable onGameOver;
     private Runnable onChatReceived;
 
+    /** If true the game arena has already been navigated to. Used to avoid
+     *  double-triggering showGameArena() when multiple snapshots arrive. */
+    private volatile boolean gameArenaShown = false;
+
     public ServerMessageRouter(LocalGameState localGameState) {
         this.localGameState = localGameState;
     }
@@ -35,23 +39,27 @@ public class ServerMessageRouter {
             case S_GAME_STATE -> {
                 MessageDecoder.GameStateData data = decoder.decodeGameState();
                 localGameState.updateFromSnapshot(data);
-                if (localGameState.getMyPlayerId() == 0) {
+                // Always keep myPlayerId up-to-date (server echoes it every snapshot).
+                if (data.selfPlayerId() > 0) {
                     localGameState.setMyPlayerId(data.selfPlayerId());
                 }
-                if (onGameStarted != null) {
+                // Navigate to the arena the FIRST time a game-state snapshot arrives.
+                // We use a dedicated flag (not the callback reference) so concurrent
+                // snapshots cannot fire the navigation twice.
+                if (!gameArenaShown && onGameStarted != null) {
+                    gameArenaShown = true;
                     Platform.runLater(onGameStarted);
-                    onGameStarted = null;
                 }
             }
             case S_ROUND_STATE -> {
-                // localGameState.updateRoundState(decoder.decodeRoundState());
+                localGameState.updateRoundState(decoder.decodeRoundState());
             }
             case S_SAFE_ZONE -> {
-                // localGameState.updateSafeZones(decoder.decodeSafeZone());
+                localGameState.updateSafeZones(decoder.decodeSafeZoneUpdate());
             }
             case S_PLAYER_ELIMINATED -> {
-                // localGameState.markEliminated(decoder.decodeElimination());
-                // if (onElimination != null) Platform.runLater(onElimination);
+                localGameState.markEliminated(decoder.decodePlayerEliminated());
+                if (onElimination != null) Platform.runLater(onElimination);
             }
             case S_CHAOS_EVENT -> {
                 localGameState.setChaosEvent(decoder.decodeChaosEvent());
@@ -64,8 +72,8 @@ public class ServerMessageRouter {
                 if (onGameOver != null) Platform.runLater(onGameOver);
             }
             case S_CHAT_BROADCAST -> {
-                // localGameState.addChatMessage(decoder.decodeChat());
-                // if (onChatReceived != null) Platform.runLater(onChatReceived);
+                localGameState.addChatMessage(decoder.decodeChatBroadcast());
+                if (onChatReceived != null) Platform.runLater(onChatReceived);
             }
             default -> {
                 // Unknown message type — silently skip
@@ -74,7 +82,10 @@ public class ServerMessageRouter {
     }
 
     public void setOnLobbyStateChanged(Runnable r) { this.onLobbyStateChanged = r; }
-    public void setOnGameStarted(Runnable r) { this.onGameStarted = r; }
+    public void setOnGameStarted(Runnable r) {
+        this.onGameStarted = r;
+        this.gameArenaShown = false; // reset flag when a new callback is registered
+    }
     public void setOnElimination(Runnable r) { this.onElimination = r; }
     public void setOnGameOver(Runnable r) { this.onGameOver = r; }
     public void setOnChatReceived(Runnable r) { this.onChatReceived = r; }
