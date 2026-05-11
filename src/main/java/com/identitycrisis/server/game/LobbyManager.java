@@ -180,7 +180,7 @@ public class LobbyManager {
         if (wallData == null || wallData.isEmpty()) {
             return false;
         }
-        if (wallData.solidGrid()[row][col]) {
+        if (!wallData.spawnableGrid()[row][col]) {
             return false;
         }
 
@@ -198,7 +198,7 @@ public class LobbyManager {
         int maxCol = Math.min(wallData.worldCols() - 1, col + 1);
         for (int r = minRow; r <= maxRow; r++) {
             for (int c = minCol; c <= maxCol; c++) {
-                if (!wallData.solidGrid()[r][c]) {
+                if (wallData.spawnableGrid()[r][c]) {
                     continue;
                 }
                 double tileL = c * ts;

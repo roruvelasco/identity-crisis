@@ -70,6 +70,7 @@ public final class TmxWallsParser {
      */
     public record WallCollisionData(
             boolean[][]                  solidGrid,
+            boolean[][]                  spawnableGrid,
             int[][]                      wallsGidGrid,
             Map<Integer, List<double[]>> tileShapes,
             int                          tileSize,
@@ -134,20 +135,39 @@ public final class TmxWallsParser {
 
             // 3. Parse walls layer into a GID grid
             int[][] wallsGid = new int[worldRows][worldCols];
-            parseWallsLayer(mapEl, wallsGid, originX, originY, worldCols, worldRows);
+            parseLayer(mapEl, "walls", wallsGid, originX, originY, worldCols, worldRows);
+            int[][] floorGroundGid = new int[worldRows][worldCols];
+            int[][] floor2Gid = new int[worldRows][worldCols];
+            int[][] waterGid = new int[worldRows][worldCols];
+            int[][] objectsGid = new int[worldRows][worldCols];
+            int[][] objects2Gid = new int[worldRows][worldCols];
+            parseLayer(mapEl, "floor_ground", floorGroundGid, originX, originY, worldCols, worldRows);
+            parseLayer(mapEl, "floor_2", floor2Gid, originX, originY, worldCols, worldRows);
+            parseLayer(mapEl, "water", waterGid, originX, originY, worldCols, worldRows);
+            parseLayer(mapEl, "objects", objectsGid, originX, originY, worldCols, worldRows);
+            parseLayer(mapEl, "objects2", objects2Gid, originX, originY, worldCols, worldRows);
 
             // 4. Build broad-phase solid grid: non-zero GID → solid
             boolean[][] solid = new boolean[worldRows][worldCols];
+            boolean[][] spawnable = new boolean[worldRows][worldCols];
             for (int r = 0; r < worldRows; r++)
-                for (int c = 0; c < worldCols; c++)
+                for (int c = 0; c < worldCols; c++) {
                     solid[r][c] = wallsGid[r][c] != 0;
+                    boolean hasFloor = floorGroundGid[r][c] != 0 || floor2Gid[r][c] != 0;
+                    boolean blocked = wallsGid[r][c] != 0
+                            || waterGid[r][c] != 0
+                            || tileShapes.containsKey(floor2Gid[r][c])
+                            || tileShapes.containsKey(objectsGid[r][c])
+                            || tileShapes.containsKey(objects2Gid[r][c]);
+                    spawnable[r][c] = hasFloor && !blocked;
+                }
 
             System.out.printf(
                     "[TmxWallsParser] Loaded %d×%d wall grid, %d tiles with custom shapes%n",
                     worldCols, worldRows, tileShapes.size());
 
             return new WallCollisionData(
-                    solid, wallsGid, Collections.unmodifiableMap(tileShapes),
+                    solid, spawnable, wallsGid, Collections.unmodifiableMap(tileShapes),
                     TILE_SIZE, worldCols, worldRows);
 
         } catch (Exception e) {
@@ -243,15 +263,15 @@ public final class TmxWallsParser {
      * the flip-stripped GID at each cell.  Supports both infinite-chunk and
      * fixed-size (non-chunk) layer formats.
      */
-    private static void parseWallsLayer(Element mapEl, int[][] grid,
-                                        int originX, int originY,
-                                        int worldCols, int worldRows) {
+    private static void parseLayer(Element mapEl, String layerName, int[][] grid,
+                                   int originX, int originY,
+                                   int worldCols, int worldRows) {
         NodeList layers = mapEl.getElementsByTagName("layer");
 
         for (int i = 0; i < layers.getLength(); i++) {
             Element layerEl = (Element) layers.item(i);
             if (!layerEl.getParentNode().equals(mapEl)) continue;
-            if (!"walls".equals(layerEl.getAttribute("name"))) continue;
+            if (!layerName.equals(layerEl.getAttribute("name"))) continue;
 
             NodeList chunks = layerEl.getElementsByTagName("chunk");
 
@@ -293,7 +313,7 @@ public final class TmxWallsParser {
             return; // walls layer found — stop scanning
         }
 
-        System.err.println("[TmxWallsParser] 'walls' layer not found in TMX.");
+        System.err.println("[TmxWallsParser] '" + layerName + "' layer not found in TMX.");
     }
 
     // ── CSV / attribute helpers ───────────────────────────────────────────────
@@ -324,7 +344,7 @@ public final class TmxWallsParser {
 
     private static WallCollisionData emptyData() {
         return new WallCollisionData(
-                new boolean[0][0], new int[0][0],
+                new boolean[0][0], new boolean[0][0], new int[0][0],
                 Map.of(), TILE_SIZE, 0, 0);
     }
 }
