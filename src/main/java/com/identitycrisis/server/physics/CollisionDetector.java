@@ -3,7 +3,6 @@ package com.identitycrisis.server.physics;
 import com.identitycrisis.server.game.GameState;
 import com.identitycrisis.server.physics.TmxWallsParser.WallCollisionData;
 import com.identitycrisis.shared.model.Arena;
-import com.identitycrisis.shared.model.GameConfig;
 import com.identitycrisis.shared.model.Player;
 import com.identitycrisis.shared.model.PlayerState;
 import com.identitycrisis.shared.util.Vector2D;
@@ -17,7 +16,7 @@ import java.util.List;
  *   <li><b>Player vs wall tiles</b> — circle-vs-AABB push-out using per-tile
  *       objectgroup rectangles from the TMX.  Falls back to full-tile rectangles
  *       for tiles with no authored shape.</li>
- *   <li><b>Player vs player</b> — soft push-apart to prevent overlap.</li>
+ *   <li><b>Player vs player</b> — intentionally non-blocking.</li>
  * </ol>
  *
  * <h2>Construction</h2>
@@ -74,11 +73,6 @@ public class CollisionDetector {
 
         for (Player p : alive) {
             resolveWallCollision(p, arena);
-        }
-        for (int i = 0; i < alive.size(); i++) {
-            for (int j = i + 1; j < alive.size(); j++) {
-                resolvePlayerCollision(alive.get(i), alive.get(j));
-            }
         }
     }
 
@@ -166,18 +160,4 @@ public class CollisionDetector {
         }
     }
 
-    /** Separates two overlapping players with a soft push. */
-    private void resolvePlayerCollision(Player a, Player b) {
-        if (a.getState() == PlayerState.CARRIED || b.getState() == PlayerState.CARRIED) return;
-
-        double minDist = GameConfig.PLAYER_RADIUS * 2;
-        double dist    = a.getPosition().distanceTo(b.getPosition());
-
-        if (dist < minDist && dist > 0.001) {
-            Vector2D dir     = b.getPosition().subtract(a.getPosition()).normalize();
-            double   overlap = (minDist - dist) / 2.0;
-            a.setPosition(a.getPosition().subtract(dir.multiply(overlap)));
-            b.setPosition(b.getPosition().add(dir.multiply(overlap)));
-        }
-    }
 }

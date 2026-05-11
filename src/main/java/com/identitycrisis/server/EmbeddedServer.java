@@ -70,6 +70,7 @@ public class EmbeddedServer {
         PhysicsEngine pe = new PhysicsEngine();
         TmxWallsParser.WallCollisionData wallData =
                 TmxWallsParser.load("/sprites/map/ArenaMap.tmx");
+        rm.setWallCollisionData(wallData);
         CollisionDetector cd = new CollisionDetector(wallData);
         GameContext ctx = new GameContext(gameState, szm, cem, cm, em, rm);
 
