@@ -19,6 +19,7 @@ public class Player {
     private int carriedByPlayerId;      // -1 if not carried
     private int carryingPlayerId;       // -1 if not carrying
     private double stunTimer;           // > 0 while throw-stunned
+    private int spriteIndex = 1;        // 1-based join order (host=1, next=2, …)
 
     /**
      * Primary constructor. Sets all fields to safe defaults:
@@ -58,6 +59,8 @@ public class Player {
     public void setCarryingPlayerId(int id) { this.carryingPlayerId = id; }
     public double getStunTimer() { return stunTimer; }
     public void setStunTimer(double t) { this.stunTimer = t; }
+    public int getSpriteIndex() { return spriteIndex; }
+    public void setSpriteIndex(int idx) { this.spriteIndex = idx; }
 
     /**
      * Two {@code Player} instances are equal when they represent the same

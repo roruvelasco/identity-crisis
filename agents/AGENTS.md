@@ -176,6 +176,12 @@ public record GameContext(
 10. **`Player` must be constructed with `new Player(id, name)`** — never with
     `new Player()` (no such constructor). Carry IDs default to `-1` (not `0`).
     `Player.equals()` / `hashCode()` are keyed on `playerId`.
+    `Player.spriteIndex` defaults to `1` (sprite set 1). It is assigned by
+    `LobbyManager.handleReady()` as `i + 1` (1-based join order, capped at 8 by
+    `MAX_PLAYERS`), encoded as the **last** field of `PlayerNetData` in both
+    `MessageEncoder` and `MessageDecoder`, and propagated to the client in
+    `LocalGameState.updateFromSnapshot()`. `SpriteManager.loadAll()` loads sets
+    1–8; `GameArena.drawPlayer()` selects the key `"player_{spriteIndex}_{anim}"`.
 11. **`GameState` must be constructed with `new GameState()`** which initializes
     all collections. Never assume fields are non-null without calling the constructor.
 12. **Tests:** Add JUnit 5 tests for any pure logic class. Run with `./mvnw test`.

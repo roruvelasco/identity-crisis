@@ -92,7 +92,8 @@ public class MessageDecoder {
                     p.readDouble(), p.readDouble(),
                     p.readByte(), p.readInt(),
                     p.readByte() != 0,
-                    p.readInt(), p.readInt()
+                    p.readInt(), p.readInt(),
+                    p.readInt()
                 );
             }
             int zoneCount = p.readInt();
@@ -193,7 +194,8 @@ public class MessageDecoder {
     public record PlayerNetData(int id, String name, double x, double y,
                                 double vx, double vy, byte stateOrdinal,
                                 int facing, boolean inSafeZone,
-                                int carriedBy, int carrying) { }
+                                int carriedBy, int carrying,
+                                int spriteIndex) { }
 
     /**
      * Wire form of a single safe-zone rectangle in world-pixel space.  Mirror

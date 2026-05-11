@@ -1022,7 +1022,15 @@ public class GameArena {
             displaySize = SPRITE_NATIVE * 3.0;
         }
 
-        String key = isMoving ? "player_1_walk" : "player_1_idle";
+        // Resolve sprite index from join order (server snapshot) or fall back to 1.
+        int si = 1;
+        if (sceneManager != null && sceneManager.getLocalGameState() != null) {
+            int myId = sceneManager.getLocalGameState().getMyPlayerId();
+            for (var sp : sceneManager.getLocalGameState().getPlayers()) {
+                if (sp.getPlayerId() == myId) { si = sp.getSpriteIndex(); break; }
+            }
+        }
+        String key = isMoving ? "player_" + si + "_walk" : "player_" + si + "_idle";
         Image sheet = spriteManager.get(key);
 
         int maxFrames = isMoving ? WALK_FRAMES : IDLE_FRAMES;

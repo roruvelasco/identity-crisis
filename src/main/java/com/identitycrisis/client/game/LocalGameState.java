@@ -57,6 +57,25 @@ public class LocalGameState {
             }
         }
         this.safeZones = updatedZones;
+
+        // Rebuild the player list so rendering and sprite lookup always reflect
+        // the latest server snapshot (previously this was never populated).
+        List<Player> updatedPlayers = new java.util.ArrayList<>();
+        if (data.players() != null) {
+            for (MessageDecoder.PlayerNetData pd : data.players()) {
+                Player p = new Player(pd.id(), pd.name());
+                p.setPosition(new com.identitycrisis.shared.util.Vector2D(pd.x(), pd.y()));
+                p.setVelocity(new com.identitycrisis.shared.util.Vector2D(pd.vx(), pd.vy()));
+                p.setState(PlayerState.values()[pd.stateOrdinal()]);
+                p.setFacingDirection(pd.facing());
+                p.setInSafeZone(pd.inSafeZone());
+                p.setCarriedByPlayerId(pd.carriedBy());
+                p.setCarryingPlayerId(pd.carrying());
+                p.setSpriteIndex(pd.spriteIndex());
+                updatedPlayers.add(p);
+            }
+        }
+        this.players = updatedPlayers;
     }
     public void updateLobbyState(MessageDecoder.LobbyStateData data) {
         this.lobbyConnectedCount = data.connectedCount();
