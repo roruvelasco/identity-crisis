@@ -64,13 +64,14 @@ public class MessageDecoder {
             DataInputStream p = payloadStream();
             int connectedCount = p.readInt();
             int requiredCount  = p.readInt();
+            int selfIndex      = p.readInt();
             String[] names  = new String[connectedCount];
             boolean[] ready = new boolean[connectedCount];
             for (int i = 0; i < connectedCount; i++) {
                 names[i] = p.readUTF();
                 ready[i] = p.readByte() != 0;
             }
-            return new LobbyStateData(connectedCount, requiredCount, names, ready);
+            return new LobbyStateData(connectedCount, requiredCount, selfIndex, names, ready);
         } catch (IOException e) { throw new RuntimeException(e); }
     }
 
@@ -183,7 +184,7 @@ public class MessageDecoder {
     // ── Decoded payload containers ─────────────────────────────────────────
 
     public record LobbyStateData(int connectedCount, int requiredCount,
-                                 String[] names, boolean[] ready) { }
+                                 int selfIndex, String[] names, boolean[] ready) { }
 
     public record GameStateData(int roundNumber, double timerRemaining,
                                 byte phaseOrdinal, byte chaosOrdinal,

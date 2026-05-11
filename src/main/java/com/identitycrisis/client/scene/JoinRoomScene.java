@@ -306,14 +306,7 @@ public class JoinRoomScene {
         router.setOnLobbyStateChanged(() -> {
             String[] names = localState.getLobbyPlayerNames();
             boolean[] ready = localState.getLobbyReadyFlags();
-            String myName = sceneManager.getMyDisplayName();
-            int myIndex = -1;
-            if (names != null && myName != null) {
-                for (int ii = 0; ii < names.length; ii++) {
-                    if (myName.equals(names[ii])) { myIndex = ii; break; }
-                }
-            }
-            final int mi = myIndex;
+            int mi = localState.getLobbyMyIndex();
             sceneManager.getLobbyScene().setLobbyPlayers(names, ready, mi);
         });
         router.setOnGameStarted(() -> sceneManager.showGameArena());

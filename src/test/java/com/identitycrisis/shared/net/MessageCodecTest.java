@@ -119,7 +119,7 @@ class MessageCodecTest {
     @Test
     void lobbyState_roundTrip() throws Exception {
         Pair p = encoder();
-        p.enc().encodeLobbyState(3, 4,
+        p.enc().encodeLobbyState(3, 4, 1,
             new String[]{"Alice", "Bob", "Charlie"},
             new boolean[]{true, false, true});
         p.enc().flush();
@@ -129,6 +129,7 @@ class MessageCodecTest {
         MessageDecoder.LobbyStateData d = dec.decodeLobbyState();
         assertEquals(3, d.connectedCount());
         assertEquals(4, d.requiredCount());
+        assertEquals(1, d.selfIndex());
         assertArrayEquals(new String[]{"Alice", "Bob", "Charlie"}, d.names());
         assertArrayEquals(new boolean[]{true, false, true}, d.ready());
     }

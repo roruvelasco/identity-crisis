@@ -57,12 +57,14 @@ public class MessageEncoder {
     // ── Server → Client ────────────────────────────────────────────────────
 
     public void encodeLobbyState(int connectedCount, int requiredCount,
+                                 int selfIndex,
                                  String[] playerNames,
                                  boolean[] readyFlags) throws IOException {
         ByteArrayOutputStream buf = new ByteArrayOutputStream();
         DataOutputStream tmp = new DataOutputStream(buf);
         tmp.writeInt(connectedCount);
         tmp.writeInt(requiredCount);
+        tmp.writeInt(selfIndex);
         for (int i = 0; i < connectedCount; i++) {
             tmp.writeUTF(playerNames[i]);
             tmp.writeByte(readyFlags[i] ? 1 : 0);

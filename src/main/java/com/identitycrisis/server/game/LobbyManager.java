@@ -97,14 +97,17 @@ public class LobbyManager {
                     : "Player " + c.getClientId();
             ready[i] = readyClientIds.contains(c.getClientId());
         }
-        try {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            MessageEncoder enc = new MessageEncoder(new DataOutputStream(baos));
-            enc.encodeLobbyState(count, GameConfig.MIN_PLAYERS, names, ready);
-            enc.flush();
-            server.broadcastToAll(baos.toByteArray());
-        } catch (IOException e) {
-            // log and continue
+        for (int selfIndex = 0; selfIndex < count; selfIndex++) {
+            ClientConnection receiver = clients.get(selfIndex);
+            try {
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                MessageEncoder enc = new MessageEncoder(new DataOutputStream(baos));
+                enc.encodeLobbyState(count, GameConfig.MIN_PLAYERS, selfIndex, names, ready);
+                enc.flush();
+                server.sendToClient(receiver, baos.toByteArray());
+            } catch (IOException e) {
+                // log and continue
+            }
         }
     }
 }

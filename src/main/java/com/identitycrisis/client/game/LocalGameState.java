@@ -14,6 +14,7 @@ public class LocalGameState {
     // Lobby
     private volatile int lobbyConnectedCount;
     private volatile int lobbyRequiredCount;
+    private volatile int lobbyMyIndex = -1;
     private volatile String[] lobbyPlayerNames;
     private volatile boolean[] lobbyReadyFlags;
 
@@ -78,6 +79,7 @@ public class LocalGameState {
     public void updateLobbyState(MessageDecoder.LobbyStateData data) {
         this.lobbyConnectedCount = data.connectedCount();
         this.lobbyRequiredCount   = data.requiredCount();
+        this.lobbyMyIndex         = data.selfIndex();
         this.lobbyPlayerNames     = data.names();
         this.lobbyReadyFlags     = data.ready();
     }
@@ -133,6 +135,7 @@ public class LocalGameState {
     public String getLastEliminatedName() { return lastEliminatedName; }
     public int getLobbyConnectedCount() { return lobbyConnectedCount; }
     public int getLobbyRequiredCount() { return lobbyRequiredCount; }
+    public int getLobbyMyIndex() { return lobbyMyIndex; }
     public String[] getLobbyPlayerNames() { return lobbyPlayerNames; }
     public boolean[] getLobbyReadyFlags() { return lobbyReadyFlags; }
 
