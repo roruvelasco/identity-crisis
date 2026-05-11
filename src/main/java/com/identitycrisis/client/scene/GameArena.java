@@ -356,7 +356,9 @@ public class GameArena {
         // ── Reset networked state for a clean game session ──────────────────
         // Clears stale game-over / elimination data so a second game in the
         // same session doesn't show leftover results from the previous one.
-        if (sceneManager != null && sceneManager.getLocalGameState() != null) {
+        GameClient existingClient = (sceneManager != null) ? sceneManager.getGameClient() : null;
+        boolean networkedSession = existingClient != null && existingClient.isConnected();
+        if (!networkedSession && sceneManager != null && sceneManager.getLocalGameState() != null) {
             sceneManager.getLocalGameState().resetForNewGame();
         }
 

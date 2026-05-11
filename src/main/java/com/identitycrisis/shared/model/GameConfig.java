@@ -23,7 +23,7 @@ public final class GameConfig {
 
     // Rounds
     public static final int WARMUP_ROUNDS = 2;
-    public static final double ROUND_DURATION_SECONDS = 15.0;
+    public static final double ROUND_DURATION_SECONDS = 25.0;
     public static final double COUNTDOWN_SECONDS = 3.0;
     public static final double ELIMINATION_DISPLAY_SECONDS = 3.0;
 

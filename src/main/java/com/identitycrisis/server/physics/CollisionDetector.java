@@ -38,6 +38,10 @@ public class CollisionDetector {
 
     /** Wall collision data parsed from the TMX at startup. May be {@code null}. */
     private final WallCollisionData wallData;
+    private static final double HIT_HALF_W = 3.0;
+    private static final double HIT_HALF_H = 5.0;
+    private static final double HIT_OFS_X = 0.0;
+    private static final double HIT_OFS_Y = 4.0;
 
     // ── Constructors ──────────────────────────────────────────────────────────
 
@@ -93,11 +97,12 @@ public class CollisionDetector {
     private void resolveWallCollision(Player p, Arena arena) {
         if (p.getState() == PlayerState.CARRIED) return; // position locked by CarryManager
 
-        double r = GameConfig.PLAYER_RADIUS;
+        double halfW = HIT_HALF_W;
+        double halfH = HIT_HALF_H;
 
         // ── Step 1: Arena boundary clamp ─────────────────────────────────────
-        double x = Math.max(r, Math.min(p.getPosition().x(), arena.getWidth()  - r));
-        double y = Math.max(r, Math.min(p.getPosition().y(), arena.getHeight() - r));
+        double x = Math.max(halfW - HIT_OFS_X, Math.min(p.getPosition().x(), arena.getWidth() - halfW - HIT_OFS_X));
+        double y = Math.max(halfH - HIT_OFS_Y, Math.min(p.getPosition().y(), arena.getHeight() - halfH - HIT_OFS_Y));
         p.setPosition(new Vector2D(x, y));
 
         if (wallData == null) return;
@@ -107,12 +112,11 @@ public class CollisionDetector {
         x = p.getPosition().x();
         y = p.getPosition().y();
 
-        // Find all tiles whose bounding box overlaps the player's AABB
         int ts      = wallData.tileSize();
-        int colMin  = Math.max(0, (int) Math.floor((x - r) / ts));
-        int colMax  = Math.min(wallData.worldCols() - 1, (int) Math.floor((x + r) / ts));
-        int rowMin  = Math.max(0, (int) Math.floor((y - r) / ts));
-        int rowMax  = Math.min(wallData.worldRows() - 1, (int) Math.floor((y + r) / ts));
+        int colMin  = Math.max(0, (int) Math.floor((x + HIT_OFS_X - halfW) / ts));
+        int colMax  = Math.min(wallData.worldCols() - 1, (int) Math.floor((x + HIT_OFS_X + halfW) / ts));
+        int rowMin  = Math.max(0, (int) Math.floor((y + HIT_OFS_Y - halfH) / ts));
+        int rowMax  = Math.min(wallData.worldRows() - 1, (int) Math.floor((y + HIT_OFS_Y + halfH) / ts));
 
         for (int row = rowMin; row <= rowMax; row++) {
             for (int col = colMin; col <= colMax; col++) {
@@ -129,27 +133,29 @@ public class CollisionDetector {
                     double rectR = rectL + rect[2];
                     double rectB = rectT + rect[3];
 
-                    // Re-read current position (may have shifted by earlier shapes)
                     x = p.getPosition().x();
                     y = p.getPosition().y();
+                    double hitL = x + HIT_OFS_X - halfW;
+                    double hitT = y + HIT_OFS_Y - halfH;
+                    double hitR = x + HIT_OFS_X + halfW;
+                    double hitB = y + HIT_OFS_Y + halfH;
 
-                    // Nearest point on rect to circle centre
-                    double nearX = Math.max(rectL, Math.min(x, rectR));
-                    double nearY = Math.max(rectT, Math.min(y, rectB));
+                    if (hitL < rectR && hitR > rectL && hitT < rectB && hitB > rectT) {
+                        double pushLeft = rectR - hitL;
+                        double pushRight = hitR - rectL;
+                        double pushUp = rectB - hitT;
+                        double pushDown = hitB - rectT;
+                        double min = Math.min(Math.min(pushLeft, pushRight), Math.min(pushUp, pushDown));
 
-                    double dx   = x - nearX;
-                    double dy   = y - nearY;
-                    double dist = Math.sqrt(dx * dx + dy * dy);
-
-                    if (dist < r && dist > 0.001) {
-                        // Push out along the separating axis
-                        double pen = r - dist;
-                        double nx  = dx / dist;
-                        double ny  = dy / dist;
-                        p.setPosition(new Vector2D(x + nx * pen, y + ny * pen));
-                    } else if (dist < 0.001) {
-                        // Circle centre is exactly on the rect edge — push upward
-                        p.setPosition(new Vector2D(x, y - r));
+                        if (min == pushLeft) {
+                            p.setPosition(new Vector2D(x + pushLeft, y));
+                        } else if (min == pushRight) {
+                            p.setPosition(new Vector2D(x - pushRight, y));
+                        } else if (min == pushUp) {
+                            p.setPosition(new Vector2D(x, y + pushUp));
+                        } else {
+                            p.setPosition(new Vector2D(x, y - pushDown));
+                        }
                     }
                 }
             }
