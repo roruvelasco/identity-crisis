@@ -146,7 +146,7 @@ class MessageCodecTest {
         };
 
         Pair p = encoder();
-        p.enc().encodeGameState(3, 12.5, (byte) 2, (byte) 0, 0.0, 1, players, zones);
+        p.enc().encodeGameState(3, 12.5, (byte) 2, (byte) 0, 0.0, 1, 7, players, zones);
         p.enc().flush();
 
         MessageDecoder dec = decoder(p.buf());
@@ -159,6 +159,7 @@ class MessageCodecTest {
         assertEquals(0,    d.chaosOrdinal());
         assertEquals(0.0,  d.chaosDuration(), 1e-9);
         assertEquals(1,    d.controlledPlayerId());
+        assertEquals(7,    d.selfPlayerId());
 
         assertEquals(2, d.players().length);
         assertEquals(1,     d.players()[0].id());

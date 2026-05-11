@@ -30,7 +30,7 @@ Every TCP message is framed as:
 | Type | Tag | Payload |
 |---|---|---|
 | `S_LOBBY_STATE` | `0x40` | int connectedCount, int requiredCount, then N × (UTF name + byte readyFlag) |
-| `S_GAME_STATE` | `0x41` | int roundNumber, double timerRemaining, byte phaseOrdinal, byte chaosOrdinal, double chaosDuration, int controlledPlayerId, int playerCount, then N × PlayerBlock, int zoneCount, then M × ZoneBlock |
+| `S_GAME_STATE` | `0x41` | int roundNumber, double timerRemaining, byte phaseOrdinal, byte chaosOrdinal, double chaosDuration, int controlledPlayerId, int selfPlayerId, int playerCount, then N × PlayerBlock, int zoneCount, then M × ZoneBlock |
 | `S_ROUND_STATE` | `0x42` | int roundNumber, byte phaseOrdinal, double timerRemaining |
 | `S_SAFE_ZONE` | `0x43` | int zoneCount, then N × (double x, double y, double radius) |
 | `S_PLAYER_ELIMINATED` | `0x44` | int playerId, UTF playerName |

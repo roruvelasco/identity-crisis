@@ -262,6 +262,7 @@ public class GameArena {
         boolean facingLeft = false;
         boolean isMoving = false;
         double lastX, lastY;
+        boolean hasLastPosition = false;
     }
 
     public GameArena(SceneManager sceneManager) {
@@ -543,9 +544,16 @@ public class GameArena {
         }
 
         GameClient client = (sceneManager != null) ? sceneManager.getGameClient() : null;
-        if (client != null && client.isConnected()) {
+        boolean connected = client != null && client.isConnected();
+        if (connected) {
             client.sendInput(input.up(), input.down(), input.left(), input.right(),
                              input.carry(), input.throwAction());
+        }
+
+        if (connected && syncNetworkedPlayerState(dt)) {
+            pulseTimer += dt;
+            syncRoundStateFromServer();
+            return;
         }
 
         // ── Direction ────────────────────────────────────────────────────────
@@ -611,23 +619,43 @@ public class GameArena {
             ensureOfflineZone();
             tryAdvanceFromOfflineZoneEntry();
         }
+    }
 
-        // ── Remote player animation state update ─────────────────────────────────
-        if (sceneManager != null && sceneManager.getLocalGameState() != null
-                && sceneManager.getLocalGameState().hasReceivedSnapshot()) {
-            com.identitycrisis.client.game.LocalGameState lgs = sceneManager.getLocalGameState();
-            int myId = lgs.getMyPlayerId();
-            for (Player p : lgs.getPlayers()) {
-                if (p.getPlayerId() == myId) continue;
+    private boolean syncNetworkedPlayerState(double dt) {
+        if (sceneManager == null) return false;
+        com.identitycrisis.client.game.LocalGameState lgs = sceneManager.getLocalGameState();
+        if (lgs == null || !lgs.hasReceivedSnapshot() || lgs.getPlayers() == null) return false;
+
+        int myId = lgs.getMyPlayerId();
+        for (Player p : lgs.getPlayers()) {
+            if (p.getPlayerId() == myId) {
+                double dx = p.getPosition().x() - playerX;
+                double dy = p.getPosition().y() - playerY;
+                playerX = p.getPosition().x();
+                playerY = p.getPosition().y();
+                isMoving = p.getVelocity().magnitude() > GameConfig.VELOCITY_STOP_THRESHOLD
+                        || Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1;
+                if (p.getFacingDirection() == 3 || dx < -0.1) facingLeft = true;
+                if (p.getFacingDirection() == 1 || dx > 0.1) facingLeft = false;
+                animTimer += dt;
+                if (animTimer >= FRAME_DURATION) {
+                    animTimer -= FRAME_DURATION;
+                    int totalFrames = isMoving ? WALK_FRAMES : IDLE_FRAMES;
+                    animFrame = (animFrame + 1) % totalFrames;
+                }
+                currentZone = (mapManager != null) ? mapManager.getSafeZoneAt(playerX, playerY) : -1;
+            } else {
                 RemotePlayerAnim ra = remoteAnims.computeIfAbsent(
                         p.getPlayerId(), k -> new RemotePlayerAnim());
-                double rdx = p.getPosition().x() - ra.lastX;
-                double rdy = p.getPosition().y() - ra.lastY;
-                ra.isMoving = (Math.abs(rdx) > 0.1 || Math.abs(rdy) > 0.1);
-                if (rdx < -0.1) ra.facingLeft = true;
-                if (rdx > 0.1)  ra.facingLeft = false;
+                double dx = ra.hasLastPosition ? p.getPosition().x() - ra.lastX : 0;
+                double dy = ra.hasLastPosition ? p.getPosition().y() - ra.lastY : 0;
+                ra.isMoving = p.getVelocity().magnitude() > GameConfig.VELOCITY_STOP_THRESHOLD
+                        || Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1;
+                if (p.getFacingDirection() == 3 || dx < -0.1) ra.facingLeft = true;
+                if (p.getFacingDirection() == 1 || dx > 0.1) ra.facingLeft = false;
                 ra.lastX = p.getPosition().x();
                 ra.lastY = p.getPosition().y();
+                ra.hasLastPosition = true;
                 ra.animTimer += dt;
                 if (ra.animTimer >= FRAME_DURATION) {
                     ra.animTimer -= FRAME_DURATION;
@@ -636,6 +664,7 @@ public class GameArena {
                 }
             }
         }
+        return true;
     }
 
     /**
@@ -1114,7 +1143,7 @@ public class GameArena {
                 int spriteIdx = ((p.getPlayerId() - 1) % 8) + 1;
                 if (p.getPlayerId() == myId) {
                     drawPlayerSprite(gc, viewW, viewH,
-                            playerX, playerY, spriteIdx,
+                            p.getPosition().x(), p.getPosition().y(), spriteIdx,
                             animFrame, isMoving, facingLeft, p.getDisplayName());
                 } else {
                     RemotePlayerAnim ra = remoteAnims.get(p.getPlayerId());

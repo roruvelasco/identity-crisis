@@ -332,6 +332,7 @@ public class MessageEncoder {
     public void encodeGameState(int roundNumber, double timerRemaining,
                                 byte phaseOrdinal, byte chaosOrdinal,
                                 double chaosDuration, int controlledPlayerId,
+                                int selfPlayerId,
                                 PlayerNetData[] players,
                                 SafeZoneNetData[] zones) throws IOException { }
     public void encodeRoundState(int roundNumber, byte phaseOrdinal,
@@ -403,6 +404,7 @@ public class MessageDecoder {
     public record GameStateData(int roundNumber, double timerRemaining,
                                 byte phaseOrdinal, byte chaosOrdinal,
                                 double chaosDuration, int controlledPlayerId,
+                                int selfPlayerId,
                                 PlayerNetData[] players,
                                 SafeZoneNetData[] zones) { }
     public record PlayerNetData(int id, String name, double x, double y,

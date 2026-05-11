@@ -5,6 +5,7 @@ import com.identitycrisis.server.net.ClientMessageRouter;
 import com.identitycrisis.server.net.GameServer;
 import com.identitycrisis.server.physics.CollisionDetector;
 import com.identitycrisis.server.physics.PhysicsEngine;
+import com.identitycrisis.server.physics.TmxWallsParser;
 import com.identitycrisis.shared.util.Logger;
 
 /**
@@ -67,7 +68,9 @@ public class EmbeddedServer {
         EliminationManager em = new EliminationManager(gameState, cm);
         RoundManager rm = new RoundManager(gameState, szm, cem, em);
         PhysicsEngine pe = new PhysicsEngine();
-        CollisionDetector cd = new CollisionDetector();
+        TmxWallsParser.WallCollisionData wallData =
+                TmxWallsParser.load("/sprites/map/ArenaMap.tmx");
+        CollisionDetector cd = new CollisionDetector(wallData);
         GameContext ctx = new GameContext(gameState, szm, cem, cm, em, rm);
 
         server = new GameServer(port);

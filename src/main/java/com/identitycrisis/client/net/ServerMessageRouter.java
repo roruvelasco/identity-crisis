@@ -36,7 +36,7 @@ public class ServerMessageRouter {
                 MessageDecoder.GameStateData data = decoder.decodeGameState();
                 localGameState.updateFromSnapshot(data);
                 if (localGameState.getMyPlayerId() == 0) {
-                    localGameState.setMyPlayerId(data.controlledPlayerId());
+                    localGameState.setMyPlayerId(data.selfPlayerId());
                 }
                 if (onGameStarted != null) {
                     Platform.runLater(onGameStarted);

@@ -83,6 +83,7 @@ public class MessageDecoder {
             byte chaos        = p.readByte();
             double chaosDur   = p.readDouble();
             int controlledId  = p.readInt();
+            int selfId        = p.readInt();
             int playerCount   = p.readInt();
             PlayerNetData[] players = new PlayerNetData[playerCount];
             for (int i = 0; i < playerCount; i++) {
@@ -104,7 +105,7 @@ public class MessageDecoder {
                     p.readDouble(), p.readDouble());
             }
             return new GameStateData(roundNumber, timer, phase, chaos, chaosDur,
-                                     controlledId, players, zones);
+                                     controlledId, selfId, players, zones);
         } catch (IOException e) { throw new RuntimeException(e); }
     }
 
@@ -187,6 +188,7 @@ public class MessageDecoder {
     public record GameStateData(int roundNumber, double timerRemaining,
                                 byte phaseOrdinal, byte chaosOrdinal,
                                 double chaosDuration, int controlledPlayerId,
+                                int selfPlayerId,
                                 PlayerNetData[] players,
                                 SafeZoneNetData[] zones) { }
 

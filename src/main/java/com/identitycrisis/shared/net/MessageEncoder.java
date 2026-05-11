@@ -76,6 +76,7 @@ public class MessageEncoder {
     public void encodeGameState(int roundNumber, double timerRemaining,
                                 byte phaseOrdinal, byte chaosOrdinal,
                                 double chaosDuration, int controlledPlayerId,
+                                int selfPlayerId,
                                 PlayerNetData[] players,
                                 SafeZoneNetData[] zones) throws IOException {
         ByteArrayOutputStream buf = new ByteArrayOutputStream();
@@ -86,6 +87,7 @@ public class MessageEncoder {
         tmp.writeByte(chaosOrdinal);
         tmp.writeDouble(chaosDuration);
         tmp.writeInt(controlledPlayerId);
+        tmp.writeInt(selfPlayerId);
         tmp.writeInt(players.length);
         for (PlayerNetData p : players) {
             tmp.writeInt(p.id());

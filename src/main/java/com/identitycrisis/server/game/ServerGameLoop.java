@@ -199,7 +199,7 @@ public class ServerGameLoop implements Runnable {
                         gs.getRoundNumber(), gs.getRoundTimer(),
                         (byte) gs.getPhase().ordinal(),
                         (byte) gs.getActiveChaosEvent().ordinal(),
-                        gs.getChaosEventTimer(), controlledPlayerId,
+                        gs.getChaosEventTimer(), controlledPlayerId, clientId,
                         playerData, zoneData);
                 enc.flush();
                 server.sendToClient(client, baos.toByteArray());
