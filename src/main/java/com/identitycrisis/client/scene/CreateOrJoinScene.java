@@ -308,7 +308,7 @@ public class CreateOrJoinScene {
             final int mi = myIndex;
             sceneManager.getLobbyScene().setLobbyPlayers(names, ready, mi);
         });
-        router.setOnGameStarted(() -> sceneManager.showLoading());
+        router.setOnGameStarted(() -> sceneManager.showGameArena());
         GameClient gameClient = new GameClient(router);
         if (!connectWithRetry(gameClient, "localhost", port)) {
             embedded.stop();
