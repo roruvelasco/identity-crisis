@@ -7,6 +7,9 @@ import com.identitycrisis.client.render.MapManager;
 import com.identitycrisis.client.render.SpriteManager;
 import com.identitycrisis.shared.model.ChaosEventType;
 import com.identitycrisis.shared.model.GameConfig;
+import com.identitycrisis.shared.model.Player;
+import com.identitycrisis.shared.model.PlayerState;
+import com.identitycrisis.client.net.GameClient;
 import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -248,7 +251,18 @@ public class GameArena {
     private com.identitycrisis.shared.model.ChaosEventType toastEventType =
             com.identitycrisis.shared.model.ChaosEventType.NONE;
 
+    /** Per-remote-player animation state (keyed by playerId). */
+    private final java.util.Map<Integer, RemotePlayerAnim> remoteAnims = new java.util.HashMap<>();
+
     // ────────────────────────────────────────────────────────────────────────
+
+    private static class RemotePlayerAnim {
+        int animFrame = 0;
+        double animTimer = 0;
+        boolean facingLeft = false;
+        boolean isMoving = false;
+        double lastX, lastY;
+    }
 
     public GameArena(SceneManager sceneManager) {
         this.sceneManager = sceneManager;
@@ -356,6 +370,7 @@ public class GameArena {
         currentZone = -1;
         pulseTimer = 0.0;
         lastNano = 0L;
+        remoteAnims.clear();
 
         // Default round/timer state (used as the offline fallback until the
         // first server snapshot arrives). Once snapshots stream in,
@@ -527,6 +542,12 @@ public class GameArena {
                     input.carry(), input.throwAction(), input.chatToggle());
         }
 
+        GameClient client = (sceneManager != null) ? sceneManager.getGameClient() : null;
+        if (client != null && client.isConnected()) {
+            client.sendInput(input.up(), input.down(), input.left(), input.right(),
+                             input.carry(), input.throwAction());
+        }
+
         // ── Direction ────────────────────────────────────────────────────────
         double dx = 0, dy = 0;
         if (input.up())
@@ -589,6 +610,31 @@ public class GameArena {
             tickLocalRoundTimer(dt);
             ensureOfflineZone();
             tryAdvanceFromOfflineZoneEntry();
+        }
+
+        // ── Remote player animation state update ─────────────────────────────────
+        if (sceneManager != null && sceneManager.getLocalGameState() != null
+                && sceneManager.getLocalGameState().hasReceivedSnapshot()) {
+            com.identitycrisis.client.game.LocalGameState lgs = sceneManager.getLocalGameState();
+            int myId = lgs.getMyPlayerId();
+            for (Player p : lgs.getPlayers()) {
+                if (p.getPlayerId() == myId) continue;
+                RemotePlayerAnim ra = remoteAnims.computeIfAbsent(
+                        p.getPlayerId(), k -> new RemotePlayerAnim());
+                double rdx = p.getPosition().x() - ra.lastX;
+                double rdy = p.getPosition().y() - ra.lastY;
+                ra.isMoving = (Math.abs(rdx) > 0.1 || Math.abs(rdy) > 0.1);
+                if (rdx < -0.1) ra.facingLeft = true;
+                if (rdx > 0.1)  ra.facingLeft = false;
+                ra.lastX = p.getPosition().x();
+                ra.lastY = p.getPosition().y();
+                ra.animTimer += dt;
+                if (ra.animTimer >= FRAME_DURATION) {
+                    ra.animTimer -= FRAME_DURATION;
+                    int frames = ra.isMoving ? WALK_FRAMES : IDLE_FRAMES;
+                    ra.animFrame = (ra.animFrame + 1) % frames;
+                }
+            }
         }
     }
 
@@ -903,8 +949,8 @@ public class GameArena {
             }
         }
 
-        // 3. Player sprite
-        drawPlayer(gc, w, h);
+        // 3. Player sprites (local + remote)
+        drawAllPlayers(gc, w, h);
 
         // 4. Round timer HUD (top-centre)
         drawTimerHud(gc, w, h);
@@ -1005,55 +1051,83 @@ public class GameArena {
 
     // ── Player rendering ─────────────────────────────────────────────────────
 
-    private void drawPlayer(GraphicsContext gc, double viewW, double viewH) {
-        // Convert world-pixel position → screen position
+    private void drawPlayerSprite(GraphicsContext gc, double viewW, double viewH,
+                                  double worldX, double worldY,
+                                  int spriteIdx, int frame, boolean moving,
+                                  boolean left, String displayName) {
         double screenX, screenY, displaySize;
-
         if (mapManager != null && mapManager.getWorldWidth() > 0) {
             double scale = mapManager.getScale(viewW, viewH);
-            screenX = mapManager.worldToScreenX(playerX, viewW, viewH);
-            screenY = mapManager.worldToScreenY(playerY, viewW, viewH);
-            // Display sprite proportionally: 2 tiles wide at the current map scale
+            screenX = mapManager.worldToScreenX(worldX, viewW, viewH);
+            screenY = mapManager.worldToScreenY(worldY, viewW, viewH);
             displaySize = SPRITE_NATIVE * scale;
         } else {
-            // Fallback: no map, render at 3× native in screen space
-            screenX = playerX;
-            screenY = playerY;
+            screenX = worldX;
+            screenY = worldY;
             displaySize = SPRITE_NATIVE * 3.0;
         }
-
-        String key = isMoving ? "player_1_walk" : "player_1_idle";
+        String key = moving ? "player_" + spriteIdx + "_walk"
+                            : "player_" + spriteIdx + "_idle";
         Image sheet = spriteManager.get(key);
-
-        int maxFrames = isMoving ? WALK_FRAMES : IDLE_FRAMES;
-        int frame = Math.min(animFrame, maxFrames - 1);
-        double srcX = frame * SPRITE_NATIVE;
+        int maxFrames = moving ? WALK_FRAMES : IDLE_FRAMES;
+        int f = Math.min(frame, maxFrames - 1);
+        double srcX = f * SPRITE_NATIVE;
         double drawX = screenX - displaySize / 2.0;
         double drawY = screenY - displaySize / 2.0;
 
         if (sheet != null) {
             gc.save();
-            if (facingLeft) {
+            gc.setImageSmoothing(false);
+            if (left) {
                 gc.translate(drawX + displaySize, drawY);
                 gc.scale(-1, 1);
-                gc.drawImage(sheet,
-                        srcX, 0, SPRITE_NATIVE, SPRITE_NATIVE,
-                        0, 0, displaySize, displaySize);
+                gc.drawImage(sheet, srcX, 0, SPRITE_NATIVE, SPRITE_NATIVE,
+                             0, 0, displaySize, displaySize);
             } else {
-                gc.drawImage(sheet,
-                        srcX, 0, SPRITE_NATIVE, SPRITE_NATIVE,
-                        drawX, drawY, displaySize, displaySize);
+                gc.drawImage(sheet, srcX, 0, SPRITE_NATIVE, SPRITE_NATIVE,
+                             drawX, drawY, displaySize, displaySize);
             }
             gc.restore();
         } else {
-            // Fallback circle
             gc.setFill(Color.web("#3E8948"));
             double r = displaySize / 2.0;
             gc.fillOval(screenX - r, screenY - r, displaySize, displaySize);
-            gc.setStroke(Color.web("#63C74D"));
-            gc.setLineWidth(2);
-            double eyeX = facingLeft ? screenX - r * 0.3 : screenX + r * 0.3;
-            gc.strokeLine(screenX, screenY, eyeX, screenY - r * 0.4);
+        }
+
+        if (displayName != null && !displayName.isEmpty()) {
+            gc.save();
+            gc.setFont(loadFont("Press Start 2P", 5));
+            gc.setTextAlign(TextAlignment.CENTER);
+            gc.setFill(Color.web("#e8dfc4"));
+            gc.fillText(displayName, screenX, drawY - 4);
+            gc.restore();
+        }
+    }
+
+    private void drawAllPlayers(GraphicsContext gc, double viewW, double viewH) {
+        com.identitycrisis.client.game.LocalGameState lgs =
+                (sceneManager != null) ? sceneManager.getLocalGameState() : null;
+        if (lgs != null && lgs.hasReceivedSnapshot() && lgs.getPlayers() != null) {
+            int myId = lgs.getMyPlayerId();
+            for (Player p : lgs.getPlayers()) {
+                if (p.getState() == PlayerState.ELIMINATED) continue;
+                int spriteIdx = ((p.getPlayerId() - 1) % 8) + 1;
+                if (p.getPlayerId() == myId) {
+                    drawPlayerSprite(gc, viewW, viewH,
+                            playerX, playerY, spriteIdx,
+                            animFrame, isMoving, facingLeft, p.getDisplayName());
+                } else {
+                    RemotePlayerAnim ra = remoteAnims.get(p.getPlayerId());
+                    if (ra == null) ra = new RemotePlayerAnim();
+                    drawPlayerSprite(gc, viewW, viewH,
+                            p.getPosition().x(), p.getPosition().y(),
+                            spriteIdx, ra.animFrame, ra.isMoving, ra.facingLeft,
+                            p.getDisplayName());
+                }
+            }
+        } else {
+            drawPlayerSprite(gc, viewW, viewH,
+                    playerX, playerY, 1, animFrame, isMoving, facingLeft, null);
         }
     }
 

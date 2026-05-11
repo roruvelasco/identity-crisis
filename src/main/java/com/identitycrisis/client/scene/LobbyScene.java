@@ -10,7 +10,11 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.ArcType;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import com.identitycrisis.shared.model.GameConfig;
+import com.identitycrisis.client.render.SpriteManager;
+import com.identitycrisis.client.net.GameClient;
 
 /**
  * Lobby/waiting screen — displays while players gather before game start.
@@ -35,6 +39,8 @@ public class LobbyScene {
     private int playerCount = 1;
     private Label playerCountLabel;
     private Label lobbyFullLabel;
+    private SpriteManager spriteManager;
+    private HBox playerCardsBox;
     private Label tipLabel;
     private int tipIndex = 0;
     private Timeline tipRotation;
@@ -57,6 +63,9 @@ public class LobbyScene {
     }
 
     public Scene createScene() {
+        spriteManager = new SpriteManager();
+        spriteManager.loadAll();
+
         StackPane root = new StackPane();
         root.setStyle("-fx-background-color: " + STONE_DARK + ";");
         root.setPrefSize(GameConfig.WINDOW_WIDTH, GameConfig.WINDOW_HEIGHT);
@@ -157,13 +166,20 @@ public class LobbyScene {
         waitingText.setEffect(new javafx.scene.effect.DropShadow(30, Color.rgb(201, 168, 76, 0.5)));
         VBox.setMargin(waitingText, new Insets(0, 0, 32, 0));
 
-        // Player donut ring section
-        VBox donutSection = createPlayerDonut();
+        // Player cards section
+        VBox donutSection = createPlayerCardsSection();
         VBox.setMargin(donutSection, new Insets(0, 0, 0, 0));
 
-        // Start Game button - navigates to LoadingScene (then to GameArena)
+        // Start Game button — sends C_READY to server (server triggers game start)
         startBtn = createPixelButton("▶  Start Game");
-        startBtn.setOnAction(e -> sceneManager.showLoading());
+        startBtn.setOnAction(e -> {
+            GameClient gc = sceneManager.getGameClient();
+            if (gc != null && gc.isConnected()) {
+                gc.sendReady();
+            } else {
+                sceneManager.showLoading();
+            }
+        });
         VBox.setMargin(startBtn, new Insets(20, 0, 0, 0));
 
         // Tip box
@@ -268,16 +284,15 @@ public class LobbyScene {
         return btn;
     }
 
-    private VBox createPlayerDonut() {
+    private VBox createPlayerCardsSection() {
         VBox container = new VBox(10);
         container.setAlignment(Pos.CENTER);
 
-        // Canvas for the donut ring (180×180 px)
-        donutCanvas = new Canvas(180, 180);
-        drawDonut(playerCount);
+        playerCardsBox = new HBox(10);
+        playerCardsBox.setAlignment(Pos.CENTER);
+        playerCardsBox.setMinHeight(90);
 
-        // "X / 8 PLAYERS" label
-        playerCountLabel = new Label(playerCount + " / " + GameConfig.MAX_PLAYERS + " PLAYERS");
+        playerCountLabel = new Label("1 / " + GameConfig.MAX_PLAYERS + " PLAYERS");
         playerCountLabel.setStyle(
             "-fx-font-family: 'Press Start 2P', monospace;" +
             "-fx-font-size: 8px;" +
@@ -285,7 +300,6 @@ public class LobbyScene {
             "-fx-letter-spacing: 2px;"
         );
 
-        // LOBBY FULL indicator (hidden until max)
         lobbyFullLabel = new Label("▶  LOBBY FULL  ◀");
         lobbyFullLabel.setStyle(
             "-fx-font-family: 'Press Start 2P', monospace;" +
@@ -296,8 +310,83 @@ public class LobbyScene {
         lobbyFullLabel.setVisible(false);
         lobbyFullLabel.setManaged(false);
 
-        container.getChildren().addAll(donutCanvas, playerCountLabel, lobbyFullLabel);
+        container.getChildren().addAll(playerCardsBox, playerCountLabel, lobbyFullLabel);
         return container;
+    }
+
+    /** Updates the lobby UI with the current player list from the server. */
+    public void setLobbyPlayers(String[] names, boolean[] ready, int myIndex) {
+        if (playerCardsBox == null) return;
+        javafx.application.Platform.runLater(() -> {
+            playerCardsBox.getChildren().clear();
+            int count = (names != null) ? names.length : 0;
+            this.playerCount = Math.max(1, Math.min(count, GameConfig.MAX_PLAYERS));
+            if (playerCountLabel != null) {
+                playerCountLabel.setText(playerCount + " / " + GameConfig.MAX_PLAYERS + " PLAYERS");
+            }
+            boolean full = (playerCount >= GameConfig.MAX_PLAYERS);
+            if (lobbyFullLabel != null) {
+                lobbyFullLabel.setVisible(full);
+                lobbyFullLabel.setManaged(full);
+            }
+            if (names != null) {
+                for (int i = 0; i < names.length; i++) {
+                    int spriteIdx = (i % 8) + 1;
+                    boolean isMe = (i == myIndex);
+                    playerCardsBox.getChildren().add(buildPlayerCard(names[i], spriteIdx, isMe));
+                }
+            }
+        });
+    }
+
+    private VBox buildPlayerCard(String name, int spriteIdx, boolean isMe) {
+        VBox card = new VBox(4);
+        card.setAlignment(Pos.CENTER);
+        card.setPadding(new Insets(8, 10, 8, 10));
+        card.setStyle(
+            "-fx-background-color: " + STONE_PANEL + ";" +
+            "-fx-border-color: " + (isMe ? GOLD : STONE_BORDER) + ";" +
+            "-fx-border-width: 1px;"
+        );
+
+        if (spriteManager != null) {
+            Image idleSheet = spriteManager.get("player_" + spriteIdx + "_idle");
+            if (idleSheet != null) {
+                ImageView sprite = new ImageView(idleSheet);
+                sprite.setViewport(new javafx.geometry.Rectangle2D(0, 0, 32, 32));
+                sprite.setFitWidth(64);
+                sprite.setFitHeight(64);
+                sprite.setSmooth(false);
+                card.getChildren().add(sprite);
+            } else {
+                Pane ph = new Pane();
+                ph.setPrefSize(64, 64);
+                ph.setStyle("-fx-background-color: #3a3a50;");
+                card.getChildren().add(ph);
+            }
+        }
+
+        if (isMe) {
+            Label youLabel = new Label("YOU");
+            youLabel.setStyle(
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                "-fx-font-size: 6px;" +
+                "-fx-text-fill: " + GOLD + ";" +
+                "-fx-letter-spacing: 1px;"
+            );
+            card.getChildren().add(youLabel);
+        }
+
+        Label nameLabel = new Label(name != null ? name : "Player");
+        nameLabel.setStyle(
+            "-fx-font-family: 'Press Start 2P', monospace;" +
+            "-fx-font-size: 5px;" +
+            "-fx-text-fill: " + TEXT_PARCHMENT + ";" +
+            "-fx-letter-spacing: 1px;"
+        );
+        nameLabel.setMaxWidth(72);
+        card.getChildren().add(nameLabel);
+        return card;
     }
 
     private void drawDonut(int count) {
@@ -457,11 +546,11 @@ public class LobbyScene {
         if (roomCodeLabel != null) {
             roomCodeLabel.setText("ROOM CODE: " + (roomCode != null ? roomCode : "------"));
         }
-        if (donutCanvas != null) {
-            drawDonut(playerCount);
+        if (playerCardsBox != null) {
+            playerCardsBox.getChildren().clear();
         }
         if (playerCountLabel != null) {
-            playerCountLabel.setText(playerCount + " / " + GameConfig.MAX_PLAYERS + " PLAYERS");
+            playerCountLabel.setText("1 / " + GameConfig.MAX_PLAYERS + " PLAYERS");
         }
         if (lobbyFullLabel != null) {
             lobbyFullLabel.setVisible(false);

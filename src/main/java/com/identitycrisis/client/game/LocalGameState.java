@@ -2,6 +2,7 @@ package com.identitycrisis.client.game;
 
 import com.identitycrisis.shared.model.*;
 import com.identitycrisis.shared.net.MessageDecoder;
+import com.identitycrisis.shared.util.Vector2D;
 import java.util.List;
 
 /**
@@ -57,6 +58,22 @@ public class LocalGameState {
             }
         }
         this.safeZones = updatedZones;
+
+        List<Player> updated = new java.util.ArrayList<>();
+        if (data.players() != null) {
+            for (MessageDecoder.PlayerNetData pd : data.players()) {
+                Player p = new Player(pd.id(), pd.name());
+                p.setPosition(new Vector2D(pd.x(), pd.y()));
+                p.setVelocity(new Vector2D(pd.vx(), pd.vy()));
+                p.setState(PlayerState.values()[pd.stateOrdinal()]);
+                p.setFacingDirection(pd.facing());
+                p.setInSafeZone(pd.inSafeZone());
+                p.setCarriedByPlayerId(pd.carriedBy());
+                p.setCarryingPlayerId(pd.carrying());
+                updated.add(p);
+            }
+        }
+        this.players = updated;
     }
     public void updateLobbyState(MessageDecoder.LobbyStateData data) {
         this.lobbyConnectedCount = data.connectedCount();

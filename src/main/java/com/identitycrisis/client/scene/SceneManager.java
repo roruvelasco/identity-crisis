@@ -38,6 +38,7 @@ public class SceneManager {
     private EmbeddedServer embeddedServer;
     private String roomCode;
     private boolean isHost;
+    private String myDisplayName;
 
     // Scene controllers
     private InitialLoadingScene initialLoadingScene;
@@ -269,6 +270,9 @@ public class SceneManager {
 
     public boolean isHost() { return isHost; }
     public void setHost(boolean host) { this.isHost = host; }
+
+    public String getMyDisplayName() { return myDisplayName; }
+    public void setMyDisplayName(String name) { this.myDisplayName = name; }
 
     public MenuScene getMenuScene() {
         return menuScene;

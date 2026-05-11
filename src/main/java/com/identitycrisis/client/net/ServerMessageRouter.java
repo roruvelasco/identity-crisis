@@ -33,7 +33,15 @@ public class ServerMessageRouter {
                 }
             }
             case S_GAME_STATE -> {
-                localGameState.updateFromSnapshot(decoder.decodeGameState());
+                MessageDecoder.GameStateData data = decoder.decodeGameState();
+                localGameState.updateFromSnapshot(data);
+                if (localGameState.getMyPlayerId() == 0) {
+                    localGameState.setMyPlayerId(data.controlledPlayerId());
+                }
+                if (onGameStarted != null) {
+                    Platform.runLater(onGameStarted);
+                    onGameStarted = null;
+                }
             }
             case S_ROUND_STATE -> {
                 // localGameState.updateRoundState(decoder.decodeRoundState());

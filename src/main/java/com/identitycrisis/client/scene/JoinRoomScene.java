@@ -270,12 +270,23 @@ public class JoinRoomScene {
         }
 
         // 2. Build the client networking stack and connect.
+        final String displayName = "Player";
         LocalGameState localState = new LocalGameState();
         ServerMessageRouter router = new ServerMessageRouter(localState);
         router.setOnLobbyStateChanged(() -> {
-            int count = localState.getLobbyConnectedCount();
-            sceneManager.getLobbyScene().setPlayerCount(count);
+            String[] names = localState.getLobbyPlayerNames();
+            boolean[] ready = localState.getLobbyReadyFlags();
+            String myName = sceneManager.getMyDisplayName();
+            int myIndex = -1;
+            if (names != null && myName != null) {
+                for (int ii = 0; ii < names.length; ii++) {
+                    if (myName.equals(names[ii])) { myIndex = ii; break; }
+                }
+            }
+            final int mi = myIndex;
+            sceneManager.getLobbyScene().setLobbyPlayers(names, ready, mi);
         });
+        router.setOnGameStarted(() -> sceneManager.showLoading());
         GameClient gameClient = new GameClient(router);
         try {
             gameClient.connect(hp.ip(), hp.port());
@@ -285,7 +296,7 @@ public class JoinRoomScene {
             return;
         }
         gameClient.startListening();
-        gameClient.sendJoinRequest("Player");
+        gameClient.sendJoinRequest(displayName);
 
         // 3. Publish session state. Joiners are NOT hosts and have no embedded server.
         sceneManager.setEmbeddedServer(null);
@@ -293,6 +304,7 @@ public class JoinRoomScene {
         sceneManager.setHost(false);
         sceneManager.setGameClient(gameClient);
         sceneManager.setLocalGameState(localState);
+        sceneManager.setMyDisplayName(displayName);
         LOG.info("Joined room " + raw + " at " + hp);
         clearError();
         sceneManager.showLobby();

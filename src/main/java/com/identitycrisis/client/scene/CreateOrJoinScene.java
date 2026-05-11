@@ -293,11 +293,22 @@ public class CreateOrJoinScene {
 
         // 3. Build the client-side networking stack and connect to ourselves.
         LocalGameState localState = new LocalGameState();
+        final String displayName = "Host";
         ServerMessageRouter router = new ServerMessageRouter(localState);
         router.setOnLobbyStateChanged(() -> {
-            int count = localState.getLobbyConnectedCount();
-            sceneManager.getLobbyScene().setPlayerCount(count);
+            String[] names = localState.getLobbyPlayerNames();
+            boolean[] ready = localState.getLobbyReadyFlags();
+            String myName = sceneManager.getMyDisplayName();
+            int myIndex = -1;
+            if (names != null && myName != null) {
+                for (int ii = 0; ii < names.length; ii++) {
+                    if (myName.equals(names[ii])) { myIndex = ii; break; }
+                }
+            }
+            final int mi = myIndex;
+            sceneManager.getLobbyScene().setLobbyPlayers(names, ready, mi);
         });
+        router.setOnGameStarted(() -> sceneManager.showLoading());
         GameClient gameClient = new GameClient(router);
         if (!connectWithRetry(gameClient, "localhost", port)) {
             embedded.stop();
@@ -305,7 +316,7 @@ public class CreateOrJoinScene {
             return;
         }
         gameClient.startListening();
-        gameClient.sendJoinRequest("Host");
+        gameClient.sendJoinRequest(displayName);
 
         // 4. Publish session state to the SceneManager and transition.
         sceneManager.setEmbeddedServer(embedded);
@@ -313,6 +324,7 @@ public class CreateOrJoinScene {
         sceneManager.setHost(true);
         sceneManager.setGameClient(gameClient);
         sceneManager.setLocalGameState(localState);
+        sceneManager.setMyDisplayName(displayName);
         clearError();
         sceneManager.showLobby();
     }
