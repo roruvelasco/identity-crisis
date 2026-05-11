@@ -146,6 +146,9 @@ public class GameServer {
         if (gameLoop != null) {
             gameLoop.cleanupClient(client.getClientId());
         }
+        if (lobbyManager != null && !clients.isEmpty()) {
+            lobbyManager.broadcastLobbyState();
+        }
     }
 
     /** Broadcast raw bytes to ALL connected clients. */

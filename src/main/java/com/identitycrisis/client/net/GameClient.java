@@ -67,10 +67,7 @@ public class GameClient {
         // sending them — making the game feel very laggy even on LAN.
         this.socket.setTcpNoDelay(true);
         this.socket.setKeepAlive(true);
-        // 10-second read timeout: lets the reader thread detect a dead server and
-        // exit cleanly rather than blocking forever. 10 s gives enough buffer even
-        // during heavy GC pauses on the server.
-        this.socket.setSoTimeout(10000);
+        this.socket.setSoTimeout(0);
         this.in      = new DataInputStream(new BufferedInputStream(socket.getInputStream(), 8192));
         // DataOutputStream is used DIRECTLY (no BufferedOutputStream wrapper)
         // so that every flush() goes straight to the socket — no double buffering.
@@ -99,9 +96,6 @@ public class GameClient {
             }
         } catch (EOFException eof) {
             LOG.info("Server closed the connection.");
-        } catch (java.net.SocketTimeoutException ste) {
-            // SO_TIMEOUT fired — server is silent; treat as disconnect.
-            if (connected) LOG.warn("Server timed out (no data for 5 s) — disconnecting.");
         } catch (IOException e) {
             if (connected) LOG.error("Read error — disconnecting", e);
         } finally {
