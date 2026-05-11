@@ -60,7 +60,6 @@ public class LobbyManager {
             for (int i = 0; i < n; i++) {
                 ClientConnection c = clients.get(i);
                 Player p = new Player(c.getClientId(), c.getDisplayName());
-                p.setSpriteIndex(i + 1); // 1-based: host=1, second joiner=2, …
                 double angle = 2 * Math.PI * i / n;
                 p.setPosition(new Vector2D(
                         cx + GameConfig.SPAWN_RADIUS * Math.cos(angle),

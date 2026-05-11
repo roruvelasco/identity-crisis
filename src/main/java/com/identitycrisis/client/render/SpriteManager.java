@@ -20,7 +20,7 @@ public class SpriteManager {
 
     /** Loads all known sprites into cache. Call once during scene init. */
     public void loadAll() {
-        for (int i = 1; i <= 8; i++) {
+        for (int i = 1; i <= 4; i++) {
             loadSprite("player_" + i + "_idle", "/sprites/players/" + i + "/Idle.png");
             loadSprite("player_" + i + "_walk", "/sprites/players/" + i + "/Walk.png");
             loadSprite("player_" + i + "_death", "/sprites/players/" + i + "/Death.png");
