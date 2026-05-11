@@ -80,6 +80,7 @@ public class EmbeddedServer {
         server.setLobbyManager(lobbyMgr);
         lobbyMgr.setGameState(gameState);
         lobbyMgr.setSafeZoneManager(szm);
+        lobbyMgr.setWallCollisionData(wallData);
 
         ServerGameLoop loop = new ServerGameLoop(server, ctx, pe, cd);
         server.setGameLoop(loop);
