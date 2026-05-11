@@ -2,6 +2,7 @@ package com.identitycrisis.client.game;
 
 import com.identitycrisis.shared.model.*;
 import com.identitycrisis.shared.net.MessageDecoder;
+import com.identitycrisis.shared.util.Vector2D;
 import java.util.List;
 
 /**
@@ -34,6 +35,9 @@ public class LocalGameState {
     private volatile List<String> chatMessages;
     private volatile String lastEliminatedName;
 
+    /** True once at least one S_GAME_STATE snapshot has been received. */
+    private volatile boolean snapshotReceived = false;
+
     /**
      * Sentinel returned by {@link #getRoundNumber()} when the client has not
      * yet received a snapshot.  Callers (e.g. {@link com.identitycrisis.client.scene.GameArena})
@@ -50,6 +54,23 @@ public class LocalGameState {
         this.chaosDurationRemaining = data.chaosDuration();
         this.controlledPlayerId = data.controlledPlayerId();
 
+        // Phase 1: Populate players list from server snapshot
+        if (data.players() != null) {
+            List<Player> updated = new java.util.ArrayList<>();
+            for (MessageDecoder.PlayerNetData pd : data.players()) {
+                Player p = new Player(pd.id(), pd.name());
+                p.setPosition(new Vector2D(pd.x(), pd.y()));
+                p.setVelocity(new Vector2D(pd.vx(), pd.vy()));
+                p.setState(PlayerState.values()[pd.stateOrdinal()]);
+                p.setFacingDirection(pd.facing());
+                p.setInSafeZone(pd.inSafeZone());
+                p.setCarriedByPlayerId(pd.carriedBy());
+                p.setCarryingPlayerId(pd.carrying());
+                updated.add(p);
+            }
+            this.players = updated;
+        }
+
         List<SafeZone> updatedZones = new java.util.ArrayList<>();
         if (data.zones() != null) {
             for (MessageDecoder.SafeZoneNetData z : data.zones()) {
@@ -57,6 +78,29 @@ public class LocalGameState {
             }
         }
         this.safeZones = updatedZones;
+<<<<<<< HEAD
+        this.snapshotReceived = true;
+=======
+
+        // Rebuild the player list so rendering and sprite lookup always reflect
+        // the latest server snapshot (previously this was never populated).
+        List<Player> updatedPlayers = new java.util.ArrayList<>();
+        if (data.players() != null) {
+            for (MessageDecoder.PlayerNetData pd : data.players()) {
+                Player p = new Player(pd.id(), pd.name());
+                p.setPosition(new com.identitycrisis.shared.util.Vector2D(pd.x(), pd.y()));
+                p.setVelocity(new com.identitycrisis.shared.util.Vector2D(pd.vx(), pd.vy()));
+                p.setState(PlayerState.values()[pd.stateOrdinal()]);
+                p.setFacingDirection(pd.facing());
+                p.setInSafeZone(pd.inSafeZone());
+                p.setCarriedByPlayerId(pd.carriedBy());
+                p.setCarryingPlayerId(pd.carrying());
+                p.setSpriteIndex(pd.spriteIndex());
+                updatedPlayers.add(p);
+            }
+        }
+        this.players = updatedPlayers;
+>>>>>>> d287cc4497895f069ecdbc5de3e7a403eafd722f
     }
     public void updateLobbyState(MessageDecoder.LobbyStateData data) {
         this.lobbyConnectedCount = data.connectedCount();
@@ -120,5 +164,5 @@ public class LocalGameState {
     public boolean[] getLobbyReadyFlags() { return lobbyReadyFlags; }
 
     /** True once the client has received at least one game-state snapshot. */
-    public boolean hasReceivedSnapshot() { return roundNumber != NO_ROUND; }
+    public boolean hasReceivedSnapshot() { return snapshotReceived; }
 }

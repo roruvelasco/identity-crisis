@@ -33,7 +33,20 @@ public class ServerMessageRouter {
                 }
             }
             case S_GAME_STATE -> {
-                localGameState.updateFromSnapshot(decoder.decodeGameState());
+                MessageDecoder.GameStateData data = decoder.decodeGameState();
+                localGameState.updateFromSnapshot(data);
+                // Phase 3: Latch myPlayerId from the first snapshot we receive.
+                // controlledPlayerId == clientId at game start (no control swap yet).
+                if (localGameState.getMyPlayerId() == 0) {
+                    localGameState.setMyPlayerId(data.controlledPlayerId());
+                }
+                // Phase 6: Fire game-started callback exactly once — first snapshot
+                // arriving means the server game loop has kicked off.
+                if (onGameStarted != null) {
+                    Runnable cb = onGameStarted;
+                    onGameStarted = null; // null before runLater to prevent double-fire
+                    Platform.runLater(cb);
+                }
             }
             case S_ROUND_STATE -> {
                 // localGameState.updateRoundState(decoder.decodeRoundState());

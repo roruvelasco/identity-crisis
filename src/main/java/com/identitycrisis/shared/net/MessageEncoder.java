@@ -99,6 +99,7 @@ public class MessageEncoder {
             tmp.writeByte(p.inSafeZone() ? 1 : 0);
             tmp.writeInt(p.carriedBy());
             tmp.writeInt(p.carrying());
+            tmp.writeInt(p.spriteIndex());
         }
         tmp.writeInt(zones.length);
         for (SafeZoneNetData z : zones) {
@@ -223,7 +224,8 @@ public class MessageEncoder {
     public record PlayerNetData(int id, String name, double x, double y,
                                 double vx, double vy, byte stateOrdinal,
                                 int facing, boolean inSafeZone,
-                                int carriedBy, int carrying) { }
+                                int carriedBy, int carrying,
+                                int spriteIndex) { }
 
     /**
      * Wire form of a single safe-zone rectangle in world-pixel space.

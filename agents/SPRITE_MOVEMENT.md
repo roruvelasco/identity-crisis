@@ -16,12 +16,20 @@ multiplied by `getScale()`.
 ## Sprite Sheet Layout
 
 Each player sprite sheet uses **32×32 px frames** (1 frame = 1 column in the PNG).
+Eight sprite sets exist under `/sprites/players/{1..8}/`. The set used is determined by
+each player's **join order** (`spriteIndex`): the host receives index 1, the second
+player to join receives 2, and so on up to 8 (`GameConfig.MAX_PLAYERS`).
 
 | Animation | Key              | Frames |
 |-----------|------------------|--------|
 | Idle      | `player_N_idle`  | 4      |
 | Walk      | `player_N_walk`  | 6      |
 | Death     | `player_N_death` | varies |
+
+`spriteIndex` is stored on `Player`, encoded in `PlayerNetData` (last field), decoded
+by the client in `LocalGameState.updateFromSnapshot()`, and used in
+`GameArena.drawPlayer()` to select the correct `SpriteManager` key.
+`SpriteManager.loadAll()` loads all 8 sets (loop `i = 1..8`).
 
 A tile is **16 world px** wide.  The sprite frame is **32 world px** (2 tiles), but
 the actual character art occupies only the centre-bottom portion of that frame.

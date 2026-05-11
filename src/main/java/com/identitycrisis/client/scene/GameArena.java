@@ -1,12 +1,16 @@
 package com.identitycrisis.client.scene;
 
+import com.identitycrisis.client.game.LocalGameState;
 import com.identitycrisis.client.input.InputManager;
 import com.identitycrisis.client.input.InputSnapshot;
+import com.identitycrisis.client.net.GameClient;
 import com.identitycrisis.client.render.ArenaRenderer;
 import com.identitycrisis.client.render.MapManager;
 import com.identitycrisis.client.render.SpriteManager;
 import com.identitycrisis.shared.model.ChaosEventType;
 import com.identitycrisis.shared.model.GameConfig;
+import com.identitycrisis.shared.model.Player;
+import com.identitycrisis.shared.model.PlayerState;
 import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -248,11 +252,29 @@ public class GameArena {
     private com.identitycrisis.shared.model.ChaosEventType toastEventType =
             com.identitycrisis.shared.model.ChaosEventType.NONE;
 
-    // ────────────────────────────────────────────────────────────────────────
+    // -- Phase 4A: Remote player animation state ---------------------------------
+    /**
+     * Per-remote-player animation state, keyed by playerId.
+     * Entries are created lazily for each player that is not the local player.
+     */
+    private final java.util.Map<Integer, RemotePlayerAnim> remoteAnims = new java.util.HashMap<>();
+
+    /** Mutable animation state for a single remote player. */
+    private static class RemotePlayerAnim {
+        int     animFrame  = 0;
+        double  animTimer  = 0.0;
+        boolean facingLeft = false;
+        boolean isMoving   = false;
+        double  lastX      = 0.0;
+        double  lastY      = 0.0;
+    }
+
+    // ----------------------------------------------------------------------------
 
     public GameArena(SceneManager sceneManager) {
         this.sceneManager = sceneManager;
     }
+
 
     // ── Scene creation (called once, result is cached by SceneManager) ────────
 
@@ -576,11 +598,48 @@ public class GameArena {
             animFrame = (animFrame + 1) % totalFrames;
         }
 
-        // ── Safe-zone detection ───────────────────────────────────────────────
+        // -- Safe-zone detection --------------------------------------------------
         currentZone = (mapManager != null) ? mapManager.getSafeZoneAt(playerX, playerY) : -1;
         pulseTimer += dt;
 
-        // ── Round / timer ─────────────────────────────────────────────────────
+        // -- Phase 7: Send client input to server ---------------------------------
+        // Sends raw (pre-reversal) input so the server owns movement authority and
+        // can broadcast authoritative positions to all other clients.
+        GameClient netClient = (sceneManager != null) ? sceneManager.getGameClient() : null;
+        if (netClient != null && netClient.isConnected()) {
+            InputSnapshot raw = inputManager.snapshot();
+            netClient.sendInput(raw.up(), raw.down(), raw.left(), raw.right(),
+                                raw.carry(), raw.throwAction());
+        }
+
+        // -- Phase 4B: Update remote player animation states ----------------------
+        LocalGameState lgsForRemote = (sceneManager != null)
+                ? sceneManager.getLocalGameState() : null;
+        if (lgsForRemote != null && lgsForRemote.hasReceivedSnapshot()) {
+            int myId = lgsForRemote.getMyPlayerId();
+            for (Player rp : lgsForRemote.getPlayers()) {
+                if (rp.getPlayerId() == myId) continue; // skip self
+                RemotePlayerAnim ra = remoteAnims.computeIfAbsent(
+                        rp.getPlayerId(), k -> new RemotePlayerAnim());
+                double rpx = rp.getPosition().x();
+                double rpy = rp.getPosition().y();
+                double rdx = rpx - ra.lastX;
+                double rdy = rpy - ra.lastY;
+                ra.isMoving = (Math.abs(rdx) > 0.1 || Math.abs(rdy) > 0.1);
+                if (rdx < -0.1) ra.facingLeft = true;
+                if (rdx >  0.1) ra.facingLeft = false;
+                ra.lastX = rpx;
+                ra.lastY = rpy;
+                ra.animTimer += dt;
+                if (ra.animTimer >= FRAME_DURATION) {
+                    ra.animTimer -= FRAME_DURATION;
+                    int frames = ra.isMoving ? WALK_FRAMES : IDLE_FRAMES;
+                    ra.animFrame = (ra.animFrame + 1) % frames;
+                }
+            }
+        }
+
+        // -- Round / timer --------------------------------------------------------
         // Prefer server-driven state when a snapshot is available so the HUD
         // reflects every authoritative event (round transitions, timer skip on
         // safe-zone entry, etc.). Otherwise fall back to the local timer so
@@ -903,8 +962,8 @@ public class GameArena {
             }
         }
 
-        // 3. Player sprite
-        drawPlayer(gc, w, h);
+        // 3. Player sprites (local + remote)
+        drawAllPlayers(gc, w, h);
 
         // 4. Round timer HUD (top-centre)
         drawTimerHud(gc, w, h);
@@ -1003,37 +1062,100 @@ public class GameArena {
         gc.restore();
     }
 
-    // ── Player rendering ─────────────────────────────────────────────────────
+    // -- Player rendering ---------------------------------------------------------
 
-    private void drawPlayer(GraphicsContext gc, double viewW, double viewH) {
-        // Convert world-pixel position → screen position
+    /**
+     * Phase 4D: Renders all players -- local (client-side position) and every
+     * remote player (server-authoritative position). Falls back to the legacy
+     * single-player draw when no snapshot has arrived yet (offline / dev mode).
+     */
+    private void drawAllPlayers(GraphicsContext gc, double viewW, double viewH) {
+        LocalGameState lgs = (sceneManager != null) ? sceneManager.getLocalGameState() : null;
+        if (lgs != null && lgs.hasReceivedSnapshot() && lgs.getPlayers() != null
+                && !lgs.getPlayers().isEmpty()) {
+            int myId = lgs.getMyPlayerId();
+            for (Player p : lgs.getPlayers()) {
+                if (p.getState() == PlayerState.ELIMINATED) continue;
+                // Sprite index 1-8: (playerId-1) % 8 + 1
+                int spriteIdx = ((p.getPlayerId() - 1) % 8) + 1;
+                if (p.getPlayerId() == myId) {
+                    // Local player: use client-side position for responsiveness
+                    drawPlayerSprite(gc, viewW, viewH,
+                            playerX, playerY, spriteIdx,
+                            animFrame, isMoving, facingLeft, p.getDisplayName());
+                } else {
+                    // Remote player: use server-authoritative position
+                    RemotePlayerAnim ra = remoteAnims.get(p.getPlayerId());
+                    if (ra == null) ra = new RemotePlayerAnim();
+                    drawPlayerSprite(gc, viewW, viewH,
+                            p.getPosition().x(), p.getPosition().y(),
+                            spriteIdx, ra.animFrame, ra.isMoving, ra.facingLeft,
+                            p.getDisplayName());
+                }
+            }
+        } else {
+            // Offline / no snapshot yet -- draw local player with sprite 1 (legacy)
+            drawPlayerSprite(gc, viewW, viewH,
+                    playerX, playerY, 1, animFrame, isMoving, facingLeft, null);
+        }
+    }
+
+    /**
+     * Phase 4C/4E: Generalised player sprite draw with optional name tag.
+     *
+     * @param worldX      World-pixel X of sprite-frame centre.
+     * @param worldY      World-pixel Y of sprite-frame centre.
+     * @param spriteIdx   1-8 -- which player sprite set to use.
+     * @param frame       Animation frame index.
+     * @param moving      Whether the walk sheet should be used.
+     * @param left        Whether the sprite should be horizontally flipped.
+     * @param displayName Player name shown above sprite; null = no tag.
+     */
+    private void drawPlayerSprite(GraphicsContext gc, double viewW, double viewH,
+                                  double worldX, double worldY,
+                                  int spriteIdx, int frame, boolean moving,
+                                  boolean left, String displayName) {
         double screenX, screenY, displaySize;
-
         if (mapManager != null && mapManager.getWorldWidth() > 0) {
             double scale = mapManager.getScale(viewW, viewH);
-            screenX = mapManager.worldToScreenX(playerX, viewW, viewH);
-            screenY = mapManager.worldToScreenY(playerY, viewW, viewH);
-            // Display sprite proportionally: 2 tiles wide at the current map scale
+            screenX     = mapManager.worldToScreenX(worldX, viewW, viewH);
+            screenY     = mapManager.worldToScreenY(worldY, viewW, viewH);
             displaySize = SPRITE_NATIVE * scale;
         } else {
-            // Fallback: no map, render at 3× native in screen space
-            screenX = playerX;
-            screenY = playerY;
+            screenX     = worldX;
+            screenY     = worldY;
             displaySize = SPRITE_NATIVE * 3.0;
         }
 
-        String key = isMoving ? "player_1_walk" : "player_1_idle";
+<<<<<<< HEAD
+        String key   = moving ? "player_" + spriteIdx + "_walk"
+                              : "player_" + spriteIdx + "_idle";
+        Image  sheet = spriteManager.get(key);
+        int    maxF  = moving ? WALK_FRAMES : IDLE_FRAMES;
+        double srcX  = Math.min(frame, maxF - 1) * SPRITE_NATIVE;
+=======
+        // Resolve sprite index from join order (server snapshot) or fall back to 1.
+        int si = 1;
+        if (sceneManager != null && sceneManager.getLocalGameState() != null) {
+            int myId = sceneManager.getLocalGameState().getMyPlayerId();
+            for (var sp : sceneManager.getLocalGameState().getPlayers()) {
+                if (sp.getPlayerId() == myId) { si = sp.getSpriteIndex(); break; }
+            }
+        }
+        String key = isMoving ? "player_" + si + "_walk" : "player_" + si + "_idle";
         Image sheet = spriteManager.get(key);
 
         int maxFrames = isMoving ? WALK_FRAMES : IDLE_FRAMES;
         int frame = Math.min(animFrame, maxFrames - 1);
         double srcX = frame * SPRITE_NATIVE;
+>>>>>>> d287cc4497895f069ecdbc5de3e7a403eafd722f
         double drawX = screenX - displaySize / 2.0;
         double drawY = screenY - displaySize / 2.0;
 
         if (sheet != null) {
             gc.save();
-            if (facingLeft) {
+            gc.setImageSmoothing(false);
+            if (left) {
                 gc.translate(drawX + displaySize, drawY);
                 gc.scale(-1, 1);
                 gc.drawImage(sheet,
@@ -1046,14 +1168,22 @@ public class GameArena {
             }
             gc.restore();
         } else {
-            // Fallback circle
+            // Fallback: coloured circle when sprite not loaded
             gc.setFill(Color.web("#3E8948"));
             double r = displaySize / 2.0;
             gc.fillOval(screenX - r, screenY - r, displaySize, displaySize);
-            gc.setStroke(Color.web("#63C74D"));
-            gc.setLineWidth(2);
-            double eyeX = facingLeft ? screenX - r * 0.3 : screenX + r * 0.3;
-            gc.strokeLine(screenX, screenY, eyeX, screenY - r * 0.4);
+        }
+
+        // Phase 4E: Draw player name tag above the sprite
+        if (displayName != null && !displayName.isBlank()) {
+            gc.save();
+            gc.setFont(loadFont("Press Start 2P", 5));
+            gc.setTextAlign(TextAlignment.CENTER);
+            gc.setFill(Color.rgb(0, 0, 0, 0.7));
+            gc.fillText(displayName, screenX + 1, drawY - 3); // drop shadow
+            gc.setFill(Color.web("#e8dfc4"));
+            gc.fillText(displayName, screenX, drawY - 4);
+            gc.restore();
         }
     }
 

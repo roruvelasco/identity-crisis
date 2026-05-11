@@ -1,6 +1,7 @@
 package com.identitycrisis.client.scene;
 
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
 import javafx.scene.layout.*;
 import javafx.scene.control.*;
 import javafx.geometry.*;
@@ -10,16 +11,20 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.ArcType;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.text.TextAlignment;
+import javafx.scene.text.Font;
+import com.identitycrisis.client.render.SpriteManager;
 import com.identitycrisis.shared.model.GameConfig;
 
 /**
  * Lobby/waiting screen — displays while players gather before game start.
- * Animated crest, dynamic player-count donut ring, rotating tips.
+ * Shows connected players with their assigned sprites and rotating tips.
  */
 public class LobbyScene {
 
     private Scene scene;
-    private SceneManager sceneManager;
+    private final SceneManager sceneManager;
+    private final SpriteManager spriteManager;
 
     // Color constants
     private static final String GOLD = "#c9a84c";
@@ -31,9 +36,7 @@ public class LobbyScene {
     private static final String TEXT_MUTED = "#7a7060";
     private static final String STONE_BORDER = "#2a2a36";
 
-    private Canvas donutCanvas;
-    private int playerCount = 1;
-    private Label playerCountLabel;
+    private FlowPane playerListContainer;
     private Label lobbyFullLabel;
     private Label tipLabel;
     private int tipIndex = 0;
@@ -41,6 +44,9 @@ public class LobbyScene {
     private Label roomCodeLabel;
     private String roomCode;
     private Button startBtn;
+    
+    // Default font loaded from resources if needed
+    private Font defaultFont;
 
     private final String[] tips = {
         "Carry a teammate to safety — but you can't enter the safe zone while holding them.",
@@ -54,6 +60,13 @@ public class LobbyScene {
 
     public LobbyScene(SceneManager sceneManager) {
         this.sceneManager = sceneManager;
+        this.spriteManager = new SpriteManager();
+        this.spriteManager.loadAll();
+        try {
+            defaultFont = Font.loadFont(getClass().getResourceAsStream("/fonts/PressStart2P-Regular.ttf"), 10);
+        } catch (Exception e) {
+            defaultFont = Font.font("Monospace", 10);
+        }
     }
 
     public Scene createScene() {
@@ -157,20 +170,21 @@ public class LobbyScene {
         waitingText.setEffect(new javafx.scene.effect.DropShadow(30, Color.rgb(201, 168, 76, 0.5)));
         VBox.setMargin(waitingText, new Insets(0, 0, 32, 0));
 
-        // Player donut ring section
-        VBox donutSection = createPlayerDonut();
-        VBox.setMargin(donutSection, new Insets(0, 0, 0, 0));
+        // Player sprite list section
+        VBox listSection = createPlayerListSection();
+        VBox.setMargin(listSection, new Insets(0, 0, 0, 0));
 
-        // Start Game button - navigates to LoadingScene (then to GameArena)
+        // Start Game / Ready button
+        // Host sees Start Game. Client sees Ready.
         startBtn = createPixelButton("▶  Start Game");
-        startBtn.setOnAction(e -> sceneManager.showLoading());
+        startBtn.setOnAction(e -> onReadyClicked());
         VBox.setMargin(startBtn, new Insets(20, 0, 0, 0));
 
         // Tip box
         VBox tipBox = createTipBox();
         VBox.setMargin(tipBox, new Insets(28, 0, 0, 0));
 
-        content.getChildren().addAll(roomCodeLabel, waitingText, donutSection, startBtn, tipBox);
+        content.getChildren().addAll(roomCodeLabel, waitingText, listSection, startBtn, tipBox);
         return content;
     }
 
@@ -268,24 +282,16 @@ public class LobbyScene {
         return btn;
     }
 
-    private VBox createPlayerDonut() {
-        VBox container = new VBox(10);
+    private VBox createPlayerListSection() {
+        VBox container = new VBox(15);
         container.setAlignment(Pos.CENTER);
 
-        // Canvas for the donut ring (180×180 px)
-        donutCanvas = new Canvas(180, 180);
-        drawDonut(playerCount);
+        playerListContainer = new FlowPane(Orientation.HORIZONTAL);
+        playerListContainer.setAlignment(Pos.CENTER);
+        playerListContainer.setHgap(15);
+        playerListContainer.setVgap(15);
+        playerListContainer.setPrefWrapLength(400);
 
-        // "X / 8 PLAYERS" label
-        playerCountLabel = new Label(playerCount + " / " + GameConfig.MAX_PLAYERS + " PLAYERS");
-        playerCountLabel.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 8px;" +
-            "-fx-text-fill: " + GOLD + ";" +
-            "-fx-letter-spacing: 2px;"
-        );
-
-        // LOBBY FULL indicator (hidden until max)
         lobbyFullLabel = new Label("▶  LOBBY FULL  ◀");
         lobbyFullLabel.setStyle(
             "-fx-font-family: 'Press Start 2P', monospace;" +
@@ -296,61 +302,90 @@ public class LobbyScene {
         lobbyFullLabel.setVisible(false);
         lobbyFullLabel.setManaged(false);
 
-        container.getChildren().addAll(donutCanvas, playerCountLabel, lobbyFullLabel);
+        // Populate initially with just 1 placeholder card
+        setLobbyPlayers(new String[]{"PLAYER 1"}, new boolean[]{false}, 1);
+
+        container.getChildren().addAll(playerListContainer, lobbyFullLabel);
         return container;
     }
 
-    private void drawDonut(int count) {
-        GraphicsContext gc = donutCanvas.getGraphicsContext2D();
-        double W = donutCanvas.getWidth();
-        double H = donutCanvas.getHeight();
-        double cx = W / 2.0;
-        double cy = H / 2.0;
-        double outerR = 76.0;
-        double innerR = 48.0;
-        double gapDeg = (count > 1) ? 5.0 : 0.0;
+    private VBox createPlayerCard(String name, int spriteIdx, boolean isMe, boolean isReady) {
+        VBox card = new VBox(8);
+        card.setAlignment(Pos.CENTER);
+        card.setPadding(new Insets(10));
+        
+        String borderCol = isMe ? GOLD : STONE_BORDER;
+        String bgCol = isMe ? "#2a2210" : STONE_PANEL;
+        card.setStyle(
+            "-fx-background-color: " + bgCol + ";" +
+            "-fx-border-color: " + borderCol + ";" +
+            "-fx-border-width: 2px;" +
+            "-fx-border-radius: 4px;" +
+            "-fx-background-radius: 4px;"
+        );
+        card.setPrefSize(90, 110);
+        card.setMinSize(90, 110);
 
-        gc.clearRect(0, 0, W, H);
-
-        for (int i = 0; i < count; i++) {
-            double sliceAngle = 360.0 / count;
-            double startAngle = 90.0 + i * sliceAngle + gapDeg / 2.0;
-            double extent = sliceAngle - gapDeg;
-
-            // Outer glow pass — semi-transparent, slightly oversized
-            gc.setFill(Color.rgb(201, 168, 76, 0.22));
-            gc.fillArc(cx - outerR - 5, cy - outerR - 5,
-                       (outerR + 5) * 2, (outerR + 5) * 2,
-                       startAngle, extent, ArcType.ROUND);
-
-            // Main gold arc
-            gc.setFill(Color.web(GOLD));
-            gc.fillArc(cx - outerR, cy - outerR, outerR * 2, outerR * 2,
-                       startAngle, extent, ArcType.ROUND);
-
-            // Inner highlight — lighter gold strip near outer edge
-            gc.setFill(Color.rgb(232, 200, 106, 0.30));
-            gc.fillArc(cx - outerR + 5, cy - outerR + 5,
-                       (outerR - 5) * 2, (outerR - 5) * 2,
-                       startAngle + 3, Math.max(extent - 6, 1.0), ArcType.ROUND);
+        // Render Sprite to Canvas
+        Canvas canvas = new Canvas(48, 48);
+        GraphicsContext gc = canvas.getGraphicsContext2D();
+        Image sheet = spriteManager.get("player_" + spriteIdx + "_idle");
+        if (sheet != null) {
+            gc.setImageSmoothing(false);
+            // Draw first frame of idle animation
+            gc.drawImage(sheet, 0, 0, 32, 32, 0, 0, 48, 48);
+        } else {
+            gc.setFill(Color.web("#3E8948"));
+            gc.fillOval(8, 8, 32, 32);
         }
 
-        // Donut hole — paint center with background color
-        gc.setFill(Color.web(STONE_DARK));
-        gc.fillOval(cx - innerR, cy - innerR, innerR * 2, innerR * 2);
+        Label nameLbl = new Label(name != null && !name.isBlank() ? name : ("P" + spriteIdx));
+        nameLbl.setStyle(
+            "-fx-font-family: 'Press Start 2P', monospace;" +
+            "-fx-font-size: 7px;" +
+            "-fx-text-fill: " + TEXT_PARCHMENT + ";"
+        );
+        nameLbl.setMaxWidth(80);
+        nameLbl.setAlignment(Pos.CENTER);
 
-        // Thin inner ring border
-        gc.setStroke(Color.web(GOLD_DARK));
-        gc.setLineWidth(1.0);
-        gc.strokeOval(cx - innerR, cy - innerR, innerR * 2, innerR * 2);
+        Label statusLbl = new Label(isMe ? "(YOU)" : (isReady ? "READY" : "WAIT"));
+        statusLbl.setStyle(
+            "-fx-font-family: 'Press Start 2P', monospace;" +
+            "-fx-font-size: 6px;" +
+            "-fx-text-fill: " + (isMe ? GOLD_LIGHT : (isReady ? "#63C74D" : TEXT_MUTED)) + ";"
+        );
+
+        card.getChildren().addAll(canvas, nameLbl, statusLbl);
+        return card;
     }
 
-    private void updatePlayerCount() {
-        drawDonut(playerCount);
-        playerCountLabel.setText(playerCount + " / " + GameConfig.MAX_PLAYERS + " PLAYERS");
-        boolean isFull = playerCount >= GameConfig.MAX_PLAYERS;
-        lobbyFullLabel.setVisible(isFull);
-        lobbyFullLabel.setManaged(isFull);
+    /** Called by the network layer with the actual connected players. */
+    public void setLobbyPlayers(String[] names, boolean[] readyFlags, int myIndex) {
+        if (playerListContainer == null) return;
+        playerListContainer.getChildren().clear();
+
+        int count = names != null ? names.length : 0;
+        for (int i = 0; i < count; i++) {
+            boolean isMe = ((i + 1) == myIndex) || (myIndex == 0 && i == 0);
+            boolean isReady = readyFlags != null && i < readyFlags.length && readyFlags[i];
+            int spriteIdx = (i % 8) + 1; // 1-8 deterministic
+            
+            VBox card = createPlayerCard(names[i], spriteIdx, isMe, isReady);
+            playerListContainer.getChildren().add(card);
+        }
+
+        boolean isFull = count >= GameConfig.MAX_PLAYERS;
+        if (lobbyFullLabel != null) {
+            lobbyFullLabel.setVisible(isFull);
+            lobbyFullLabel.setManaged(isFull);
+        }
+    }
+
+    /** Legacy entry point if code still calls setPlayerCount directly. */
+    public void setPlayerCount(int count) {
+        String[] dummyNames = new String[count];
+        for (int i = 0; i < count; i++) dummyNames[i] = "P" + (i + 1);
+        setLobbyPlayers(dummyNames, new boolean[count], 1);
     }
 
     private VBox createTipBox() {
@@ -449,7 +484,6 @@ public class LobbyScene {
      */
     public void onEnter() {
         tipIndex = 0;
-        playerCount = 1;
 
         // Pull the real room code from the SceneManager (populated by the
         // Create or Join flow). Falls back to placeholder if absent.
@@ -457,21 +491,13 @@ public class LobbyScene {
         if (roomCodeLabel != null) {
             roomCodeLabel.setText("ROOM CODE: " + (roomCode != null ? roomCode : "------"));
         }
-        if (donutCanvas != null) {
-            drawDonut(playerCount);
-        }
-        if (playerCountLabel != null) {
-            playerCountLabel.setText(playerCount + " / " + GameConfig.MAX_PLAYERS + " PLAYERS");
-        }
-        if (lobbyFullLabel != null) {
-            lobbyFullLabel.setVisible(false);
-            lobbyFullLabel.setManaged(false);
-        }
 
+        // Initial setup for the host vs joiner
         if (startBtn != null) {
             boolean isHost = sceneManager.isHost();
-            startBtn.setVisible(isHost);
-            startBtn.setManaged(isHost);
+            startBtn.setText(isHost ? "▶  Start Game" : "▶  Ready");
+            startBtn.setVisible(true);
+            startBtn.setManaged(true);
         }
 
         // Tip rotation
@@ -494,18 +520,20 @@ public class LobbyScene {
         if (tipRotation != null) tipRotation.stop();
     }
 
-    /** Called by the network layer with the real player count from the server. */
-    public void setPlayerCount(int count) {
-        this.playerCount = Math.max(1, Math.min(count, GameConfig.MAX_PLAYERS));
-        if (donutCanvas != null) updatePlayerCount();
-    }
-
     private void onReadyClicked() {
-        // Ready functionality for multiplayer lobby
+        // Phase 6: Inform server that this client is ready to start.
+        if (sceneManager != null && sceneManager.getGameClient() != null) {
+            sceneManager.getGameClient().sendReady();
+        }
+        // Button disables to prevent spam
+        if (startBtn != null) {
+            startBtn.setDisable(true);
+            startBtn.setText("Waiting...");
+        }
     }
 
     public void refreshLobbyDisplay() {
-        // Update player list display
+        // Automatically handled by setLobbyPlayers via router updates
     }
 
     // Legacy method for compatibility

@@ -273,8 +273,14 @@ public class JoinRoomScene {
         LocalGameState localState = new LocalGameState();
         ServerMessageRouter router = new ServerMessageRouter(localState);
         router.setOnLobbyStateChanged(() -> {
-            int count = localState.getLobbyConnectedCount();
-            sceneManager.getLobbyScene().setPlayerCount(count);
+            sceneManager.getLobbyScene().setLobbyPlayers(
+                localState.getLobbyPlayerNames(),
+                localState.getLobbyReadyFlags(),
+                localState.getMyPlayerId()
+            );
+        });
+        router.setOnGameStarted(() -> {
+            sceneManager.showLoading();
         });
         GameClient gameClient = new GameClient(router);
         try {

@@ -182,7 +182,8 @@ public class ServerGameLoop implements Runnable {
                         p.getPosition().x(), p.getPosition().y(),
                         p.getVelocity().x(), p.getVelocity().y(),
                         (byte) p.getState().ordinal(), p.getFacingDirection(),
-                        p.isInSafeZone(), p.getCarriedByPlayerId(), p.getCarryingPlayerId());
+                        p.isInSafeZone(), p.getCarriedByPlayerId(), p.getCarryingPlayerId(),
+                        p.getSpriteIndex());
             }
 
             MessageEncoder.SafeZoneNetData[] zoneData = new MessageEncoder.SafeZoneNetData[zones.size()];
