@@ -143,7 +143,7 @@ public class LobbyScene {
         VBox content = new VBox(0);
         content.setAlignment(Pos.CENTER);
         content.setPadding(new Insets(0, 24, 0, 24));
-        content.setMaxWidth(560);
+        content.setMaxWidth(960);
 
         // Room code display (generated on scene load)
         roomCodeLabel = new Label("ROOM CODE: ------");
@@ -289,22 +289,24 @@ public class LobbyScene {
         VBox container = new VBox(10);
         container.setAlignment(Pos.CENTER);
 
-        playerCardsBox = new HBox(12);
+        playerCardsBox = new HBox(18);
         playerCardsBox.setAlignment(Pos.CENTER);
-        playerCardsBox.setPadding(new Insets(10));
+        playerCardsBox.setPadding(new Insets(14));
+        playerCardsBox.setMinWidth(680);
 
         javafx.scene.control.ScrollPane scroll = new javafx.scene.control.ScrollPane(playerCardsBox);
+        scroll.setFitToWidth(true);
         scroll.setFitToHeight(true);
         scroll.setHbarPolicy(javafx.scene.control.ScrollPane.ScrollBarPolicy.AS_NEEDED);
         scroll.setVbarPolicy(javafx.scene.control.ScrollPane.ScrollBarPolicy.NEVER);
         scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
-        scroll.setPrefHeight(210);
-        scroll.setMaxWidth(680);
+        scroll.setPrefHeight(250);
+        scroll.setMaxWidth(960);
 
         playerCountLabel = new Label("1 / " + GameConfig.MAX_PLAYERS + " PLAYERS");
         playerCountLabel.setStyle(
             "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 8px;" +
+            "-fx-font-size: 10px;" +
             "-fx-text-fill: " + GOLD + ";" +
             "-fx-letter-spacing: 2px;"
         );
@@ -312,7 +314,7 @@ public class LobbyScene {
         lobbyFullLabel = new Label("▶  LOBBY FULL  ◀");
         lobbyFullLabel.setStyle(
             "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 7px;" +
+            "-fx-font-size: 9px;" +
             "-fx-text-fill: " + GOLD_LIGHT + ";" +
             "-fx-letter-spacing: 2px;"
         );
@@ -353,11 +355,12 @@ public class LobbyScene {
         String borderColor = isReady ? "#63C74D" : (isMe ? GOLD : STONE_BORDER);
         String borderWidth = isMe ? "2px" : "1px";
 
-        VBox card = new VBox(5);
+        VBox card = new VBox(7);
         card.setAlignment(Pos.CENTER);
-        card.setPrefWidth(120);
-        card.setMinWidth(120);
-        card.setPadding(new Insets(10, 8, 10, 8));
+        card.setPrefWidth(160);
+        card.setMinWidth(160);
+        card.setMinHeight(215);
+        card.setPadding(new Insets(14, 10, 14, 10));
         card.setStyle(
             "-fx-background-color: " + STONE_PANEL + ";" +
             "-fx-border-color: " + borderColor + ";" +
@@ -369,13 +372,13 @@ public class LobbyScene {
             if (idleSheet != null) {
                 ImageView sprite = new ImageView(idleSheet);
                 sprite.setViewport(new javafx.geometry.Rectangle2D(0, 0, 32, 32));
-                sprite.setFitWidth(96);
-                sprite.setFitHeight(96);
+                sprite.setFitWidth(120);
+                sprite.setFitHeight(120);
                 sprite.setSmooth(false);
                 card.getChildren().add(sprite);
             } else {
                 Pane ph = new Pane();
-                ph.setPrefSize(96, 96);
+                ph.setPrefSize(120, 120);
                 ph.setStyle("-fx-background-color: #3a3a50;");
                 card.getChildren().add(ph);
             }
@@ -387,7 +390,7 @@ public class LobbyScene {
             youLabel.setAlignment(Pos.CENTER);
             youLabel.setStyle(
                 "-fx-font-family: 'Press Start 2P', monospace;" +
-                "-fx-font-size: 6px;" +
+                "-fx-font-size: 8px;" +
                 "-fx-text-fill: " + GOLD + ";" +
                 "-fx-letter-spacing: 1px;"
             );
@@ -400,7 +403,7 @@ public class LobbyScene {
         nameLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
         nameLabel.setStyle(
             "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 5px;" +
+            "-fx-font-size: 7px;" +
             "-fx-text-fill: " + TEXT_PARCHMENT + ";" +
             "-fx-letter-spacing: 1px;"
         );
@@ -412,7 +415,7 @@ public class LobbyScene {
             readyLbl.setAlignment(Pos.CENTER);
             readyLbl.setStyle(
                 "-fx-font-family: 'Press Start 2P', monospace;" +
-                "-fx-font-size: 5px;" +
+                "-fx-font-size: 7px;" +
                 "-fx-text-fill: #63C74D;"
             );
             card.getChildren().add(readyLbl);
@@ -421,7 +424,7 @@ public class LobbyScene {
             readyBtn.setMaxWidth(Double.MAX_VALUE);
             readyBtn.setStyle(
                 "-fx-font-family: 'Press Start 2P', monospace;" +
-                "-fx-font-size: 5px;" +
+                "-fx-font-size: 7px;" +
                 "-fx-text-fill: " + GOLD + ";" +
                 "-fx-background-color: #1e2e1e;" +
                 "-fx-border-color: #63C74D;" +
@@ -445,7 +448,7 @@ public class LobbyScene {
             notReadyLbl.setAlignment(Pos.CENTER);
             notReadyLbl.setStyle(
                 "-fx-font-family: 'Press Start 2P', monospace;" +
-                "-fx-font-size: 5px;" +
+                "-fx-font-size: 7px;" +
                 "-fx-text-fill: " + TEXT_MUTED + ";"
             );
             card.getChildren().add(notReadyLbl);
