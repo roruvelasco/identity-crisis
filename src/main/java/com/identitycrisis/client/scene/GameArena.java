@@ -530,14 +530,14 @@ public class GameArena {
         if (reversed) {
             input = new InputSnapshot(
                     input.down(), input.up(), input.right(), input.left(),
-                    input.carry(), input.throwAction(), input.chatToggle());
+                    input.carry(), input.throwAction(), input.release(), input.chatToggle());
         }
 
         GameClient client = (sceneManager != null) ? sceneManager.getGameClient() : null;
         boolean connected = client != null && client.isConnected();
         if (connected) {
             client.sendInput(input.up(), input.down(), input.left(), input.right(),
-                             input.carry(), input.throwAction());
+                             input.carry(), input.throwAction(), input.release());
         }
 
         if (connected && syncNetworkedPlayerState(dt)) {
@@ -616,7 +616,7 @@ public class GameArena {
         com.identitycrisis.client.game.LocalGameState lgs = sceneManager.getLocalGameState();
         if (lgs == null || !lgs.hasReceivedSnapshot() || lgs.getPlayers() == null) return false;
 
-        int myId = lgs.getMyPlayerId();
+        int myId = lgs.getControlledPlayerId() > 0 ? lgs.getControlledPlayerId() : lgs.getMyPlayerId();
         for (Player p : lgs.getPlayers()) {
             if (p.getPlayerId() == myId) {
                 double dx = p.getPosition().x() - playerX;
@@ -1022,11 +1022,54 @@ public class GameArena {
         if (testingFakeZones)
             drawFakeZonesBanner(gc, w, h, bannerSlot);
 
+        drawCarriedReleasePrompt(gc, w, h);
+
         // 5. Chaos event toast (top-right, above round popup)
         drawToast(gc, w, h);
 
         // 6. Round start popup overlay (center)
         drawRoundPopup(gc, w, h);
+    }
+
+    private void drawCarriedReleasePrompt(GraphicsContext gc, double viewW, double viewH) {
+        com.identitycrisis.client.game.LocalGameState lgs =
+                (sceneManager != null) ? sceneManager.getLocalGameState() : null;
+        if (lgs == null || !lgs.hasReceivedSnapshot() || lgs.getPlayers() == null) {
+            return;
+        }
+        int playerId = lgs.getControlledPlayerId() > 0 ? lgs.getControlledPlayerId() : lgs.getMyPlayerId();
+        boolean carried = false;
+        for (Player p : lgs.getPlayers()) {
+            if (p.getPlayerId() == playerId && p.getState() == PlayerState.CARRIED) {
+                carried = true;
+                break;
+            }
+        }
+        if (!carried) {
+            return;
+        }
+
+        double boxW = 520;
+        double boxH = 86;
+        double x = (viewW - boxW) / 2.0;
+        double y = viewH - boxH - 42;
+
+        gc.save();
+        gc.setGlobalAlpha(0.92);
+        gc.setFill(Color.web("#181425"));
+        gc.fillRoundRect(x, y, boxW, boxH, 18, 18);
+        gc.setGlobalAlpha(1.0);
+        gc.setStroke(Color.web("#F6C177"));
+        gc.setLineWidth(3);
+        gc.strokeRoundRect(x, y, boxW, boxH, 18, 18);
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setFill(Color.web("#FFF2CC"));
+        gc.setFont(loadFont("Press Start 2P", 13));
+        gc.fillText("PRESS Y TO RELEASE", viewW / 2.0, y + 34);
+        gc.setFill(Color.web("#C0CBDC"));
+        gc.setFont(loadFont("Press Start 2P", 8));
+        gc.fillText("MASH 7 TIMES TO BREAK FREE", viewW / 2.0, y + 61);
+        gc.restore();
     }
 
     /**
@@ -1090,7 +1133,7 @@ public class GameArena {
         //               y 10–24 (14 px) → 3× = +30..+72  (42 px tall)
         String label = switch (toastEventType) {
             case REVERSED_CONTROLS -> "REVERSED!";
-            case CONTROL_SWAP      -> "SWAPPED!";
+            case CONTROL_SWAP      -> "PLAYER SWAP!";
             case FAKE_SAFE_ZONES   -> "FAKE ZONES!";
             default                -> "";
         };
@@ -1168,7 +1211,7 @@ public class GameArena {
         com.identitycrisis.client.game.LocalGameState lgs =
                 (sceneManager != null) ? sceneManager.getLocalGameState() : null;
         if (lgs != null && lgs.hasReceivedSnapshot() && lgs.getPlayers() != null) {
-            int myId = lgs.getMyPlayerId();
+            int myId = lgs.getControlledPlayerId() > 0 ? lgs.getControlledPlayerId() : lgs.getMyPlayerId();
             for (Player p : lgs.getPlayers()) {
                 if (p.getState() == PlayerState.ELIMINATED) continue;
                 int spriteIdx = ((p.getPlayerId() - 1) % 8) + 1;

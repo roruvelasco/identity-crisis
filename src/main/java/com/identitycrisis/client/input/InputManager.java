@@ -76,6 +76,7 @@ public class InputManager {
             pressedKeys.contains(KeyCode.D) || pressedKeys.contains(KeyCode.RIGHT),
             pressedKeys.contains(KeyCode.E),
             pressedKeys.contains(KeyCode.Q),
+            pressedKeys.contains(KeyCode.Y),
             pressedKeys.contains(KeyCode.ENTER)
         );
     }

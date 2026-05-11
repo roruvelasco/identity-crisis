@@ -11,36 +11,11 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.InputStream;
 import java.util.*;
 
-/**
- * Loads, parses, and renders an infinite-format Tiled TMX map.
- *
- * <p>Responsibilities:
- * <ol>
- *   <li>Parse tileset definitions (firstgid, columns, PNG image)</li>
- *   <li>Parse per-tile collision shapes from {@code <objectgroup>} elements</li>
- *   <li>Stitch infinite {@code <chunk>} CSV data into unified tile grids per layer</li>
- *   <li>Build a per-tile solid-cell grid from tiles that carry collision shapes,
- *       plus void cells (no floor) and water</li>
- *   <li>Extract safe-zone rectangles from the 8 {@code safezoneN} layers</li>
- *   <li>Render all visual layers in order, fitting the full map to any viewport size</li>
- * </ol>
- */
 public class MapManager {
 
     // ── Constants ─────────────────────────────────────────────────────────────
     private static final int TILE_SIZE = 16; // native px per tile in the TMX
 
-    /**
-     * Tiled encodes flip flags in the three most-significant bits of each GID
-     * stored in the layer CSV data:
-     *   bit 31 (0x80000000) = horizontal flip
-     *   bit 30 (0x40000000) = vertical flip
-     *   bit 29 (0x20000000) = diagonal (anti-diagonal) flip
-     * Stripping these bits gives the actual tileset GID used for tileset lookup
-     * and collision-shape lookup.  Without this mask, flipped tiles produce
-     * large/negative GIDs that match nothing in the tileset or collision maps,
-     * making them both invisible and non-solid.
-     */
     private static final int GID_MASK = 0x1FFFFFFF;
 
     /** Render order: bottom-to-top visual layer names (safezone layers excluded). */

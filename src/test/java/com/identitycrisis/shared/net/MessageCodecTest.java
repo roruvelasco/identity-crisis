@@ -64,32 +64,32 @@ class MessageCodecTest {
     @Test
     void playerInput_allFlagsTrue_roundTrip() throws Exception {
         Pair p = encoder();
-        p.enc().encodePlayerInput(true, true, true, true, true, true);
+        p.enc().encodePlayerInput(true, true, true, true, true, true, true);
         p.enc().flush();
 
         MessageDecoder dec = decoder(p.buf());
         assertEquals(MessageType.C_PLAYER_INPUT, dec.readNextType());
         boolean[] flags = dec.decodePlayerInput();
-        assertArrayEquals(new boolean[]{true, true, true, true, true, true}, flags);
+        assertArrayEquals(new boolean[]{true, true, true, true, true, true, true}, flags);
     }
 
     @Test
     void playerInput_allFlagsFalse_roundTrip() throws Exception {
         Pair p = encoder();
-        p.enc().encodePlayerInput(false, false, false, false, false, false);
+        p.enc().encodePlayerInput(false, false, false, false, false, false, false);
         p.enc().flush();
 
         MessageDecoder dec = decoder(p.buf());
         assertEquals(MessageType.C_PLAYER_INPUT, dec.readNextType());
         boolean[] flags = dec.decodePlayerInput();
-        assertArrayEquals(new boolean[]{false, false, false, false, false, false}, flags);
+        assertArrayEquals(new boolean[]{false, false, false, false, false, false, false}, flags);
     }
 
     @Test
     void playerInput_mixedFlags_roundTrip() throws Exception {
         Pair p = encoder();
         // up=T, down=F, left=T, right=F, carry=F, throw=T
-        p.enc().encodePlayerInput(true, false, true, false, false, true);
+        p.enc().encodePlayerInput(true, false, true, false, false, true, false);
         p.enc().flush();
 
         MessageDecoder dec = decoder(p.buf());
@@ -101,6 +101,7 @@ class MessageCodecTest {
         assertFalse(flags[3], "right must be false");
         assertFalse(flags[4], "carry must be false");
         assertTrue(flags[5],  "throw must be true");
+        assertFalse(flags[6], "release must be false");
     }
 
     @Test
@@ -276,7 +277,7 @@ class MessageCodecTest {
         Pair p = encoder();
         p.enc().encodeJoinRequest("Alice");
         p.enc().encodeReady();
-        p.enc().encodePlayerInput(true, false, false, true, false, false);
+        p.enc().encodePlayerInput(true, false, false, true, false, false, false);
         p.enc().flush();
 
         MessageDecoder dec = decoder(p.buf());

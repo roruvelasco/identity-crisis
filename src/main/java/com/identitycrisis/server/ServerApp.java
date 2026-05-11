@@ -64,6 +64,8 @@ public class ServerApp {
         // WallCollisionData is read-only; safe to share with the game-loop thread.
         TmxWallsParser.WallCollisionData wallData =
                 TmxWallsParser.load("/sprites/map/ArenaMap.tmx");
+        cm.setWallCollisionData(wallData);
+        rm.setWallCollisionData(wallData);
         CollisionDetector cd = new CollisionDetector(wallData);
 
         // ── 4. GameContext — groups all game managers ─────────────────────────

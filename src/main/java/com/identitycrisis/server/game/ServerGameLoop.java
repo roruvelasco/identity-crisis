@@ -7,8 +7,10 @@ import com.identitycrisis.server.physics.PhysicsEngine;
 import com.identitycrisis.shared.model.ChaosEventType;
 import com.identitycrisis.shared.model.GameConfig;
 import com.identitycrisis.shared.model.Player;
+import com.identitycrisis.shared.model.RoundPhase;
 import com.identitycrisis.shared.model.SafeZone;
 import com.identitycrisis.shared.net.MessageEncoder;
+import com.identitycrisis.shared.util.Vector2D;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -102,7 +104,11 @@ public class ServerGameLoop implements Runnable {
 
     private void processInputs() {
         QueuedInput qi;
+        boolean acceptingMovement = ctx.gameState().getPhase() == RoundPhase.ACTIVE;
         while ((qi = inputQueue.poll()) != null) {
+            if (!acceptingMovement) {
+                continue;
+            }
             Map<Integer, Integer> controlMap = ctx.gameState().getControlMap();
             int controlledPlayer = controlMap.getOrDefault(qi.clientId(), qi.clientId());
             // REVERSED_CONTROLS inversion is handled client-side
@@ -115,16 +121,29 @@ public class ServerGameLoop implements Runnable {
                 ctx.carryManager().tryCarry(controlledPlayer);
             if (f[5])
                 ctx.carryManager().throwCarried(controlledPlayer);
+            ctx.carryManager().handleReleaseInput(controlledPlayer, f.length > 6 && f[6]);
         }
     }
 
     private void update(double dt) {
+        if (ctx.gameState().getPhase() != RoundPhase.ACTIVE) {
+            freezeAlivePlayers();
+            ctx.roundManager().tick(dt);
+            return;
+        }
+
         physics.step(ctx.gameState(), dt);
         collisions.resolve(ctx.gameState());
         ctx.carryManager().tick(dt);
         ctx.safeZoneManager().updateOccupancy();
         ctx.chaosEventManager().tick(dt);
         ctx.roundManager().tick(dt);
+    }
+
+    private void freezeAlivePlayers() {
+        for (Player p : ctx.gameState().getAlivePlayers()) {
+            p.setVelocity(Vector2D.zero());
+        }
     }
 
     private void broadcastState() {

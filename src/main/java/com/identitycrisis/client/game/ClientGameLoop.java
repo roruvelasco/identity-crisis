@@ -36,7 +36,7 @@ public class ClientGameLoop extends AnimationTimer {
         InputSnapshot input = inputManager.snapshot();
         InputSnapshot modified = applyChaosModifications(input);
         gameClient.sendInput(modified.up(), modified.down(), modified.left(), modified.right(), modified.carry(),
-                modified.throwAction());
+                modified.throwAction(), modified.release());
         renderer.render(localGameState, dt);
         lastFrameTime = now;
     }
@@ -49,7 +49,7 @@ public class ClientGameLoop extends AnimationTimer {
         if (reversed) {
             return new InputSnapshot(
                     raw.down(), raw.up(), raw.right(), raw.left(),
-                    raw.carry(), raw.throwAction(), raw.chatToggle());
+                    raw.carry(), raw.throwAction(), raw.release(), raw.chatToggle());
         }
         return raw;
     }

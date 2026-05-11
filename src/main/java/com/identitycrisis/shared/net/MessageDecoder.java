@@ -37,7 +37,7 @@ public class MessageDecoder {
 
     public void decodeReady() { }
 
-    /** Returns [up, down, left, right, carry, throw]. */
+    /** Returns [up, down, left, right, carry, throw, release]. */
     public boolean[] decodePlayerInput() {
         try {
             int bits = payloadStream().readByte() & 0xFF;
@@ -47,7 +47,8 @@ public class MessageDecoder {
                 (bits & 0x04) != 0,
                 (bits & 0x08) != 0,
                 (bits & 0x10) != 0,
-                (bits & 0x20) != 0
+                (bits & 0x20) != 0,
+                (bits & 0x40) != 0
             };
         } catch (IOException e) { throw new RuntimeException(e); }
     }

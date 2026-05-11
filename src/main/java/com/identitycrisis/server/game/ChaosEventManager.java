@@ -19,16 +19,17 @@ public class ChaosEventManager {
 
     private final GameState gameState;
     private final Random rng = new Random();
-    private static final boolean CHAOS_EVENTS_ENABLED = Boolean.getBoolean("identitycrisis.chaosEvents");
+    private static final boolean CHAOS_EVENTS_ENABLED = !Boolean.getBoolean("identitycrisis.disableChaosEvents");
     private static final List<ChaosEventType> ENABLED_EVENTS = List.of(
             ChaosEventType.REVERSED_CONTROLS,
+            ChaosEventType.CONTROL_SWAP,
             ChaosEventType.FAKE_SAFE_ZONES);
 
     public ChaosEventManager(GameState gameState) { this.gameState = gameState; }
 
     public void resetForNewRound() {
         clearActiveEvent();
-        gameState.setChaosEventTimer(CHAOS_EVENTS_ENABLED ? GameConfig.CHAOS_EVENT_DURATION : 0);
+        gameState.setChaosEventTimer(CHAOS_EVENTS_ENABLED ? 0 : 0);
     }
 
     public void tick(double dt) {
@@ -85,9 +86,6 @@ public class ChaosEventManager {
     }
 
     private void deactivateEvent(ChaosEventType event) {
-        if (event == ChaosEventType.CONTROL_SWAP) {
-            revertControlSwap();
-        }
         gameState.setActiveChaosEvent(ChaosEventType.NONE);
         gameState.setChaosEventTimer(0);
     }
@@ -95,31 +93,37 @@ public class ChaosEventManager {
     private void applyControlSwap() {
         Map<Integer, Integer> map = gameState.getControlMap();
         List<Integer> clientIds  = new ArrayList<>(map.keySet());
-        List<Integer> playerIds  = new ArrayList<>(map.values());
-        // A derangement (no fixed point) is impossible with ≤1 element — the loop
-        // would spin forever. Guard here; in practice this means only 1 player is
-        // left (game should already be GAME_OVER), or controlMap wasn't pruned.
+        Collections.sort(clientIds);
+        List<Integer> playerIds = new ArrayList<>(clientIds);
+        List<Integer> previousPlayerIds = new ArrayList<>();
+        for (Integer clientId : clientIds) {
+            previousPlayerIds.add(map.getOrDefault(clientId, clientId));
+        }
         if (clientIds.size() <= 1) return;
-        do {
+        List<Integer> best = new ArrayList<>(playerIds);
+        int bestUnchanged = clientIds.size();
+        for (int attempt = 0; attempt < 40; attempt++) {
             Collections.shuffle(playerIds, rng);
-        } while (hasFixedPoint(clientIds, playerIds));
+            int unchanged = countUnchangedAssignments(previousPlayerIds, playerIds);
+            if (unchanged < bestUnchanged) {
+                best = new ArrayList<>(playerIds);
+                bestUnchanged = unchanged;
+            }
+            if (unchanged == 0) {
+                break;
+            }
+        }
         for (int i = 0; i < clientIds.size(); i++) {
-            map.put(clientIds.get(i), playerIds.get(i));
+            map.put(clientIds.get(i), best.get(i));
         }
     }
 
-    private boolean hasFixedPoint(List<Integer> keys, List<Integer> vals) {
-        for (int i = 0; i < keys.size(); i++) {
-            if (keys.get(i).equals(vals.get(i))) return true;
+    private int countUnchangedAssignments(List<Integer> previous, List<Integer> next) {
+        int count = 0;
+        for (int i = 0; i < previous.size(); i++) {
+            if (previous.get(i).equals(next.get(i))) count++;
         }
-        return false;
-    }
-
-    private void revertControlSwap() {
-        Map<Integer, Integer> map = gameState.getControlMap();
-        for (Integer clientId : new ArrayList<>(map.keySet())) {
-            map.put(clientId, clientId);
-        }
+        return count;
     }
 
     public boolean isFakeSafeZonesActive() {

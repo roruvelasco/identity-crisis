@@ -32,7 +32,7 @@ public class MessageEncoder {
 
     public void encodePlayerInput(boolean up, boolean down, boolean left,
                                   boolean right, boolean carry,
-                                  boolean throwAction) throws IOException {
+                                  boolean throwAction, boolean release) throws IOException {
         int bits = 0;
         if (up)          bits |= 0x01;
         if (down)        bits |= 0x02;
@@ -40,6 +40,7 @@ public class MessageEncoder {
         if (right)       bits |= 0x08;
         if (carry)       bits |= 0x10;
         if (throwAction) bits |= 0x20;
+        if (release)     bits |= 0x40;
         writeHeader(MessageType.C_PLAYER_INPUT, 1);
         out.writeByte(bits);
     }

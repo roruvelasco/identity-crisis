@@ -129,7 +129,7 @@ public class GameClient {
 
     public synchronized void sendInput(boolean up, boolean down, boolean left,
                                        boolean right, boolean carry,
-                                       boolean throwAction) {
+                                       boolean throwAction, boolean release) {
         if (!connected) return;
         // Rate-limit to ~60 sends/sec so we never flood the server loop.
         // The server processes inputs at TICK_RATE (60 TPS); sending faster
@@ -139,7 +139,7 @@ public class GameClient {
         if (now - lastInputSendNs < INPUT_SEND_INTERVAL_NS) return;
         lastInputSendNs = now;
         try {
-            encoder.encodePlayerInput(up, down, left, right, carry, throwAction);
+            encoder.encodePlayerInput(up, down, left, right, carry, throwAction, release);
             encoder.flush(); // flushes directly to OS socket buffer (no BufferedOutputStream)
         } catch (IOException e) {
             LOG.error("sendInput failed", e);
