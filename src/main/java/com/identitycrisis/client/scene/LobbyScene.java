@@ -41,6 +41,7 @@ public class LobbyScene {
     private Label lobbyFullLabel;
     private SpriteManager spriteManager;
     private HBox playerCardsBox;
+    private boolean myReadySent = false;
     private Label tipLabel;
     private int tipIndex = 0;
     private Timeline tipRotation;
@@ -288,9 +289,17 @@ public class LobbyScene {
         VBox container = new VBox(10);
         container.setAlignment(Pos.CENTER);
 
-        playerCardsBox = new HBox(10);
+        playerCardsBox = new HBox(12);
         playerCardsBox.setAlignment(Pos.CENTER);
-        playerCardsBox.setMinHeight(90);
+        playerCardsBox.setPadding(new Insets(10));
+
+        javafx.scene.control.ScrollPane scroll = new javafx.scene.control.ScrollPane(playerCardsBox);
+        scroll.setFitToHeight(true);
+        scroll.setHbarPolicy(javafx.scene.control.ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scroll.setVbarPolicy(javafx.scene.control.ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        scroll.setPrefHeight(210);
+        scroll.setMaxWidth(680);
 
         playerCountLabel = new Label("1 / " + GameConfig.MAX_PLAYERS + " PLAYERS");
         playerCountLabel.setStyle(
@@ -310,7 +319,7 @@ public class LobbyScene {
         lobbyFullLabel.setVisible(false);
         lobbyFullLabel.setManaged(false);
 
-        container.getChildren().addAll(playerCardsBox, playerCountLabel, lobbyFullLabel);
+        container.getChildren().addAll(scroll, playerCountLabel, lobbyFullLabel);
         return container;
     }
 
@@ -333,20 +342,26 @@ public class LobbyScene {
                 for (int i = 0; i < names.length; i++) {
                     int spriteIdx = (i % 8) + 1;
                     boolean isMe = (i == myIndex);
-                    playerCardsBox.getChildren().add(buildPlayerCard(names[i], spriteIdx, isMe));
+                    boolean isReady = (ready != null && i < ready.length && ready[i]);
+                    playerCardsBox.getChildren().add(buildPlayerCard(names[i], spriteIdx, isReady, isMe));
                 }
             }
         });
     }
 
-    private VBox buildPlayerCard(String name, int spriteIdx, boolean isMe) {
-        VBox card = new VBox(4);
+    private VBox buildPlayerCard(String name, int spriteIdx, boolean isReady, boolean isMe) {
+        String borderColor = isReady ? "#63C74D" : (isMe ? GOLD : STONE_BORDER);
+        String borderWidth = isMe ? "2px" : "1px";
+
+        VBox card = new VBox(5);
         card.setAlignment(Pos.CENTER);
-        card.setPadding(new Insets(8, 10, 8, 10));
+        card.setPrefWidth(120);
+        card.setMinWidth(120);
+        card.setPadding(new Insets(10, 8, 10, 8));
         card.setStyle(
             "-fx-background-color: " + STONE_PANEL + ";" +
-            "-fx-border-color: " + (isMe ? GOLD : STONE_BORDER) + ";" +
-            "-fx-border-width: 1px;"
+            "-fx-border-color: " + borderColor + ";" +
+            "-fx-border-width: " + borderWidth + ";"
         );
 
         if (spriteManager != null) {
@@ -354,13 +369,13 @@ public class LobbyScene {
             if (idleSheet != null) {
                 ImageView sprite = new ImageView(idleSheet);
                 sprite.setViewport(new javafx.geometry.Rectangle2D(0, 0, 32, 32));
-                sprite.setFitWidth(64);
-                sprite.setFitHeight(64);
+                sprite.setFitWidth(96);
+                sprite.setFitHeight(96);
                 sprite.setSmooth(false);
                 card.getChildren().add(sprite);
             } else {
                 Pane ph = new Pane();
-                ph.setPrefSize(64, 64);
+                ph.setPrefSize(96, 96);
                 ph.setStyle("-fx-background-color: #3a3a50;");
                 card.getChildren().add(ph);
             }
@@ -368,6 +383,8 @@ public class LobbyScene {
 
         if (isMe) {
             Label youLabel = new Label("YOU");
+            youLabel.setMaxWidth(Double.MAX_VALUE);
+            youLabel.setAlignment(Pos.CENTER);
             youLabel.setStyle(
                 "-fx-font-family: 'Press Start 2P', monospace;" +
                 "-fx-font-size: 6px;" +
@@ -378,14 +395,62 @@ public class LobbyScene {
         }
 
         Label nameLabel = new Label(name != null ? name : "Player");
+        nameLabel.setMaxWidth(Double.MAX_VALUE);
+        nameLabel.setAlignment(Pos.CENTER);
+        nameLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
         nameLabel.setStyle(
             "-fx-font-family: 'Press Start 2P', monospace;" +
             "-fx-font-size: 5px;" +
             "-fx-text-fill: " + TEXT_PARCHMENT + ";" +
             "-fx-letter-spacing: 1px;"
         );
-        nameLabel.setMaxWidth(72);
         card.getChildren().add(nameLabel);
+
+        if (isReady) {
+            Label readyLbl = new Label("✓ READY");
+            readyLbl.setMaxWidth(Double.MAX_VALUE);
+            readyLbl.setAlignment(Pos.CENTER);
+            readyLbl.setStyle(
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                "-fx-font-size: 5px;" +
+                "-fx-text-fill: #63C74D;"
+            );
+            card.getChildren().add(readyLbl);
+        } else if (isMe && !sceneManager.isHost()) {
+            Button readyBtn = new Button("READY UP");
+            readyBtn.setMaxWidth(Double.MAX_VALUE);
+            readyBtn.setStyle(
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                "-fx-font-size: 5px;" +
+                "-fx-text-fill: " + GOLD + ";" +
+                "-fx-background-color: #1e2e1e;" +
+                "-fx-border-color: #63C74D;" +
+                "-fx-border-width: 1px;" +
+                "-fx-cursor: hand;" +
+                "-fx-padding: 4px 6px;"
+            );
+            readyBtn.setDisable(myReadySent);
+            readyBtn.setOnAction(e -> {
+                GameClient gc2 = sceneManager.getGameClient();
+                if (gc2 != null && gc2.isConnected()) {
+                    gc2.sendReady();
+                    myReadySent = true;
+                    readyBtn.setDisable(true);
+                }
+            });
+            card.getChildren().add(readyBtn);
+        } else if (!isMe) {
+            Label notReadyLbl = new Label("NOT READY");
+            notReadyLbl.setMaxWidth(Double.MAX_VALUE);
+            notReadyLbl.setAlignment(Pos.CENTER);
+            notReadyLbl.setStyle(
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                "-fx-font-size: 5px;" +
+                "-fx-text-fill: " + TEXT_MUTED + ";"
+            );
+            card.getChildren().add(notReadyLbl);
+        }
+
         return card;
     }
 
@@ -539,6 +604,7 @@ public class LobbyScene {
     public void onEnter() {
         tipIndex = 0;
         playerCount = 1;
+        myReadySent = false;
 
         // Pull the real room code from the SceneManager (populated by the
         // Create or Join flow). Falls back to placeholder if absent.
