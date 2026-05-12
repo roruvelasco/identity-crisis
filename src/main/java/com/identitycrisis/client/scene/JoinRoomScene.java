@@ -7,6 +7,7 @@ import javafx.geometry.*;
 import javafx.animation.*;
 import javafx.util.Duration;
 import java.io.IOException;
+import java.util.List;
 import com.identitycrisis.client.game.LocalGameState;
 import com.identitycrisis.client.net.GameClient;
 import com.identitycrisis.client.net.ServerMessageRouter;
@@ -287,12 +288,16 @@ public class JoinRoomScene {
             return;
         }
 
-        // 1. Decode room code -> host IP/port.
-        RoomCodec.HostPort hp;
+        // 1. Decode room code -> host IP/port candidates.
+        List<RoomCodec.HostPort> candidates;
         try {
-            hp = RoomCodec.decode(raw);
+            candidates = RoomCodec.decodeCandidates(raw);
         } catch (IllegalArgumentException e) {
             LOG.warn("Invalid room code entered: \"" + raw + "\" (" + e.getMessage() + ")");
+            showError("Invalid room code.");
+            return;
+        }
+        if (candidates.isEmpty()) {
             showError("Invalid room code.");
             return;
         }
@@ -310,12 +315,26 @@ public class JoinRoomScene {
             sceneManager.getLobbyScene().setLobbyPlayers(names, ready, mi);
         });
         router.setOnGameStarted(() -> sceneManager.showGameArena());
-        GameClient gameClient = new GameClient(router);
-        try {
-            gameClient.connect(hp.ip(), hp.port());
-        } catch (IOException e) {
-            LOG.error("Could not connect to host " + hp, e);
-            showError("Could not connect to host " + hp + ".");
+        GameClient gameClient = null;
+        RoomCodec.HostPort connectedHost = null;
+        IOException lastError = null;
+        for (RoomCodec.HostPort candidate : candidates) {
+            GameClient candidateClient = new GameClient(router);
+            try {
+                candidateClient.connect(candidate.ip(), candidate.port(), 900);
+                gameClient = candidateClient;
+                connectedHost = candidate;
+                break;
+            } catch (IOException e) {
+                lastError = e;
+                LOG.warn("Could not connect to host candidate " + candidate + ": " + e.getMessage());
+            }
+        }
+        if (gameClient == null) {
+            if (lastError != null) {
+                LOG.error("Could not connect to any host candidate for room " + raw, lastError);
+            }
+            showError("Could not connect. Use the same Wi-Fi and disable AP/client isolation or allow Java through firewall.");
             return;
         }
         gameClient.startListening();
@@ -328,7 +347,7 @@ public class JoinRoomScene {
         sceneManager.setGameClient(gameClient);
         sceneManager.setLocalGameState(localState);
         sceneManager.setMyDisplayName(displayName);
-        LOG.info("Joined room " + raw + " at " + hp);
+        LOG.info("Joined room " + raw + " at " + connectedHost);
         clearError();
         sceneManager.showLobby();
     }

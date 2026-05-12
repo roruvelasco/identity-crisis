@@ -3,6 +3,7 @@ package com.identitycrisis.client.net;
 import com.identitycrisis.shared.net.*;
 import com.identitycrisis.shared.util.Logger;
 import java.io.*;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 
 /**
@@ -57,10 +58,23 @@ public class GameClient {
      * @throws IOException if the socket cannot be opened
      */
     public void connect(String host, int port) throws IOException {
+        connect(host, port, 3000);
+    }
+
+    public void connect(String host, int port, int timeoutMs) throws IOException {
         if (connected) {
             throw new IllegalStateException("GameClient already connected");
         }
-        this.socket = new Socket(host, port);
+        this.socket = new Socket();
+        try {
+            this.socket.connect(new InetSocketAddress(host, port), timeoutMs);
+        } catch (IOException e) {
+            try {
+                this.socket.close();
+            } catch (IOException ignored) {}
+            this.socket = null;
+            throw e;
+        }
         // ── Critical for low-latency multiplayer on localhost ──────────────────
         // TCP_NODELAY disables Nagle's algorithm. Without it the OS may buffer
         // small packets (our 4-byte input messages) for up to 200 ms before

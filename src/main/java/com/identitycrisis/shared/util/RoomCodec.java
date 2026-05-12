@@ -1,5 +1,8 @@
 package com.identitycrisis.shared.util;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Encodes and decodes a host IP + port into a short human-readable room code.
  *
@@ -99,6 +102,19 @@ public final class RoomCodec {
         int[] subnet = parseIpv4(localIpForSubnet);
         String ip = subnet[0] + "." + subnet[1] + "." + subnet[2] + "." + hostOctet;
         return new HostPort(ip, port);
+    }
+
+    public static List<HostPort> decodeCandidates(String code) {
+        List<HostPort> candidates = new ArrayList<>();
+        for (String localIp : NetworkUtils.getLanIpCandidates()) {
+            try {
+                HostPort candidate = decode(code, localIp);
+                if (!candidates.contains(candidate)) {
+                    candidates.add(candidate);
+                }
+            } catch (IllegalArgumentException ignored) {}
+        }
+        return candidates;
     }
 
     private static int[] parseIpv4(String ip) {

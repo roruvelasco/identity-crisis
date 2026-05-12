@@ -115,6 +115,36 @@ public final class NetworkUtils {
         return "127.0.0.1";
     }
 
+    public static List<String> getLanIpCandidates() {
+        List<String> candidates = new ArrayList<>();
+        addIfMissing(candidates, getLanIp());
+        try {
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            if (interfaces != null) {
+                while (interfaces.hasMoreElements()) {
+                    NetworkInterface ni = interfaces.nextElement();
+                    if (!ni.isUp() || ni.isLoopback() || ni.isVirtual()) continue;
+                    if (isVirtualByName(ni)) continue;
+                    Enumeration<InetAddress> addresses = ni.getInetAddresses();
+                    while (addresses.hasMoreElements()) {
+                        InetAddress addr = addresses.nextElement();
+                        if (!(addr instanceof Inet4Address)) continue;
+                        if (addr.isLoopbackAddress() || addr.isLinkLocalAddress()) continue;
+                        addIfMissing(candidates, addr.getHostAddress());
+                    }
+                }
+            }
+        } catch (SocketException ignored) {}
+        addIfMissing(candidates, "127.0.0.1");
+        return candidates;
+    }
+
+    private static void addIfMissing(List<String> values, String value) {
+        if (value != null && !value.isBlank() && !values.contains(value)) {
+            values.add(value);
+        }
+    }
+
     /**
      * Returns {@code true} if the interface's system name matches any of the
      * {@link #VIRTUAL_IFACE_PREFIXES} — docker/VM/VPN/WSL bridges that
