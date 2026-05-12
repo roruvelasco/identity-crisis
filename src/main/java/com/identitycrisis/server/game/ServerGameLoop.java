@@ -176,7 +176,7 @@ public class ServerGameLoop implements Runnable {
         if (winnerId != -1) {
             gs.setPendingGameOverWinnerId(-1);
             Player winner = gs.getPlayerById(winnerId);
-            String winnerName = winner != null ? winner.getDisplayName() : "?";
+            String winnerName = winner != null ? winner.getDisplayName() : "None";
             try {
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 MessageEncoder enc = new MessageEncoder(new DataOutputStream(baos));

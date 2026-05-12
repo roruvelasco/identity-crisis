@@ -7,6 +7,7 @@ import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.SocketException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 
@@ -173,7 +174,12 @@ public final class NetworkUtils {
 
     public static int findFreeRoomPort() {
         int end = RoomCodec.ROOM_PORT_BASE + RoomCodec.ROOM_PORT_COUNT;
+        List<Integer> ports = new ArrayList<>();
         for (int port = RoomCodec.ROOM_PORT_BASE; port < end; port++) {
+            ports.add(port);
+        }
+        Collections.shuffle(ports);
+        for (int port : ports) {
             try (ServerSocket probe = new ServerSocket(port)) {
                 probe.setReuseAddress(true);
                 return port;

@@ -23,7 +23,7 @@ public class ChaosEventManager {
     private static final double CHAOS_START_DELAY_SECONDS = 5.0;
     private static final List<ChaosEventType> ENABLED_EVENTS = List.of(
             ChaosEventType.REVERSED_CONTROLS,
-            // ChaosEventType.CONTROL_SWAP,
+            ChaosEventType.CONTROL_SWAP,
             ChaosEventType.FAKE_SAFE_ZONES);
 
     public ChaosEventManager(GameState gameState) { this.gameState = gameState; }

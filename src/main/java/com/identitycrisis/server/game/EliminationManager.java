@@ -59,7 +59,10 @@ public class EliminationManager {
                 eliminatePlayer(playerId);
                 eliminated.add(playerId);
             }
-            return eliminated;
+            if (gameState.getAliveCount() <= 1) {
+                return eliminated;
+            }
+            alive = gameState.getAlivePlayers();
         }
 
         if (gameState.getRoundNumber() <= GameConfig.WARMUP_ROUNDS) {
@@ -182,6 +185,6 @@ public class EliminationManager {
         return gameState.getAlivePlayers().stream()
                 .findFirst()
                 .map(Player::getPlayerId)
-                .orElse(-1);
+                .orElse(0);
     }
 }

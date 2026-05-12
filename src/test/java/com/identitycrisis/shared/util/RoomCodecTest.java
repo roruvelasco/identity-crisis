@@ -34,8 +34,9 @@ class RoomCodecTest {
     @Test
     void encode_producesDashedElevenCharUppercaseCode() {
         String code = RoomCodec.encode("192.168.1.42", 61019);
-        assertEquals(5, code.length(), "5 numeric digits");
-        assertTrue(code.matches("[0-9]+"), "numeric only");
+        assertEquals(5, code.length(), "5 alphanumeric characters");
+        assertEquals(code.toUpperCase(), code, "uppercase only");
+        assertTrue(code.matches("[0-9A-Z]+"), "base-36 alphabet");
     }
 
     @Test

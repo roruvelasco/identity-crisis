@@ -27,6 +27,7 @@ package com.identitycrisis.shared.util;
 public final class RoomCodec {
 
     private static final int  CODE_LENGTH = 5;
+    private static final int  RADIX       = 36;
     public static final int ROOM_PORT_BASE = 61000;
     public static final int ROOM_PORT_COUNT = 390;
     private static final char SEPARATOR   = '-';
@@ -50,7 +51,11 @@ public final class RoomCodec {
         }
         int[] parts = parseIpv4(ip);
         int value = parts[3] * ROOM_PORT_COUNT + (port - ROOM_PORT_BASE);
-        return String.format("%05d", value);
+        String raw = Integer.toString(value, RADIX).toUpperCase();
+        while (raw.length() < CODE_LENGTH) {
+            raw = "0" + raw;
+        }
+        return raw;
     }
 
     // ── Decoding ─────────────────────────────────────────────────────────────
@@ -73,14 +78,14 @@ public final class RoomCodec {
         if (code == null) {
             throw new IllegalArgumentException("Room code must not be null");
         }
-        String raw = code.replace(String.valueOf(SEPARATOR), "").trim();
+        String raw = code.replace(String.valueOf(SEPARATOR), "").trim().toUpperCase();
         if (raw.length() != CODE_LENGTH) {
             throw new IllegalArgumentException(
                 "Invalid room code length (expected " + CODE_LENGTH + "): " + code);
         }
         int value;
         try {
-            value = Integer.parseInt(raw);
+            value = Integer.parseInt(raw, RADIX);
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid room code: " + code, e);
         }
