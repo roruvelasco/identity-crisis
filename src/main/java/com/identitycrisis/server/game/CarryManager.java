@@ -116,6 +116,21 @@ public class CarryManager {
         }
     }
 
+    public void releaseAllCarries() {
+        for (Player p : gameState.getAlivePlayers()) {
+            if (p.getState() == PlayerState.CARRYING || p.getState() == PlayerState.CARRIED) {
+                p.setState(PlayerState.ALIVE);
+            }
+            p.setCarryingPlayerId(-1);
+            p.setCarriedByPlayerId(-1);
+            p.setVelocity(Vector2D.zero());
+            p.setStunTimer(0);
+        }
+        gameState.getActiveCarries().clear();
+        releasePressCounts.clear();
+        releaseHeld.clear();
+    }
+
     /**
      * Releases any carry relationship that involves {@code playerId} — either as
      * carrier or as the carried player. Called when a client disconnects mid-carry

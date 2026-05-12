@@ -194,6 +194,7 @@ public class GameArena {
     private Font fontRoundPopup;
     /** Audio player for the 3-second countdown timer sound. */
     private MediaPlayer countdownAudio;
+    private boolean arenaBgmStarted;
 
     // ── Pause state ──────────────────────────────────────────────────────────
     private boolean isPaused = false;
@@ -404,6 +405,7 @@ public class GameArena {
         offlineActiveZoneRound = -1;
 
         isPaused = false;
+        arenaBgmStarted = false;
         gameOverShown = false;
         if (pauseOverlay != null)
             pauseOverlay.setVisible(false);
@@ -463,17 +465,20 @@ public class GameArena {
         }
         escWasPressed = escPressed;
 
-        if (isPaused)
+        if (isPaused) {
+            if (roundPopupActive) {
+                tickRoundPopup(dt);
+            }
+            if (!syncRoundStateFromServer()) {
+                tickLocalRoundTimer(dt);
+            }
             return;
+        }
 
         // ── Round start popup countdown ─────────────────────────────────────
         // Tick the countdown first so its state is up-to-date this frame.
         if (roundPopupActive) {
-            roundPopupTimer -= dt;
-            if (roundPopupTimer <= 0) {
-                roundPopupActive = false;
-                roundPopupTimer = 0;
-            }
+            tickRoundPopup(dt);
         }
 
         // ── FREEZE: no movement, zone detection, or round advances during popup
@@ -690,7 +695,17 @@ public class GameArena {
         roundNumber = serverRound;
         roundTimer = Math.max(0, serverTimer);
         timerRunning = false; // server owns the clock; local field unused
+        startArenaBgmIfNeeded();
         return true;
+    }
+
+    private void tickRoundPopup(double dt) {
+        roundPopupTimer -= dt;
+        if (roundPopupTimer <= 0) {
+            roundPopupActive = false;
+            roundPopupTimer = 0;
+            startArenaBgmIfNeeded();
+        }
     }
 
     private ChaosEventType updateEffectiveChaos(double dt) {
@@ -1479,6 +1494,10 @@ public class GameArena {
         popupRoundNumber = round;
         roundPopupTimer = GameConfig.COUNTDOWN_SECONDS; // 3 seconds - matches audio length
         roundPopupActive = true;
+        arenaBgmStarted = false;
+        if (sceneManager != null && sceneManager.getAudioManager() != null) {
+            sceneManager.getAudioManager().stopBGM();
+        }
         resetLocalChaosCycle();
 
         // Play countdown audio
@@ -1850,21 +1869,37 @@ public class GameArena {
     }
 
     private void pauseArenaAudio() {
-        if (countdownAudio != null && countdownAudio.getStatus() == MediaPlayer.Status.PLAYING) {
-            countdownAudio.pause();
-        }
         if (sceneManager != null && sceneManager.getAudioManager() != null) {
             sceneManager.getAudioManager().pauseBGM();
         }
     }
 
     private void resumeArenaAudio() {
-        if (countdownAudio != null && countdownAudio.getStatus() == MediaPlayer.Status.PAUSED) {
-            countdownAudio.play();
-        }
         if (sceneManager != null && sceneManager.getAudioManager() != null) {
             sceneManager.getAudioManager().resumeBGM();
         }
+        startArenaBgmIfNeeded();
+    }
+
+    private void startArenaBgmIfNeeded() {
+        if (arenaBgmStarted || !shouldPlayArenaBgm()) {
+            return;
+        }
+        if (sceneManager != null && sceneManager.getAudioManager() != null) {
+            sceneManager.getAudioManager().playBGM("/audio/GameMusic.mp3");
+            arenaBgmStarted = true;
+        }
+    }
+
+    private boolean shouldPlayArenaBgm() {
+        if (isPaused || gameOverShown || roundPopupActive) {
+            return false;
+        }
+        if (sceneManager != null && sceneManager.getLocalGameState() != null
+                && sceneManager.getLocalGameState().hasReceivedSnapshot()) {
+            return sceneManager.getLocalGameState().getPhase() == com.identitycrisis.shared.model.RoundPhase.ACTIVE;
+        }
+        return true;
     }
 
     private void showPauseMenu() {

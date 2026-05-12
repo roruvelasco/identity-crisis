@@ -2,9 +2,9 @@ package com.identitycrisis.server.game;
 
 import com.identitycrisis.shared.model.GameConfig;
 import com.identitycrisis.shared.model.Player;
-import com.identitycrisis.shared.model.PlayerState;
 import com.identitycrisis.shared.model.SafeZone;
 import com.identitycrisis.shared.model.SafeZoneSpots;
+import com.identitycrisis.shared.util.Vector2D;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -76,14 +76,10 @@ public class SafeZoneManager {
             return;
         }
         for (Player p : gameState.getAlivePlayers()) {
-            if (p.getState() == PlayerState.CARRYING
-                    || p.getState() == PlayerState.CARRIED) {
-                p.setInSafeZone(false);
-                continue;
-            }
+            Vector2D position = safeZonePosition(p);
             boolean inAny = false;
             for (SafeZone z : zones) {
-                if (z.contains(p.getPosition().x(), p.getPosition().y())) {
+                if (z.contains(position.x(), position.y())) {
                     inAny = true;
                     break;
                 }
@@ -114,10 +110,8 @@ public class SafeZoneManager {
             for (Player p : gameState.getAlivePlayers()) {
                 if (alreadySafe.contains(p.getPlayerId()))
                     continue;
-                if (p.getState() == PlayerState.CARRYING
-                        || p.getState() == PlayerState.CARRIED)
-                    continue;
-                if (z.contains(p.getPosition().x(), p.getPosition().y())) {
+                Vector2D position = safeZonePosition(p);
+                if (z.contains(position.x(), position.y())) {
                     claimed.put(z.id(), p.getPlayerId());
                     alreadySafe.add(p.getPlayerId());
                     break;
@@ -125,6 +119,16 @@ public class SafeZoneManager {
             }
         }
         return claimed;
+    }
+
+    private Vector2D safeZonePosition(Player p) {
+        if (p.getCarriedByPlayerId() != -1) {
+            Player carrier = gameState.getPlayerById(p.getCarriedByPlayerId());
+            if (carrier != null) {
+                return carrier.getPosition();
+            }
+        }
+        return p.getPosition();
     }
 
     /**

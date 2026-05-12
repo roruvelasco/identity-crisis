@@ -1,6 +1,7 @@
 package com.identitycrisis.server.game;
 
 import com.identitycrisis.server.physics.TmxWallsParser.WallCollisionData;
+import com.identitycrisis.shared.model.CarryState;
 import com.identitycrisis.shared.model.GameConfig;
 import com.identitycrisis.shared.model.Player;
 import com.identitycrisis.shared.model.RoundPhase;
@@ -23,15 +24,17 @@ public class RoundManager {
     private final SafeZoneManager safeZoneManager;
     private final ChaosEventManager chaosEventManager;
     private final EliminationManager eliminationManager;
+    private final CarryManager carryManager;
     private final Random spawnRng = new Random();
     private WallCollisionData wallData;
 
     public RoundManager(GameState gs, SafeZoneManager szm,
-            ChaosEventManager cem, EliminationManager em) {
+            ChaosEventManager cem, EliminationManager em, CarryManager cm) {
         this.gameState = gs;
         this.safeZoneManager = szm;
         this.chaosEventManager = cem;
         this.eliminationManager = em;
+        this.carryManager = cm;
     }
 
     public void setWallCollisionData(WallCollisionData wallData) {
@@ -58,7 +61,11 @@ public class RoundManager {
                 if (shouldCompleteRoundImmediately()) {
                     finishRound(true);
                 } else if (gameState.getRoundTimer() <= 0) {
-                    finishRound(false);
+                    if (hasUnsecuredActiveCarry()) {
+                        gameState.setRoundTimer(0);
+                    } else {
+                        finishRound(false);
+                    }
                 }
             }
 
@@ -102,6 +109,20 @@ public class RoundManager {
         int requiredClaims = Math.max(GameConfig.SAFE_ZONE_MIN_ZONES, alive.size() - 1);
         Map<Integer, Integer> claimed = safeZoneManager.getZoneOccupants();
         return claimed.size() >= requiredClaims;
+    }
+
+    private boolean hasUnsecuredActiveCarry() {
+        for (CarryState cs : gameState.getActiveCarries()) {
+            Player carrier = gameState.getPlayerById(cs.carrierPlayerId());
+            Player carried = gameState.getPlayerById(cs.carriedPlayerId());
+            if (carrier == null || carried == null) {
+                continue;
+            }
+            if (!carrier.isInSafeZone() || !carried.isInSafeZone()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void finishRound(boolean immediateAdvance) {
@@ -150,6 +171,7 @@ public class RoundManager {
      */
     private void startNewRound() {
         chaosEventManager.clearActiveEvent();
+        carryManager.releaseAllCarries();
 
         List<Player> alive = gameState.getAlivePlayers();
         int zoneCount = isWarmupRound()

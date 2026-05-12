@@ -66,7 +66,7 @@ public class EmbeddedServer {
         ChaosEventManager cem = new ChaosEventManager(gameState);
         CarryManager cm = new CarryManager(gameState);
         EliminationManager em = new EliminationManager(gameState, cm);
-        RoundManager rm = new RoundManager(gameState, szm, cem, em);
+        RoundManager rm = new RoundManager(gameState, szm, cem, em, cm);
         PhysicsEngine pe = new PhysicsEngine();
         TmxWallsParser.WallCollisionData wallData =
                 TmxWallsParser.load("/sprites/map/ArenaMap.tmx");

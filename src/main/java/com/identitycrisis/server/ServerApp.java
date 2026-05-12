@@ -56,7 +56,7 @@ public class ServerApp {
         ChaosEventManager cem = new ChaosEventManager(gameState);
         CarryManager cm = new CarryManager(gameState);
         EliminationManager em = new EliminationManager(gameState, cm);
-        RoundManager rm = new RoundManager(gameState, szm, cem, em);
+        RoundManager rm = new RoundManager(gameState, szm, cem, em, cm);
 
         // ── 3. Stateless physics utilities ───────────────────────────────────
         PhysicsEngine pe = new PhysicsEngine();
