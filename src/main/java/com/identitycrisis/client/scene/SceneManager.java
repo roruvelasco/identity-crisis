@@ -206,9 +206,13 @@ public class SceneManager {
         });
 
         // Background Music Control
-        if ("gamearena".equals(key) || "initialloading".equals(key) || "loading".equals(key)) {
+        if ("gamearena".equals(key)) {
+            // Game music: loop indefinitely until the player leaves the arena
+            audioManager.playBGM("/audio/GameMusic.mp3");
+        } else if ("initialloading".equals(key) || "loading".equals(key)) {
             audioManager.stopBGM();
         } else {
+            // All other screens (menu, lobby, results, …) use the menu BGM
             audioManager.playBGM("/audio/bgmusic.wav");
         }
 
