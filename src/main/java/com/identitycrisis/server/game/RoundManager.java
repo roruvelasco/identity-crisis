@@ -1,7 +1,6 @@
 package com.identitycrisis.server.game;
 
 import com.identitycrisis.server.physics.TmxWallsParser.WallCollisionData;
-import com.identitycrisis.shared.model.CarryState;
 import com.identitycrisis.shared.model.GameConfig;
 import com.identitycrisis.shared.model.Player;
 import com.identitycrisis.shared.model.RoundPhase;
@@ -61,11 +60,7 @@ public class RoundManager {
                 if (shouldCompleteRoundImmediately()) {
                     finishRound(true);
                 } else if (gameState.getRoundTimer() <= 0) {
-                    if (hasUnsecuredActiveCarry()) {
-                        gameState.setRoundTimer(0);
-                    } else {
-                        finishRound(false);
-                    }
+                    finishRound(false);
                 }
             }
 
@@ -100,6 +95,9 @@ public class RoundManager {
         if (alive.isEmpty()) {
             return false;
         }
+        if (!gameState.getActiveCarries().isEmpty()) {
+            return false;
+        }
         if (isWarmupRound()) {
             return alive.stream().allMatch(Player::isInSafeZone);
         }
@@ -109,20 +107,6 @@ public class RoundManager {
         int requiredClaims = Math.max(GameConfig.SAFE_ZONE_MIN_ZONES, alive.size() - 1);
         Map<Integer, Integer> claimed = safeZoneManager.getZoneOccupants();
         return claimed.size() >= requiredClaims;
-    }
-
-    private boolean hasUnsecuredActiveCarry() {
-        for (CarryState cs : gameState.getActiveCarries()) {
-            Player carrier = gameState.getPlayerById(cs.carrierPlayerId());
-            Player carried = gameState.getPlayerById(cs.carriedPlayerId());
-            if (carrier == null || carried == null) {
-                continue;
-            }
-            if (!carrier.isInSafeZone() || !carried.isInSafeZone()) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private void finishRound(boolean immediateAdvance) {

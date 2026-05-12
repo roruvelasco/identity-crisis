@@ -969,13 +969,7 @@ public class GameArena {
         if (left < 0 || top < 0 || right >= mapManager.getWorldWidth() || bottom >= mapManager.getWorldHeight()) {
             return true;
         }
-        // isSolidPixel() uses the per-tile alpha bitmask for wall tiles (pixel-perfect)
-        // and falls back to the broad-phase solid[][] grid for water/void — so both
-        // hazard types still block the player correctly.
-        return mapManager.isSolidPixel(left,  top)
-            || mapManager.isSolidPixel(right, top)
-            || mapManager.isSolidPixel(left,  bottom)
-            || mapManager.isSolidPixel(right, bottom);
+        return mapManager.intersectsSolidPixels(left, top, right - left, bottom - top);
     }
 
     // ── Render ───────────────────────────────────────────────────────────────
@@ -1064,10 +1058,10 @@ public class GameArena {
             return;
         }
 
-        double boxW = 520;
+        double boxW = 420;
         double boxH = 86;
-        double x = (viewW - boxW) / 2.0;
-        double y = viewH - boxH - 42;
+        double x = 24;
+        double y = viewH - boxH - 24;
 
         gc.save();
         gc.setGlobalAlpha(0.92);
@@ -1077,13 +1071,13 @@ public class GameArena {
         gc.setStroke(Color.web("#F6C177"));
         gc.setLineWidth(3);
         gc.strokeRoundRect(x, y, boxW, boxH, 18, 18);
-        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setTextAlign(TextAlignment.LEFT);
         gc.setFill(Color.web("#FFF2CC"));
-        gc.setFont(loadFont("Press Start 2P", 13));
-        gc.fillText("PRESS Y TO RELEASE", viewW / 2.0, y + 34);
+        gc.setFont(loadFont("Press Start 2P", 10));
+        gc.fillText("PRESS Y TO RELEASE", x + 24, y + 34);
         gc.setFill(Color.web("#C0CBDC"));
-        gc.setFont(loadFont("Press Start 2P", 8));
-        gc.fillText("MASH 7 TIMES TO BREAK FREE", viewW / 2.0, y + 61);
+        gc.setFont(loadFont("Press Start 2P", 7));
+        gc.fillText("MASH 7 TIMES TO BREAK FREE", x + 24, y + 61);
         gc.restore();
     }
 

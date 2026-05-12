@@ -284,26 +284,24 @@ public class MapManager {
         int col = (int) Math.floor(worldX / TILE_SIZE);
         int row = (int) Math.floor(worldY / TILE_SIZE);
 
-        // 1. Out-of-bounds
         if (row < 0 || col < 0 || row >= worldRows || col >= worldCols) return true;
+        return solid[row][col];
+    }
 
-        // 2. Broad-phase: if the tile is not solid at all, skip narrow phase
-        if (!solid[row][col]) return false;
+    public boolean intersectsSolidPixels(double x, double y, double w, double h) {
+        int pxMin = (int) Math.floor(x);
+        int pxMax = (int) Math.ceil(x + w) - 1;
+        int pyMin = (int) Math.floor(y);
+        int pyMax = (int) Math.ceil(y + h) - 1;
 
-        // 3. Check whether the solid flag came from the walls layer
-        int[][] wallsGrid = layerGrids.get("walls");
-        if (wallsGrid == null) return true; // no walls layer → defer to broad-phase
-
-        int gid = wallsGrid[row][col] & GID_MASK;
-        if (gid == 0) {
-            // Solid came from void / water, not the walls bitmask — return broad-phase result
-            return solid[row][col];
+        for (int py = pyMin; py <= pyMax; py++) {
+            for (int px = pxMin; px <= pxMax; px++) {
+                if (isSolidPixel(px, py)) {
+                    return true;
+                }
+            }
         }
-
-        // 4. Narrow-phase: look up the alpha bitmask and check the exact pixel
-        int subX = (int)(worldX - col * (double) TILE_SIZE);
-        int subY = (int)(worldY - row * (double) TILE_SIZE);
-        return TileHitboxCache.pixelAt(tileAlphaMasks.get(gid), subX, subY);
+        return false;
     }
 
     /**

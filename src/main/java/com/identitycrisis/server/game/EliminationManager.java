@@ -1,10 +1,10 @@
 package com.identitycrisis.server.game;
 
 import com.identitycrisis.shared.model.GameConfig;
+import com.identitycrisis.shared.model.CarryState;
 import com.identitycrisis.shared.model.Player;
 import com.identitycrisis.shared.model.PlayerState;
 import com.identitycrisis.shared.model.SafeZone;
-import com.identitycrisis.shared.util.Vector2D;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -53,6 +53,15 @@ public class EliminationManager {
             return eliminated;
         }
 
+        Set<Integer> activeCarryIds = activeCarryPlayerIds();
+        if (!activeCarryIds.isEmpty()) {
+            for (Integer playerId : activeCarryIds) {
+                eliminatePlayer(playerId);
+                eliminated.add(playerId);
+            }
+            return eliminated;
+        }
+
         if (gameState.getRoundNumber() <= GameConfig.WARMUP_ROUNDS) {
             // Warm-up: every player outside any active zone is eliminated.
             for (Player p : alive) {
@@ -67,7 +76,6 @@ public class EliminationManager {
         // Elimination round (3+): exactly one zone per N-1 players, capacity 1.
         Map<Integer, Integer> claimed = computeZoneOccupants(zones, alive);
         Set<Integer> safeIds = new HashSet<>(claimed.values());
-        addCarryPartners(safeIds, alive);
 
         List<Player> unsafe = alive.stream()
                 .filter(p -> !safeIds.contains(p.getPlayerId()))
@@ -112,8 +120,10 @@ public class EliminationManager {
             for (Player p : alive) {
                 if (alreadySafe.contains(p.getPlayerId()))
                     continue;
-                Vector2D position = safeZonePosition(p);
-                if (z.contains(position.x(), position.y())) {
+                if (p.getState() == PlayerState.CARRYING
+                        || p.getState() == PlayerState.CARRIED)
+                    continue;
+                if (z.contains(p.getPosition().x(), p.getPosition().y())) {
                     claimed.put(z.id(), p.getPlayerId());
                     alreadySafe.add(p.getPlayerId());
                     break;
@@ -123,35 +133,19 @@ public class EliminationManager {
         return claimed;
     }
 
-    private void addCarryPartners(Set<Integer> safeIds, List<Player> alive) {
-        for (Player p : alive) {
-            if (!safeIds.contains(p.getPlayerId())) {
-                continue;
-            }
-            if (p.getCarryingPlayerId() != -1) {
-                safeIds.add(p.getCarryingPlayerId());
-            }
-            if (p.getCarriedByPlayerId() != -1) {
-                safeIds.add(p.getCarriedByPlayerId());
-            }
+    private Set<Integer> activeCarryPlayerIds() {
+        Set<Integer> ids = new HashSet<>();
+        for (CarryState cs : gameState.getActiveCarries()) {
+            ids.add(cs.carrierPlayerId());
+            ids.add(cs.carriedPlayerId());
         }
-    }
-
-    private Vector2D safeZonePosition(Player p) {
-        if (p.getCarriedByPlayerId() != -1) {
-            Player carrier = gameState.getPlayerById(p.getCarriedByPlayerId());
-            if (carrier != null) {
-                return carrier.getPosition();
-            }
-        }
-        return p.getPosition();
+        return ids;
     }
 
     private double nearestZoneDistance(Player p, List<SafeZone> zones) {
         double best = Double.MAX_VALUE;
-        Vector2D position = safeZonePosition(p);
         for (SafeZone z : zones) {
-            double d = position.distanceTo(z.center());
+            double d = p.getPosition().distanceTo(z.center());
             if (d < best)
                 best = d;
         }

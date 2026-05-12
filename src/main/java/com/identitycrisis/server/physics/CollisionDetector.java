@@ -117,12 +117,7 @@ public class CollisionDetector {
         for (int row = rowMin; row <= rowMax; row++) {
             for (int col = colMin; col <= colMax; col++) {
                 if (!wallData.solidGrid()[row][col]) continue; // empty walkable cell
-                int gid = wallData.wallsGidGrid()[row][col];
-
-                // Get collision shapes for this tile (objectgroup rects or full-tile fallback)
-                List<double[]> shapes = gid != 0
-                        ? wallData.shapesFor(gid)
-                        : List.of(new double[] { 0, 0, ts, ts });
+                List<double[]> shapes = List.of(new double[] { 0, 0, ts, ts });
 
                 for (double[] rect : shapes) {
                     // rect = {localX, localY, w, h} in tile-local pixels
