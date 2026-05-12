@@ -148,9 +148,13 @@ public class GameServer {
      * carry state involving that client's player so no other player gets stuck.
      */
     public void removeClient(ClientConnection client) {
+        boolean hadJoined = client.getDisplayName() != null && !client.getDisplayName().isBlank();
         clients.remove(client);
         if (gameLoop != null) {
             gameLoop.cleanupClient(client.getClientId());
+        }
+        if (chatManager != null && hadJoined && !clients.isEmpty()) {
+            chatManager.broadcastPlayerLeft(client);
         }
         if (lobbyManager != null && !clients.isEmpty()) {
             lobbyManager.broadcastLobbyState();

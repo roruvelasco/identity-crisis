@@ -1,6 +1,7 @@
 package com.identitycrisis.client.game;
 
 import com.identitycrisis.shared.model.*;
+import com.identitycrisis.shared.net.ChatMessageType;
 import com.identitycrisis.shared.net.MessageDecoder;
 import com.identitycrisis.shared.util.Vector2D;
 import java.util.List;
@@ -115,7 +116,7 @@ public class LocalGameState {
         if (data == null) return;
         java.util.ArrayList<ChatMessage> updated = new java.util.ArrayList<>();
         if (this.chatMessages != null) updated.addAll(this.chatMessages);
-        updated.add(new ChatMessage(data.senderName(), data.text()));
+        updated.add(new ChatMessage(data.senderName(), data.text(), data.messageType()));
         this.chatMessages = updated;
     }
     public void setMyPlayerId(int id) { this.myPlayerId = id; }
@@ -161,5 +162,5 @@ public class LocalGameState {
         this.safeZones          = new java.util.ArrayList<>();
     }
 
-    public record ChatMessage(String senderName, String text) { }
+    public record ChatMessage(String senderName, String text, ChatMessageType messageType) { }
 }

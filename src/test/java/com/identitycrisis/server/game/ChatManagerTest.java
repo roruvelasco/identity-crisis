@@ -3,6 +3,7 @@ package com.identitycrisis.server.game;
 import com.identitycrisis.server.net.ClientConnection;
 import com.identitycrisis.server.net.ClientMessageRouter;
 import com.identitycrisis.server.net.GameServer;
+import com.identitycrisis.shared.net.ChatMessageType;
 import com.identitycrisis.shared.net.MessageDecoder;
 import com.identitycrisis.shared.net.MessageType;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,7 @@ class ChatManagerTest {
             MessageDecoder.ChatData data = decodeBroadcast(server.lastBroadcast());
             assertEquals("Alice", data.senderName());
             assertEquals("hello", data.text());
+            assertEquals(ChatMessageType.NORMAL, data.messageType());
         }
     }
 
@@ -96,6 +98,38 @@ class ChatManagerTest {
             MessageDecoder.ChatData data = decodeBroadcast(server.lastBroadcast());
             assertEquals("Player " + fixture.connection().getClientId(), data.senderName());
             assertEquals("hello", data.text());
+        }
+    }
+
+    @Test
+    void broadcastPlayerJoined_broadcastsJoinMessageType() throws Exception {
+        CapturingGameServer server = new CapturingGameServer();
+        ChatManager manager = new ChatManager(server);
+        try (ConnectionFixture fixture = ConnectionFixture.open(server)) {
+            fixture.connection().setDisplayName("Alice");
+
+            manager.broadcastPlayerJoined(fixture.connection());
+
+            MessageDecoder.ChatData data = decodeBroadcast(server.lastBroadcast());
+            assertEquals("Alice", data.senderName());
+            assertEquals("has joined the game", data.text());
+            assertEquals(ChatMessageType.JOIN, data.messageType());
+        }
+    }
+
+    @Test
+    void broadcastPlayerLeft_broadcastsLeaveMessageType() throws Exception {
+        CapturingGameServer server = new CapturingGameServer();
+        ChatManager manager = new ChatManager(server);
+        try (ConnectionFixture fixture = ConnectionFixture.open(server)) {
+            fixture.connection().setDisplayName("Bob");
+
+            manager.broadcastPlayerLeft(fixture.connection());
+
+            MessageDecoder.ChatData data = decodeBroadcast(server.lastBroadcast());
+            assertEquals("Bob", data.senderName());
+            assertEquals("has left the game", data.text());
+            assertEquals(ChatMessageType.LEAVE, data.messageType());
         }
     }
 

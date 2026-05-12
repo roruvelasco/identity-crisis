@@ -203,10 +203,17 @@ public class MessageEncoder {
 
     public void encodeChatBroadcast(String senderName,
                                     String text) throws IOException {
+        encodeChatBroadcast(senderName, text, ChatMessageType.NORMAL);
+    }
+
+    public void encodeChatBroadcast(String senderName,
+                                    String text,
+                                    ChatMessageType messageType) throws IOException {
         ByteArrayOutputStream buf = new ByteArrayOutputStream();
         DataOutputStream tmp = new DataOutputStream(buf);
         tmp.writeUTF(senderName);
         tmp.writeUTF(text);
+        tmp.writeByte((messageType != null ? messageType : ChatMessageType.NORMAL).getCode());
         tmp.flush();
         byte[] payload = buf.toByteArray();
         writeHeader(MessageType.S_CHAT_BROADCAST, payload.length);

@@ -178,7 +178,10 @@ public class MessageDecoder {
             DataInputStream p = payloadStream();
             String senderName = p.readUTF();
             String text       = p.readUTF();
-            return new ChatData(senderName, text);
+            ChatMessageType messageType = p.available() > 0
+                    ? ChatMessageType.fromCode(p.readByte())
+                    : ChatMessageType.NORMAL;
+            return new ChatData(senderName, text, messageType);
         } catch (IOException e) { throw new RuntimeException(e); }
     }
 
@@ -222,5 +225,5 @@ public class MessageDecoder {
 
     public record GameOverData(int winnerPlayerId, String winnerName) { }
 
-    public record ChatData(String senderName, String text) { }
+    public record ChatData(String senderName, String text, ChatMessageType messageType) { }
 }

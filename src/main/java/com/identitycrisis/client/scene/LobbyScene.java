@@ -16,6 +16,7 @@ import com.identitycrisis.shared.model.GameConfig;
 import com.identitycrisis.client.game.LocalGameState;
 import com.identitycrisis.client.render.SpriteManager;
 import com.identitycrisis.client.net.GameClient;
+import com.identitycrisis.shared.net.ChatMessageType;
 
 /**
  * Lobby/waiting screen — displays while players gather before game start.
@@ -35,6 +36,8 @@ public class LobbyScene {
     private static final String TEXT_PARCHMENT = "#e8dfc4";
     private static final String TEXT_MUTED = "#7a7060";
     private static final String STONE_BORDER = "#2a2a36";
+    private static final String CHAT_JOIN = "#66d37e";
+    private static final String CHAT_LEAVE = "#e06464";
 
     private Canvas donutCanvas;
     private int playerCount = 1;
@@ -387,16 +390,30 @@ public class LobbyScene {
                 String myName = sceneManager.getMyDisplayName();
                 for (LocalGameState.ChatMessage message : messages) {
                     String senderName = message.senderName();
-                    String displayName = senderName != null && myName != null && senderName.equals(myName)
+                    String senderDisplayName = senderName != null && !senderName.isBlank() ? senderName : "Player";
+                    ChatMessageType messageType = message.messageType() != null
+                            ? message.messageType()
+                            : ChatMessageType.NORMAL;
+                    String displayName = messageType == ChatMessageType.NORMAL
+                            && senderName != null && myName != null && senderName.equals(myName)
                             ? "You"
-                            : (senderName != null && !senderName.isBlank() ? senderName : "Player");
-                    Label label = new Label(displayName + ": " + message.text());
+                            : senderDisplayName;
+                    String lineText = switch (messageType) {
+                        case JOIN, LEAVE -> senderDisplayName + " " + message.text();
+                        case NORMAL -> displayName + ": " + message.text();
+                    };
+                    String textColor = switch (messageType) {
+                        case JOIN -> CHAT_JOIN;
+                        case LEAVE -> CHAT_LEAVE;
+                        case NORMAL -> "You".equals(displayName) ? GOLD_LIGHT : TEXT_PARCHMENT;
+                    };
+                    Label label = new Label(lineText);
                     label.setWrapText(true);
                     label.setMaxWidth(280);
                     label.setStyle(
                         "-fx-font-family: 'Crimson Pro', serif;" +
                         "-fx-font-size: 13px;" +
-                        "-fx-text-fill: " + ("You".equals(displayName) ? GOLD_LIGHT : TEXT_PARCHMENT) + ";"
+                        "-fx-text-fill: " + textColor + ";"
                     );
                     chatMessagesBox.getChildren().add(label);
                 }

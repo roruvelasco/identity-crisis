@@ -53,8 +53,12 @@ public class LobbyManager {
         if (displayName == null || displayName.isBlank()) {
             displayName = "Player" + client.getClientId();
         }
+        boolean firstJoin = client.getDisplayName() == null || client.getDisplayName().isBlank();
         client.setDisplayName(displayName);
         broadcastLobbyState();
+        if (firstJoin && server.getChatManager() != null) {
+            server.getChatManager().broadcastPlayerJoined(client);
+        }
     }
 
     public synchronized void handleReady(ClientConnection client) {
