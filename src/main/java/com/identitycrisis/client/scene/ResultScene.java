@@ -4,6 +4,8 @@ import javafx.scene.Scene;
 import javafx.scene.layout.*;
 import javafx.scene.control.*;
 import javafx.scene.text.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.geometry.*;
 import javafx.animation.*;
 import javafx.util.Duration;
@@ -98,6 +100,24 @@ public class ResultScene {
         content.setAlignment(Pos.CENTER);
         content.setMaxWidth(560);
         content.setPadding(new Insets(40, 32, 60, 32));
+
+        // Logo image (skull with question mark)
+        try (var is = getClass().getResourceAsStream("/logo.png")) {
+            if (is != null) {
+                ImageView logoView = new ImageView(new Image(is));
+                logoView.setFitWidth(72);
+                logoView.setFitHeight(72);
+                logoView.setPreserveRatio(true);
+                logoView.setSmooth(true);
+                DropShadow logoGlow = new DropShadow();
+                logoGlow.setColor(Color.rgb(201, 168, 76, 0.6));
+                logoGlow.setRadius(22);
+                logoGlow.setSpread(0.12);
+                logoView.setEffect(logoGlow);
+                VBox.setMargin(logoView, new Insets(0, 0, 8, 0));
+                content.getChildren().add(logoView);
+            }
+        } catch (Exception ignored) {}
 
         // Victory icon (crown)
         Text crown = new Text("👑");

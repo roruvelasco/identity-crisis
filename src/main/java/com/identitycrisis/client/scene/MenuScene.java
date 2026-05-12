@@ -8,6 +8,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.geometry.*;
 import javafx.animation.*;
+import javafx.animation.TranslateTransition;
 import javafx.util.Duration;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.LinearGradient;
@@ -247,6 +248,34 @@ public class MenuScene {
     private VBox createLogoArea(StackPane root) {
         VBox logoArea = new VBox(8);
         logoArea.setAlignment(Pos.CENTER);
+
+        // ── Logo image (skull) ────────────────────────────────────────────────
+        try (var is = getClass().getResourceAsStream("/logo.png")) {
+            if (is != null) {
+                ImageView logoView = new ImageView(new Image(is));
+                logoView.setFitWidth(96);
+                logoView.setFitHeight(96);
+                logoView.setPreserveRatio(true);
+                logoView.setSmooth(true);
+                // Gold drop-shadow to match the scene palette
+                DropShadow logoGlow = new DropShadow();
+                logoGlow.setColor(Color.rgb(201, 168, 76, 0.65));
+                logoGlow.setRadius(28);
+                logoGlow.setSpread(0.15);
+                logoView.setEffect(logoGlow);
+
+                // Subtle floating animation
+                TranslateTransition float_ = new TranslateTransition(Duration.seconds(2.5), logoView);
+                float_.setFromY(-4);
+                float_.setToY(4);
+                float_.setAutoReverse(true);
+                float_.setCycleCount(Animation.INDEFINITE);
+                float_.play();
+
+                VBox.setMargin(logoView, new Insets(0, 0, 10, 0));
+                logoArea.getChildren().add(logoView);
+            }
+        } catch (Exception ignored) {}
 
         // Title - scale font size based on stage height for fullscreen responsiveness
         Text title = new Text("Identity Crisis");

@@ -3,6 +3,7 @@ package com.identitycrisis.client;
 import com.identitycrisis.client.scene.SceneManager;
 import com.identitycrisis.shared.model.GameConfig;
 import javafx.application.Application;
+import javafx.scene.image.Image;
 import javafx.stage.Stage;
 
 /**
@@ -22,6 +23,13 @@ public class ClientApp extends Application {
         primaryStage.setWidth(GameConfig.WINDOW_WIDTH);
         primaryStage.setHeight(GameConfig.WINDOW_HEIGHT);
         primaryStage.setResizable(false);
+
+        // Set application icon (taskbar + title bar)
+        try (var is = getClass().getResourceAsStream("/logo.png")) {
+            if (is != null) {
+                primaryStage.getIcons().add(new Image(is));
+            }
+        } catch (Exception ignored) {}
 
         SceneManager sceneManager = new SceneManager(primaryStage);
         sceneManager.showInitialLoading();

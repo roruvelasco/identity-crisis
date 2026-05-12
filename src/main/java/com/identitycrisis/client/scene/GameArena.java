@@ -1774,6 +1774,24 @@ public class GameArena {
         content.setAlignment(Pos.CENTER);
         content.setMaxWidth(620);
 
+        // Logo image
+        try (InputStream logoIs = getClass().getResourceAsStream("/logo.png")) {
+            if (logoIs != null) {
+                ImageView logoView = new ImageView(new Image(logoIs));
+                logoView.setFitWidth(80);
+                logoView.setFitHeight(80);
+                logoView.setPreserveRatio(true);
+                logoView.setSmooth(true);
+                // Red-tinged glow matching the game-over palette
+                javafx.scene.effect.DropShadow logoGlow = new javafx.scene.effect.DropShadow();
+                logoGlow.setColor(Color.rgb(208, 70, 72, 0.7));
+                logoGlow.setRadius(24);
+                logoGlow.setSpread(0.2);
+                logoView.setEffect(logoGlow);
+                content.getChildren().add(logoView);
+            }
+        } catch (Exception ignored) {}
+
         Label title = new Label("GAME OVER");
         title.setStyle("-fx-font-family: 'Press Start 2P', monospace;" +
                 "-fx-font-size: 42px;" +
