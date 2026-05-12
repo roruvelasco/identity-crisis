@@ -5,6 +5,7 @@ import javafx.scene.Scene;
 import javafx.scene.layout.StackPane;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
+import javafx.application.Platform;
 import java.util.HashMap;
 import java.util.Map;
 import com.identitycrisis.client.net.GameClient;
@@ -33,6 +34,7 @@ public class SceneManager {
     // Cached root nodes (Parent) for each named screen.
     // createScene() is called once; the root is extracted and the temp Scene discarded.
     private final Map<String, Parent> roots = new HashMap<>();
+    private String currentSceneKey;
 
     // Room-code / host-lifecycle state
     private EmbeddedServer embeddedServer;
@@ -124,6 +126,18 @@ public class SceneManager {
         }
         roomCode = null;
         isHost   = false;
+    }
+
+    public void handleServerDisconnected() {
+        Platform.runLater(() -> {
+            if (isHost) {
+                return;
+            }
+            gameClient = null;
+            if ("gamearena".equals(currentSceneKey)) {
+                gameArena.showHostDisconnectedPrompt();
+            }
+        });
     }
 
     public void showInitialLoading() {
@@ -218,6 +232,7 @@ public class SceneManager {
 
 
         permanentScene.setRoot(root);
+        currentSceneKey = key;
     }
 
 

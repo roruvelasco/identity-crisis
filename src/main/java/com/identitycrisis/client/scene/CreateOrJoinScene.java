@@ -307,6 +307,7 @@ public class CreateOrJoinScene {
         router.setOnChatReceived(() -> sceneManager.getLobbyScene().refreshChatMessages());
         router.setOnGameStarted(() -> sceneManager.showGameArena());
         GameClient gameClient = new GameClient(router);
+        gameClient.setOnDisconnected(() -> sceneManager.handleServerDisconnected());
         if (!connectWithRetry(gameClient, "localhost", port)) {
             embedded.stop();
             showError("Could not connect host client to embedded server.");

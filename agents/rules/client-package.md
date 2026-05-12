@@ -51,6 +51,7 @@ public class GameClient {
     private ServerMessageRouter router;
     private Thread readerThread;
     private volatile boolean connected;
+    private volatile Runnable onDisconnected;
 
     public GameClient(ServerMessageRouter router) { }
     public void connect(String host, int port) throws IOException { }
@@ -68,6 +69,7 @@ public class GameClient {
                                        boolean throwAction) { }
     public synchronized void sendChat(String text) { }
     public boolean isConnected() { }
+    public void setOnDisconnected(Runnable r) { }
     public void disconnect() { }
 }
 ```
@@ -416,6 +418,13 @@ public class SpriteManager {
 > socket + embedded server; it is wired to both
 > `stage.setOnCloseRequest(...)` in the constructor and the Lobby "Back"
 > button so the daemon accept-thread never outlives the UI.
+>
+> **Unexpected host disconnects.** Create/Join flows register
+> `GameClient.setOnDisconnected(...)` to call
+> `SceneManager.handleServerDisconnected()`. That handler marshals to the
+> JavaFX thread, ignores hosts, clears the disconnected client reference, and
+> asks `GameArena` to show the pause-style host-disconnect confirmation when
+> the active scene is the arena.
 
 ```java
 package com.identitycrisis.client.scene;
@@ -464,6 +473,7 @@ public class SceneManager {
 
     // Idempotent; called by close hook and Lobby "Back".
     public void shutdownNetwork() { }
+    public void handleServerDisconnected() { }
 
     // Getters / setters
     public Stage getStage() { }
@@ -559,6 +569,11 @@ public class GameScene {
     public void onExit() { /* stop loop, detach input */ }
 }
 ```
+
+Runtime `GameArena` behavior: `showHostDisconnectedPrompt()` reuses the
+pause/confirmation overlay with `HOST HAS DISCONNECTED. LEAVE NOW?`. YES calls
+`onExit()`, `SceneManager.shutdownNetwork()`, then `showCreateOrJoin()`. NO
+dismisses the overlay and leaves the player in the arena.
 
 ### 7.19 `client/scene/ResultScene.java`
 ```java

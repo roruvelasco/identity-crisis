@@ -321,6 +321,7 @@ public class JoinRoomScene {
         IOException lastError = null;
         for (RoomCodec.HostPort candidate : candidates) {
             GameClient candidateClient = new GameClient(router);
+            candidateClient.setOnDisconnected(() -> sceneManager.handleServerDisconnected());
             try {
                 candidateClient.connect(candidate.ip(), candidate.port(), 900);
                 gameClient = candidateClient;

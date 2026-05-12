@@ -230,6 +230,15 @@ public record GameContext(
       those rectangles; tiles without an objectgroup fall back to a full 16×16 rect.
     - **Wiring**: called in `ServerApp.main()` at step 3 and injected via
       `CollisionDetector(WallCollisionData)`. Legacy no-arg constructor retained.
+22. **Unexpected host/server disconnects are handled client-side.** `GameClient`
+    exposes `setOnDisconnected(Runnable)` and invokes it only for unexpected
+    reader-thread EOF/read errors or send failures, not for intentional
+    `disconnect()` calls. Create/Join flows wire the callback to
+    `SceneManager.handleServerDisconnected()`, which marshals to the JavaFX
+    thread and ignores hosts. In `GameArena`, joiners see the pause-style
+    `HOST HAS DISCONNECTED. LEAVE NOW?` confirmation. YES shuts down network
+    state and returns to Create/Join; NO dismisses the overlay and leaves the
+    player in the arena.
 
 ## 4. Directory & File Tree
 

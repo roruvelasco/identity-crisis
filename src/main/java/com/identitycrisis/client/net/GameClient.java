@@ -44,6 +44,7 @@ public class GameClient {
     private final ServerMessageRouter router;
     private Thread readerThread;
     private volatile boolean connected;
+    private volatile Runnable onDisconnected;
     /** Timestamp (nanoTime) of the last sendInput call — used for rate-limiting. */
     private long lastInputSendNs = 0;
     /** Minimum gap between input sends: ~16 ms = 60 sends/sec (matches server tick). */
@@ -103,17 +104,27 @@ public class GameClient {
     }
 
     private void readLoop() {
+        boolean unexpectedDisconnect = false;
         try {
             while (connected) {
                 MessageType type = decoder.readNextType();
                 router.route(type, decoder);
             }
         } catch (EOFException eof) {
-            LOG.info("Server closed the connection.");
+            if (connected) {
+                unexpectedDisconnect = true;
+                LOG.info("Server closed the connection.");
+            }
         } catch (IOException e) {
-            if (connected) LOG.error("Read error — disconnecting", e);
+            if (connected) {
+                unexpectedDisconnect = true;
+                LOG.error("Read error — disconnecting", e);
+            }
         } finally {
-            disconnect();
+            disconnectInternal();
+            if (unexpectedDisconnect && onDisconnected != null) {
+                onDisconnected.run();
+            }
         }
     }
 
@@ -126,7 +137,7 @@ public class GameClient {
             encoder.flush();
         } catch (IOException e) {
             LOG.error("sendJoinRequest failed", e);
-            disconnect();
+            disconnectUnexpected();
         }
     }
 
@@ -137,7 +148,7 @@ public class GameClient {
             encoder.flush();
         } catch (IOException e) {
             LOG.error("sendReady failed", e);
-            disconnect();
+            disconnectUnexpected();
         }
     }
 
@@ -157,7 +168,7 @@ public class GameClient {
             encoder.flush(); // flushes directly to OS socket buffer (no BufferedOutputStream)
         } catch (IOException e) {
             LOG.error("sendInput failed", e);
-            disconnect();
+            disconnectUnexpected();
         }
     }
 
@@ -168,16 +179,31 @@ public class GameClient {
             encoder.flush();
         } catch (IOException e) {
             LOG.error("sendChat failed", e);
-            disconnect();
+            disconnectUnexpected();
         }
     }
 
     public boolean isConnected() { return connected; }
 
+    public void setOnDisconnected(Runnable onDisconnected) {
+        this.onDisconnected = onDisconnected;
+    }
+
     /** Idempotent: closes the socket and stops the reader thread. */
     public void disconnect() {
+        disconnectInternal();
+    }
+
+    private void disconnectInternal() {
         if (!connected) return;
         connected = false;
         try { if (socket != null) socket.close(); } catch (IOException ignored) { }
+    }
+
+    private void disconnectUnexpected() {
+        disconnectInternal();
+        if (onDisconnected != null) {
+            onDisconnected.run();
+        }
     }
 }

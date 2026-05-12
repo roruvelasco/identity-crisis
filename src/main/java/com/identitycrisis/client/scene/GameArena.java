@@ -204,9 +204,11 @@ public class GameArena {
     private javafx.scene.layout.VBox confirmMenu;
     private javafx.scene.control.Label confirmLabel;
     private Runnable confirmAction;
+    private Runnable confirmNoAction;
     private StackPane gameOverOverlay;
     private Label gameOverWinnerLabel;
     private boolean gameOverShown;
+    private boolean hostDisconnectPromptShown;
 
     // ── Fake safe-zones chaos state ───────────────────────────────────────────
     //
@@ -407,6 +409,7 @@ public class GameArena {
         isPaused = false;
         arenaBgmStarted = false;
         gameOverShown = false;
+        hostDisconnectPromptShown = false;
         if (pauseOverlay != null)
             pauseOverlay.setVisible(false);
         if (gameOverOverlay != null)
@@ -449,6 +452,25 @@ public class GameArena {
         if (inputManager != null) {
             inputManager.detachFromScene(sceneManager.getPermanentScene());
         }
+    }
+
+    public void showHostDisconnectedPrompt() {
+        if (hostDisconnectPromptShown || pauseOverlay == null) {
+            return;
+        }
+        hostDisconnectPromptShown = true;
+        isPaused = true;
+        pauseOverlay.setVisible(true);
+        pauseArenaAudio();
+        showConfirmMenu("HOST HAS DISCONNECTED.\nLEAVE NOW?", () -> {
+            onExit();
+            sceneManager.shutdownNetwork();
+            sceneManager.showCreateOrJoin();
+        }, () -> {
+            isPaused = false;
+            pauseOverlay.setVisible(false);
+            resumeArenaAudio();
+        });
     }
 
     // ── Update (game logic) ──────────────────────────────────────────────────
@@ -1762,7 +1784,11 @@ public class GameArena {
 
         Button noBtn = createMenuButton("NO");
         noBtn.setMinWidth(110);
-        noBtn.setOnAction(e -> showPauseMenu());
+        noBtn.setOnAction(e -> {
+            if (confirmNoAction != null) {
+                confirmNoAction.run();
+            }
+        });
 
         confirmButtons.getChildren().addAll(yesBtn, noBtn);
         confirmMenu.getChildren().addAll(confirmLabel, confirmButtons);
@@ -1907,11 +1933,17 @@ public class GameArena {
     private void showPauseMenu() {
         pauseMenu.setVisible(true);
         confirmMenu.setVisible(false);
+        confirmNoAction = this::showPauseMenu;
     }
 
     private void showConfirmMenu(String question, Runnable action) {
+        showConfirmMenu(question, action, this::showPauseMenu);
+    }
+
+    private void showConfirmMenu(String question, Runnable action, Runnable noAction) {
         confirmLabel.setText(question);
         confirmAction = action;
+        confirmNoAction = noAction;
         pauseMenu.setVisible(false);
         confirmMenu.setVisible(true);
     }
