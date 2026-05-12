@@ -304,6 +304,7 @@ public class CreateOrJoinScene {
             int mi = localState.getLobbyMyIndex();
             sceneManager.getLobbyScene().setLobbyPlayers(names, ready, mi);
         });
+        router.setOnChatReceived(() -> sceneManager.getLobbyScene().refreshChatMessages());
         router.setOnGameStarted(() -> sceneManager.showGameArena());
         GameClient gameClient = new GameClient(router);
         if (!connectWithRetry(gameClient, "localhost", port)) {

@@ -33,7 +33,7 @@ public class LocalGameState {
     private volatile boolean gameOver;
     private volatile int winnerPlayerId;
     private volatile String winnerName;
-    private volatile List<String> chatMessages;
+    private volatile List<ChatMessage> chatMessages;
     private volatile String lastEliminatedName;
 
     /**
@@ -113,8 +113,10 @@ public class LocalGameState {
     }
     public synchronized void addChatMessage(MessageDecoder.ChatData data) {
         if (data == null) return;
-        if (this.chatMessages == null) this.chatMessages = new java.util.ArrayList<>();
-        this.chatMessages.add(data.senderName() + ": " + data.text());
+        java.util.ArrayList<ChatMessage> updated = new java.util.ArrayList<>();
+        if (this.chatMessages != null) updated.addAll(this.chatMessages);
+        updated.add(new ChatMessage(data.senderName(), data.text()));
+        this.chatMessages = updated;
     }
     public void setMyPlayerId(int id) { this.myPlayerId = id; }
 
@@ -131,7 +133,7 @@ public class LocalGameState {
     public boolean isGameOver() { return gameOver; }
     public int getWinnerPlayerId() { return winnerPlayerId; }
     public String getWinnerName() { return winnerName; }
-    public List<String> getChatMessages() { return chatMessages; }
+    public List<ChatMessage> getChatMessages() { return chatMessages; }
     public String getLastEliminatedName() { return lastEliminatedName; }
     public int getLobbyConnectedCount() { return lobbyConnectedCount; }
     public int getLobbyRequiredCount() { return lobbyRequiredCount; }
@@ -158,4 +160,6 @@ public class LocalGameState {
         this.players            = new java.util.ArrayList<>();
         this.safeZones          = new java.util.ArrayList<>();
     }
+
+    public record ChatMessage(String senderName, String text) { }
 }

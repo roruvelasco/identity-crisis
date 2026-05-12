@@ -1,7 +1,7 @@
 .PHONY: dev build server client
 
 dev:
-	@bash dev.sh
+	@if [ "$$(uname)" = "Darwin" ] || [ "$$(uname)" = "Linux" ]; then bash dev.sh; else powershell -ExecutionPolicy Bypass -File dev.ps1; fi
 
 build:
 	./mvnw clean compile

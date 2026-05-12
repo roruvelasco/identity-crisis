@@ -179,7 +179,7 @@ public class LocalGameState {
     private volatile boolean gameOver;
     private volatile int winnerPlayerId;
     private volatile String winnerName;
-    private volatile List<String> chatMessages;
+    private volatile List<ChatMessage> chatMessages;
     private volatile String lastEliminatedName;
 
     // Update methods (network thread)
@@ -206,12 +206,14 @@ public class LocalGameState {
     public boolean isGameOver() { }
     public int getWinnerPlayerId() { }
     public String getWinnerName() { }
-    public List<String> getChatMessages() { }
+    public List<ChatMessage> getChatMessages() { }
     public String getLastEliminatedName() { }
     public int getLobbyConnectedCount() { }
     public int getLobbyRequiredCount() { }
     public String[] getLobbyPlayerNames() { }
     public boolean[] getLobbyReadyFlags() { }
+
+    public record ChatMessage(String senderName, String text) { }
 }
 ```
 

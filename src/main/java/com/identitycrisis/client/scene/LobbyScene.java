@@ -13,6 +13,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import com.identitycrisis.shared.model.GameConfig;
+import com.identitycrisis.client.game.LocalGameState;
 import com.identitycrisis.client.render.SpriteManager;
 import com.identitycrisis.client.net.GameClient;
 
@@ -48,6 +49,10 @@ public class LobbyScene {
     private Label roomCodeLabel;
     private String roomCode;
     private Button startBtn;
+    private VBox chatMessagesBox;
+    private ScrollPane chatScrollPane;
+    private TextField chatInput;
+    private Button chatSendButton;
 
     private final String[] tips = {
         "Carry a teammate to safety — but you can't enter the safe zone while holding them.",
@@ -83,6 +88,8 @@ public class LobbyScene {
         // Main content
         VBox content = createContent();
         root.getChildren().add(content);
+
+        addChatPanel(root);
 
         // Scanlines
         addScanlines(root);
@@ -283,6 +290,121 @@ public class LobbyScene {
         btn.setOnMousePressed(e -> { btn.setScaleX(0.97); btn.setScaleY(0.97); btn.setTranslateY(2); });
         btn.setOnMouseReleased(e -> { btn.setScaleX(1.0); btn.setScaleY(1.0); btn.setTranslateY(0); });
         return btn;
+    }
+
+    private void addChatPanel(StackPane root) {
+        VBox chatPanel = new VBox(10);
+        chatPanel.setPrefSize(320, 260);
+        chatPanel.setMaxSize(320, 260);
+        chatPanel.setPadding(new Insets(12));
+        chatPanel.setStyle(
+            "-fx-background-color: rgba(28, 28, 38, 0.94);" +
+            "-fx-border-color: " + GOLD_DARK + ";" +
+            "-fx-border-width: 1px;"
+        );
+
+        Label chatTitle = new Label("CHAT");
+        chatTitle.setStyle(
+            "-fx-font-family: 'Press Start 2P', monospace;" +
+            "-fx-font-size: 8px;" +
+            "-fx-text-fill: " + GOLD + ";" +
+            "-fx-letter-spacing: 2px;"
+        );
+
+        chatMessagesBox = new VBox(6);
+        chatMessagesBox.setPadding(new Insets(6));
+        chatMessagesBox.setFillWidth(true);
+
+        chatScrollPane = new ScrollPane(chatMessagesBox);
+        chatScrollPane.setFitToWidth(true);
+        chatScrollPane.setPrefHeight(160);
+        chatScrollPane.setMaxHeight(160);
+        chatScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        chatScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        chatScrollPane.setStyle(
+            "-fx-background: " + STONE_DARK + ";" +
+            "-fx-background-color: " + STONE_DARK + ";" +
+            "-fx-border-color: " + STONE_BORDER + ";" +
+            "-fx-border-width: 1px;"
+        );
+
+        chatInput = new TextField();
+        chatInput.setPromptText("Type message...");
+        chatInput.setPrefHeight(30);
+        chatInput.setStyle(
+            "-fx-font-family: 'Crimson Pro', serif;" +
+            "-fx-font-size: 13px;" +
+            "-fx-text-fill: " + TEXT_PARCHMENT + ";" +
+            "-fx-prompt-text-fill: " + TEXT_MUTED + ";" +
+            "-fx-background-color: " + STONE_DARK + ";" +
+            "-fx-border-color: " + STONE_BORDER + ";" +
+            "-fx-border-width: 1px;"
+        );
+        chatInput.setOnAction(e -> sendLobbyChat());
+
+        chatSendButton = new Button("SEND");
+        chatSendButton.setPrefWidth(70);
+        chatSendButton.setMinWidth(70);
+        chatSendButton.setStyle(
+            "-fx-font-family: 'Press Start 2P', monospace;" +
+            "-fx-font-size: 7px;" +
+            "-fx-text-fill: " + GOLD_LIGHT + ";" +
+            "-fx-background-color: #4a3a1a;" +
+            "-fx-border-color: #1a0e00;" +
+            "-fx-border-width: 1px;" +
+            "-fx-cursor: hand;"
+        );
+        chatSendButton.setOnAction(e -> sendLobbyChat());
+
+        HBox inputRow = new HBox(6, chatInput, chatSendButton);
+        inputRow.setAlignment(Pos.CENTER);
+        HBox.setHgrow(chatInput, Priority.ALWAYS);
+
+        chatPanel.getChildren().addAll(chatTitle, chatScrollPane, inputRow);
+        StackPane.setAlignment(chatPanel, Pos.BOTTOM_LEFT);
+        StackPane.setMargin(chatPanel, new Insets(0, 0, 24, 24));
+        root.getChildren().add(chatPanel);
+    }
+
+    private void sendLobbyChat() {
+        if (chatInput == null) return;
+        String text = chatInput.getText();
+        if (text == null || text.isBlank()) return;
+        GameClient gc = sceneManager.getGameClient();
+        if (gc == null || !gc.isConnected()) return;
+        gc.sendChat(text.trim());
+        chatInput.clear();
+    }
+
+    public void refreshChatMessages() {
+        if (chatMessagesBox == null) return;
+        javafx.application.Platform.runLater(() -> {
+            chatMessagesBox.getChildren().clear();
+            LocalGameState state = sceneManager.getLocalGameState();
+            java.util.List<LocalGameState.ChatMessage> messages =
+                    state != null ? state.getChatMessages() : null;
+            if (messages != null) {
+                String myName = sceneManager.getMyDisplayName();
+                for (LocalGameState.ChatMessage message : messages) {
+                    String senderName = message.senderName();
+                    String displayName = senderName != null && myName != null && senderName.equals(myName)
+                            ? "You"
+                            : (senderName != null && !senderName.isBlank() ? senderName : "Player");
+                    Label label = new Label(displayName + ": " + message.text());
+                    label.setWrapText(true);
+                    label.setMaxWidth(280);
+                    label.setStyle(
+                        "-fx-font-family: 'Crimson Pro', serif;" +
+                        "-fx-font-size: 13px;" +
+                        "-fx-text-fill: " + ("You".equals(displayName) ? GOLD_LIGHT : TEXT_PARCHMENT) + ";"
+                    );
+                    chatMessagesBox.getChildren().add(label);
+                }
+            }
+            if (chatScrollPane != null) {
+                javafx.application.Platform.runLater(() -> chatScrollPane.setVvalue(1.0));
+            }
+        });
     }
 
     private VBox createPlayerCardsSection() {
