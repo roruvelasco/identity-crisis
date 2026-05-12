@@ -26,8 +26,9 @@ package com.identitycrisis.shared.util;
  */
 public final class RoomCodec {
 
-    private static final int  CODE_LENGTH = 10;
-    private static final int  RADIX       = 36;
+    private static final int  CODE_LENGTH = 5;
+    public static final int ROOM_PORT_BASE = 61000;
+    public static final int ROOM_PORT_COUNT = 390;
     private static final char SEPARATOR   = '-';
 
     private RoomCodec() {}
@@ -44,35 +45,12 @@ public final class RoomCodec {
      * @throws IllegalArgumentException if the IP is malformed or port is out of range
      */
     public static String encode(String ip, int port) {
-        if (port < 1 || port > 65535) {
+        if (port < ROOM_PORT_BASE || port >= ROOM_PORT_BASE + ROOM_PORT_COUNT) {
             throw new IllegalArgumentException("Port out of range: " + port);
         }
-        String[] parts = ip.split("\\.", -1);
-        if (parts.length != 4) {
-            throw new IllegalArgumentException("Invalid IPv4 address: " + ip);
-        }
-        long value = 0;
-        for (int i = 0; i < 4; i++) {
-            int octet;
-            try {
-                octet = Integer.parseInt(parts[i]);
-            } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Invalid IPv4 address: " + ip);
-            }
-            if (octet < 0 || octet > 255) {
-                throw new IllegalArgumentException("Invalid IPv4 octet: " + octet);
-            }
-            value = (value << 8) | octet;
-        }
-        value = (value << 16) | (port & 0xFFFFL);
-
-        String raw = Long.toString(value, RADIX).toUpperCase();
-        // Zero-pad to CODE_LENGTH
-        while (raw.length() < CODE_LENGTH) {
-            raw = "0" + raw;
-        }
-        // Insert separator in the middle for readability
-        return raw.substring(0, CODE_LENGTH / 2) + SEPARATOR + raw.substring(CODE_LENGTH / 2);
+        int[] parts = parseIpv4(ip);
+        int value = parts[3] * ROOM_PORT_COUNT + (port - ROOM_PORT_BASE);
+        return String.format("%05d", value);
     }
 
     // ── Decoding ─────────────────────────────────────────────────────────────
@@ -88,31 +66,53 @@ public final class RoomCodec {
         if (code == null) {
             throw new IllegalArgumentException("Room code must not be null");
         }
-        // Strip separator and whitespace, normalise to uppercase
-        String raw = code.replace(String.valueOf(SEPARATOR), "").trim().toUpperCase();
+        return decode(code, NetworkUtils.getLanIp());
+    }
+
+    public static HostPort decode(String code, String localIpForSubnet) {
+        if (code == null) {
+            throw new IllegalArgumentException("Room code must not be null");
+        }
+        String raw = code.replace(String.valueOf(SEPARATOR), "").trim();
         if (raw.length() != CODE_LENGTH) {
             throw new IllegalArgumentException(
                 "Invalid room code length (expected " + CODE_LENGTH + "): " + code);
         }
-        long value;
+        int value;
         try {
-            value = Long.parseLong(raw, RADIX);
+            value = Integer.parseInt(raw);
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid room code: " + code, e);
         }
-
-        int port = (int) (value & 0xFFFFL);
-        value >>= 16;
-        int o4 = (int) (value & 0xFF); value >>= 8;
-        int o3 = (int) (value & 0xFF); value >>= 8;
-        int o2 = (int) (value & 0xFF); value >>= 8;
-        int o1 = (int) (value & 0xFF);
-
-        if (port < 1 || port > 65535) {
-            throw new IllegalArgumentException("Decoded port out of range: " + port);
+        int maxValue = 256 * ROOM_PORT_COUNT;
+        if (value < 0 || value >= maxValue) {
+            throw new IllegalArgumentException("Invalid room code: " + code);
         }
-        String ip = o1 + "." + o2 + "." + o3 + "." + o4;
+
+        int hostOctet = value / ROOM_PORT_COUNT;
+        int port = ROOM_PORT_BASE + (value % ROOM_PORT_COUNT);
+        int[] subnet = parseIpv4(localIpForSubnet);
+        String ip = subnet[0] + "." + subnet[1] + "." + subnet[2] + "." + hostOctet;
         return new HostPort(ip, port);
+    }
+
+    private static int[] parseIpv4(String ip) {
+        String[] raw = ip.split("\\.", -1);
+        if (raw.length != 4) {
+            throw new IllegalArgumentException("Invalid IPv4 address: " + ip);
+        }
+        int[] parts = new int[4];
+        for (int i = 0; i < 4; i++) {
+            try {
+                parts[i] = Integer.parseInt(raw[i]);
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Invalid IPv4 address: " + ip);
+            }
+            if (parts[i] < 0 || parts[i] > 255) {
+                throw new IllegalArgumentException("Invalid IPv4 octet: " + parts[i]);
+            }
+        }
+        return parts;
     }
 
     // ── Inner type ────────────────────────────────────────────────────────────

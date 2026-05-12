@@ -113,7 +113,7 @@ public class RoundManager {
         chaosEventManager.clearActiveEvent();
         List<Integer> eliminated = eliminationManager.evaluateEliminations();
         gameState.getPendingEliminationIds().addAll(eliminated);
-        if (immediateAdvance) {
+        if (immediateAdvance || eliminationManager.isGameOver()) {
             advanceAfterElimination();
             return;
         }

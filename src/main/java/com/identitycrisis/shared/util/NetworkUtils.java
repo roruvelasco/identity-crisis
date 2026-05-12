@@ -170,4 +170,15 @@ public final class NetworkUtils {
             throw new RuntimeException("Could not find a free port", e);
         }
     }
+
+    public static int findFreeRoomPort() {
+        int end = RoomCodec.ROOM_PORT_BASE + RoomCodec.ROOM_PORT_COUNT;
+        for (int port = RoomCodec.ROOM_PORT_BASE; port < end; port++) {
+            try (ServerSocket probe = new ServerSocket(port)) {
+                probe.setReuseAddress(true);
+                return port;
+            } catch (Exception ignored) {}
+        }
+        throw new RuntimeException("Could not find a free room port");
+    }
 }

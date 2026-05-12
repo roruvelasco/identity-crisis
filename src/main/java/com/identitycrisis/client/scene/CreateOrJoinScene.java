@@ -271,7 +271,7 @@ public class CreateOrJoinScene {
         int port;
         EmbeddedServer embedded = new EmbeddedServer();
         try {
-            port = NetworkUtils.findFreePort();
+            port = NetworkUtils.findFreeRoomPort();
             embedded.start(port);
         } catch (RuntimeException e) {
             LOG.error("Failed to start embedded server", e);
