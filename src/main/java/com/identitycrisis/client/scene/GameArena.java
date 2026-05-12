@@ -1842,7 +1842,28 @@ public class GameArena {
         isPaused = !isPaused;
         pauseOverlay.setVisible(isPaused);
         if (isPaused) {
+            pauseArenaAudio();
             showPauseMenu();
+        } else {
+            resumeArenaAudio();
+        }
+    }
+
+    private void pauseArenaAudio() {
+        if (countdownAudio != null && countdownAudio.getStatus() == MediaPlayer.Status.PLAYING) {
+            countdownAudio.pause();
+        }
+        if (sceneManager != null && sceneManager.getAudioManager() != null) {
+            sceneManager.getAudioManager().pauseBGM();
+        }
+    }
+
+    private void resumeArenaAudio() {
+        if (countdownAudio != null && countdownAudio.getStatus() == MediaPlayer.Status.PAUSED) {
+            countdownAudio.play();
+        }
+        if (sceneManager != null && sceneManager.getAudioManager() != null) {
+            sceneManager.getAudioManager().resumeBGM();
         }
     }
 

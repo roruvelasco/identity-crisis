@@ -56,6 +56,18 @@ public class AudioManager {
         }
     }
 
+    public void pauseBGM() {
+        if (bgmPlayer != null && bgmPlayer.getStatus() == MediaPlayer.Status.PLAYING) {
+            bgmPlayer.pause();
+        }
+    }
+
+    public void resumeBGM() {
+        if (bgmPlayer != null && bgmPlayer.getStatus() == MediaPlayer.Status.PAUSED) {
+            bgmPlayer.play();
+        }
+    }
+
     public void toggleMute() {
         muted = !muted;
         if (bgmPlayer != null) {

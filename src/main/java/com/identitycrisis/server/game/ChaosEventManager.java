@@ -20,16 +20,17 @@ public class ChaosEventManager {
     private final GameState gameState;
     private final Random rng = new Random();
     private static final boolean CHAOS_EVENTS_ENABLED = !Boolean.getBoolean("identitycrisis.disableChaosEvents");
+    private static final double CHAOS_START_DELAY_SECONDS = 5.0;
     private static final List<ChaosEventType> ENABLED_EVENTS = List.of(
             ChaosEventType.REVERSED_CONTROLS,
-            ChaosEventType.CONTROL_SWAP,
+            // ChaosEventType.CONTROL_SWAP,
             ChaosEventType.FAKE_SAFE_ZONES);
 
     public ChaosEventManager(GameState gameState) { this.gameState = gameState; }
 
     public void resetForNewRound() {
         clearActiveEvent();
-        gameState.setChaosEventTimer(CHAOS_EVENTS_ENABLED ? 0 : 0);
+        gameState.setChaosEventTimer(CHAOS_EVENTS_ENABLED ? CHAOS_START_DELAY_SECONDS : 0);
     }
 
     public void tick(double dt) {
