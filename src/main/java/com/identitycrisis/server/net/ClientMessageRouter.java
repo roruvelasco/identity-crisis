@@ -2,11 +2,7 @@ package com.identitycrisis.server.net;
 
 import com.identitycrisis.server.game.ServerGameLoop;
 import com.identitycrisis.shared.net.MessageDecoder;
-import com.identitycrisis.shared.net.MessageEncoder;
 import com.identitycrisis.shared.net.MessageType;
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
 
 /**
  * Routes decoded client messages to server-side handlers.
@@ -38,15 +34,7 @@ public class ClientMessageRouter {
             }
             case C_CHAT_SEND -> {
                 String text = decoder.decodeChatSend();
-                try {
-                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                    MessageEncoder enc = new MessageEncoder(new DataOutputStream(baos));
-                    enc.encodeChatBroadcast(sender.getDisplayName(), text);
-                    enc.flush();
-                    server.broadcastToAll(baos.toByteArray());
-                } catch (IOException e) {
-                    // log and continue
-                }
+                server.getChatManager().handleChat(sender, text);
             }
             default -> { /* unknown message type — ignore */ }
         }

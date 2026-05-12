@@ -2,6 +2,7 @@ package com.identitycrisis.server.net;
 
 import com.identitycrisis.server.game.LobbyManager;
 import com.identitycrisis.server.game.ServerGameLoop;
+import com.identitycrisis.server.game.ChatManager;
 import com.identitycrisis.shared.util.Logger;
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -47,6 +48,7 @@ public class GameServer {
     private ClientMessageRouter router;
     private LobbyManager lobbyManager;
     private ServerGameLoop gameLoop;
+    private ChatManager chatManager;
 
     /**
      * Minimal constructor — port only.
@@ -75,6 +77,10 @@ public class GameServer {
         this.gameLoop = gameLoop;
     }
 
+    public void setChatManager(ChatManager chatManager) {
+        this.chatManager = chatManager;
+    }
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     /**
@@ -84,9 +90,9 @@ public class GameServer {
      * @throws IllegalStateException if router or lobbyManager were not injected
      */
     public void start() {
-        if (router == null || lobbyManager == null) {
+        if (router == null || lobbyManager == null || chatManager == null) {
             throw new IllegalStateException(
-                    "GameServer.start() called before router/lobbyManager were injected. " +
+                    "GameServer.start() called before router/lobbyManager/chatManager were injected. " +
                             "Check ServerApp.main() composition order.");
         }
         try {
@@ -191,6 +197,10 @@ public class GameServer {
 
     public ServerGameLoop getGameLoop() {
         return gameLoop;
+    }
+
+    public ChatManager getChatManager() {
+        return chatManager;
     }
 
     public int getPort() {

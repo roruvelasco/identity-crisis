@@ -14,4 +14,4 @@
 | F10 | Throw player | `CarryManager.throwCarried()`, `PhysicsEngine` | `PlayerRenderer` (throw animation) |
 | F11 | Carrier can't be safe | `SafeZoneManager.updateOccupancy()` (safety block) | N/A (server-enforced) |
 | F12 | Last player wins | `EliminationManager.isGameOver()`, `RoundManager` | `ResultScene` |
-| F13 | In-game chat (bonus) | `ClientMessageRouter` (broadcast), `ChatBroadcastMessage` | `ChatRenderer`, `InputManager` (ENTER toggle) |
+| F13 | In-game chat (bonus) | `ChatManager`, `ClientMessageRouter`, `ChatBroadcastMessage` | `ChatRenderer`, `InputManager` (ENTER toggle) |

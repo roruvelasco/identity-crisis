@@ -424,27 +424,23 @@ public void route(ClientConnection sender, MessageType type,
         }
         case C_CHAT_SEND -> {
             String text = decoder.decodeChatSend();
-            // Encode chat broadcast and send to all clients
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            try {
-                MessageEncoder enc = new MessageEncoder(new DataOutputStream(baos));
-                enc.encodeChatBroadcast(sender.getDisplayName(), text);
-                enc.flush();
-                server.broadcastToAll(baos.toByteArray());
-            } catch (IOException e) {
-                // Log and continue
-            }
+            server.getChatManager().handleChat(sender, text);
         }
         default -> { /* unknown message type — ignore */ }
     }
 }
 ```
 
-Add necessary imports: `java.io.ByteArrayOutputStream`, `java.io.DataOutputStream`,
-`java.io.IOException`, `com.identitycrisis.server.game.ServerGameLoop`,
-`com.identitycrisis.shared.net.MessageEncoder`.
+Add necessary imports: `com.identitycrisis.server.game.ServerGameLoop`.
 
-### 3B. `LobbyManager`
+### 3B. `ChatManager`
+**File:** `src/main/java/com/identitycrisis/server/game/ChatManager.java`
+
+`ChatManager.handleChat(sender, rawText)` trims text, ignores null or blank messages,
+caps text at 200 characters, resolves the sender name from `ClientConnection`, encodes
+`S_CHAT_BROADCAST`, and sends bytes through `GameServer.broadcastToAll(byte[])`.
+
+### 3C. `LobbyManager`
 **File:** `src/main/java/com/identitycrisis/server/game/LobbyManager.java`
 
 Tracks connected players and their ready state. When all are ready and

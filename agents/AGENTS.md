@@ -83,12 +83,14 @@ ServerGameLoop(GameServer, GameContext, PhysicsEngine, CollisionDetector)
 reference. Break it with setter injection from the Composition Root:
 ```java
 GameServer server         = new GameServer(port);          // step 1
-ClientMessageRouter router = new ClientMessageRouter(server); // step 2
-LobbyManager lobbyMgr     = new LobbyManager(server);        // step 3
-server.setRouter(router);              // step 4 — resolve cycle
-server.setLobbyManager(lobbyMgr);      // step 4
-lobbyMgr.setGameState(gameState);      // step 5 — lobby needs GameState to populate players on start
-lobbyMgr.setSafeZoneManager(szm);      // step 5 — lobby spawns round-1 zones via spawnRoundZones(n)
+ChatManager chatManager   = new ChatManager(server);       // step 2
+ClientMessageRouter router = new ClientMessageRouter(server); // step 3
+LobbyManager lobbyMgr     = new LobbyManager(server);        // step 4
+server.setChatManager(chatManager);    // step 5
+server.setRouter(router);              // step 5 — resolve cycle
+server.setLobbyManager(lobbyMgr);      // step 5
+lobbyMgr.setGameState(gameState);      // step 6 — lobby needs GameState to populate players on start
+lobbyMgr.setSafeZoneManager(szm);      // step 6 — lobby spawns round-1 zones via spawnRoundZones(n)
 ```
 `GameServer.start()` throws `IllegalStateException` if setters were not called.
 
@@ -286,6 +288,7 @@ identity-crisis/
 │   │       │   ├── game/
 │   │       │   │   ├── ServerGameLoop.java     (Runnable)
 │   │       │   │   ├── GameContext.java         (record — game manager bundle for DI)
+│   │       │   │   ├── ChatManager.java
 │   │       │   │   ├── GameState.java
 │   │       │   │   ├── RoundManager.java
 │   │       │   │   ├── SafeZoneManager.java

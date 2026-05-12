@@ -248,12 +248,25 @@ public class ClientMessageRouter {
         //   C_JOIN_REQUEST → lobbyManager.handleJoin(sender, ...)
         //   C_READY        → lobbyManager.handleReady(sender)
         //   C_PLAYER_INPUT → enqueue into ServerGameLoop
-        //   C_CHAT_SEND    → broadcast chat to all
+        //   C_CHAT_SEND    → ChatManager.handleChat(sender, ...)
     }
 }
 ```
 
-### 6.5 `server/game/ServerGameLoop.java`
+### 6.5 `server/game/ChatManager.java`
+```java
+package com.identitycrisis.server.game;
+
+import com.identitycrisis.server.net.ClientConnection;
+import com.identitycrisis.server.net.GameServer;
+
+public class ChatManager {
+    public ChatManager(GameServer server) { }
+    public void handleChat(ClientConnection sender, String rawText) { }
+}
+```
+
+### 6.6 `server/game/ServerGameLoop.java`
 
 > **Full constructor injection.** Receives `GameServer`, `GameContext`, `PhysicsEngine`,
 > and `CollisionDetector` — never creates them internally.

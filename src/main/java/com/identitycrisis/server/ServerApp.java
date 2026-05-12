@@ -76,8 +76,10 @@ public class ServerApp {
         // can't be resolved by constructor injection alone. Setter injection
         // breaks the cycle in a controlled, explicit way.
         GameServer server = new GameServer(port);
+        ChatManager chatManager = new ChatManager(server);
         ClientMessageRouter router = new ClientMessageRouter(server);
         LobbyManager lobbyMgr = new LobbyManager(server);
+        server.setChatManager(chatManager);
         server.setRouter(router);
         server.setLobbyManager(lobbyMgr);
         lobbyMgr.setGameState(gameState);

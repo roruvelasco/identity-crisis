@@ -23,7 +23,7 @@ Every TCP message is framed as:
 | `C_JOIN_REQUEST` | `0x01` | UTF string (displayName) |
 | `C_READY` | `0x02` | (empty — 0 bytes) |
 | `C_PLAYER_INPUT` | `0x03` | 1 byte bitfield: bit0=up, bit1=down, bit2=left, bit3=right, bit4=carry, bit5=throw |
-| `C_CHAT_SEND` | `0x04` | UTF string (text, max 200 chars) |
+| `C_CHAT_SEND` | `0x04` | UTF string (text, max 200 chars; sender name is server-authoritative from `ClientConnection`) |
 
 ### 8.3 Server → Client Messages
 

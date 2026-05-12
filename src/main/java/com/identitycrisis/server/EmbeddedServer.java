@@ -76,8 +76,10 @@ public class EmbeddedServer {
         GameContext ctx = new GameContext(gameState, szm, cem, cm, em, rm);
 
         server = new GameServer(port);
+        ChatManager chatManager = new ChatManager(server);
         ClientMessageRouter router = new ClientMessageRouter(server);
         LobbyManager lobbyMgr = new LobbyManager(server);
+        server.setChatManager(chatManager);
         server.setRouter(router);
         server.setLobbyManager(lobbyMgr);
         lobbyMgr.setGameState(gameState);
