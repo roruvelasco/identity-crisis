@@ -139,16 +139,6 @@ public class LoadingScene {
         Group crest = createCrest();
         VBox.setMargin(crest, new Insets(0, 0, 20, 0));
 
-        Label title = new Label("Identity Crisis");
-        title.setStyle(
-            "-fx-font-family: 'Cinzel Decorative', serif;" +
-            "-fx-font-size: 48px;" +
-            "-fx-font-weight: 700;" +
-            "-fx-text-fill: " + TEXT_PARCHMENT + ";"
-        );
-        title.setEffect(new javafx.scene.effect.DropShadow(30, Color.rgb(201, 168, 76, 0.5)));
-        VBox.setMargin(title, new Insets(0, 0, 8, 0));
-
         Label subtitle = new Label("Loading Arena...");
         subtitle.setStyle(
             "-fx-font-family: 'Press Start 2P', monospace;" +
@@ -174,7 +164,7 @@ public class LoadingScene {
         VBox tipBox = createTipBox();
         VBox.setMargin(tipBox, new Insets(48, 0, 0, 0));
 
-        content.getChildren().addAll(crest, title, subtitle, barContainer, statusLabel, tipBox);
+        content.getChildren().addAll(crest, subtitle, barContainer, statusLabel, tipBox);
         return content;
     }
 

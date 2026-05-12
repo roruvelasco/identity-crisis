@@ -205,8 +205,11 @@ public class GameArena {
     private javafx.scene.control.Label confirmLabel;
     private Runnable confirmAction;
     private StackPane gameOverOverlay;
+    private StackPane winnerOverlay;
     private Label gameOverWinnerLabel;
+    private Label winnerNameLabel;
     private boolean gameOverShown;
+    private boolean winnerShown;
 
     // ── Fake safe-zones chaos state ───────────────────────────────────────────
     //
@@ -290,6 +293,7 @@ public class GameArena {
         // Pause Overlay (Initially hidden)
         createPauseOverlay(root);
         createGameOverOverlay(root);
+        createWinnerOverlay(root);
 
         scene = new Scene(root, GameConfig.WINDOW_WIDTH, GameConfig.WINDOW_HEIGHT);
         scene.getStylesheets().add(
@@ -407,10 +411,13 @@ public class GameArena {
         isPaused = false;
         arenaBgmStarted = false;
         gameOverShown = false;
+        winnerShown = false;
         if (pauseOverlay != null)
             pauseOverlay.setVisible(false);
         if (gameOverOverlay != null)
             gameOverOverlay.setVisible(false);
+        if (winnerOverlay != null)
+            winnerOverlay.setVisible(false);
 
         // Show round start popup for round 1
         triggerRoundPopup(1);
@@ -772,7 +779,7 @@ public class GameArena {
     }
 
     private boolean syncGameOverFromServer() {
-        if (gameOverShown)
+        if (gameOverShown || winnerShown)
             return true;
         if (sceneManager == null)
             return false;
@@ -784,9 +791,17 @@ public class GameArena {
         if (!over)
             return false;
         String winnerName = lgs.getWinnerName();
-        showGameOverOverlay(winnerName == null || winnerName.isBlank() || "None".equalsIgnoreCase(winnerName)
-                ? "Winner: None"
-                : "Winner: " + winnerName);
+        boolean noWinner = winnerName == null || winnerName.isBlank() || "None".equalsIgnoreCase(winnerName);
+
+        // Determine if the local player is the winner
+        int myId = lgs.getControlledPlayerId() > 0 ? lgs.getControlledPlayerId() : lgs.getMyPlayerId();
+        boolean localPlayerWon = !noWinner && (lgs.getWinnerPlayerId() == myId);
+
+        if (localPlayerWon) {
+            showWinnerOverlay(winnerName);
+        } else {
+            showGameOverOverlay(noWinner ? "Winner: None" : "Winner: " + winnerName);
+        }
         return true;
     }
 
@@ -799,6 +814,27 @@ public class GameArena {
             gameOverWinnerLabel.setText(resultText);
         if (gameOverOverlay != null)
             gameOverOverlay.setVisible(true);
+        // Stop arena BGM and play loss music
+        if (sceneManager != null && sceneManager.getAudioManager() != null) {
+            sceneManager.getAudioManager().stopBGM();
+            sceneManager.getAudioManager().playBGM("/audio/GameLose.mp3");
+        }
+    }
+
+    private void showWinnerOverlay(String winnerName) {
+        winnerShown = true;
+        isPaused = false;
+        if (pauseOverlay != null)
+            pauseOverlay.setVisible(false);
+        if (winnerNameLabel != null)
+            winnerNameLabel.setText(winnerName);
+        if (winnerOverlay != null)
+            winnerOverlay.setVisible(true);
+        // Stop arena BGM and play victory music
+        if (sceneManager != null && sceneManager.getAudioManager() != null) {
+            sceneManager.getAudioManager().stopBGM();
+            sceneManager.getAudioManager().playBGM("/audio/GameWin.mp3");
+        }
     }
 
     private void activateNextLocalChaos(ChaosEventType previous) {
@@ -1837,6 +1873,121 @@ public class GameArena {
         root.getChildren().add(gameOverOverlay);
     }
 
+    private void createWinnerOverlay(StackPane root) {
+        winnerOverlay = new StackPane();
+        winnerOverlay.setVisible(false);
+        // Deep dark background with a golden tint — evokes royalty
+        winnerOverlay.setStyle("-fx-background-color: rgba(5, 10, 5, 0.88);");
+
+        // Shimmer radial glow behind the content
+        javafx.scene.layout.Pane goldGlow = new javafx.scene.layout.Pane();
+        goldGlow.setStyle("-fx-background-color: radial-gradient(center 50% 42%, radius 55%, " +
+                "rgba(201,168,76,0.22), transparent 70%);");
+        goldGlow.setMouseTransparent(true);
+        goldGlow.prefWidthProperty().bind(root.widthProperty());
+        goldGlow.prefHeightProperty().bind(root.heightProperty());
+        winnerOverlay.getChildren().add(goldGlow);
+
+        // Pulsing glow animation
+        javafx.animation.Timeline glowPulse = new javafx.animation.Timeline(
+            new javafx.animation.KeyFrame(javafx.util.Duration.ZERO,
+                new javafx.animation.KeyValue(goldGlow.opacityProperty(), 0.7)),
+            new javafx.animation.KeyFrame(javafx.util.Duration.seconds(1.8),
+                new javafx.animation.KeyValue(goldGlow.opacityProperty(), 1.0))
+        );
+        glowPulse.setAutoReverse(true);
+        glowPulse.setCycleCount(javafx.animation.Animation.INDEFINITE);
+        glowPulse.play();
+
+        VBox content = new VBox(18);
+        content.setAlignment(javafx.geometry.Pos.CENTER);
+        content.setMaxWidth(640);
+
+        // Crown emoji — big, festive
+        Label crown = new Label("\uD83D\uDC51");
+        crown.setStyle("-fx-font-size: 72px;");
+        // Floating crown animation
+        javafx.animation.TranslateTransition crownFloat =
+                new javafx.animation.TranslateTransition(javafx.util.Duration.seconds(1.8), crown);
+        crownFloat.setFromY(-6);
+        crownFloat.setToY(6);
+        crownFloat.setAutoReverse(true);
+        crownFloat.setCycleCount(javafx.animation.Animation.INDEFINITE);
+        crownFloat.play();
+        VBox.setMargin(crown, new javafx.geometry.Insets(0, 0, 4, 0));
+
+        // "VICTORY" header
+        Label victoryLabel = new Label("VICTORY");
+        victoryLabel.setStyle("-fx-font-family: 'Press Start 2P', monospace;" +
+                "-fx-font-size: 11px;" +
+                "-fx-text-fill: #c9a84c;" +
+                "-fx-letter-spacing: 8px;");
+        victoryLabel.setOpacity(0.9);
+
+        // Big title: "YOU WIN!"
+        Label youWinLabel = new Label("YOU WIN!");
+        youWinLabel.setStyle("-fx-font-family: 'Cinzel Decorative', serif;" +
+                "-fx-font-size: 54px;" +
+                "-fx-font-weight: 700;" +
+                "-fx-text-fill: #e8c86a;" +
+                "-fx-effect: dropshadow(gaussian, rgba(201,168,76,0.9), 36, 0.5, 0, 0);");
+
+        // Winner name
+        winnerNameLabel = new Label("");
+        winnerNameLabel.setStyle("-fx-font-family: 'Press Start 2P', monospace;" +
+                "-fx-font-size: 13px;" +
+                "-fx-text-fill: #e8dfc4;" +
+                "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 8, 0.25, 0, 2);");
+
+        // Gold divider
+        javafx.scene.layout.HBox divider = new javafx.scene.layout.HBox();
+        divider.setPrefWidth(320);
+        divider.setPrefHeight(1);
+        divider.setStyle("-fx-background-color: linear-gradient(to right, transparent, #c9a84c, transparent);");
+        divider.setAlignment(javafx.geometry.Pos.CENTER);
+        VBox.setMargin(divider, new javafx.geometry.Insets(8, 0, 8, 0));
+
+        // Tagline
+        Label tagline = new Label("Last one standing in the arena!");
+        tagline.setStyle("-fx-font-family: 'Crimson Pro', serif;" +
+                "-fx-font-style: italic;" +
+                "-fx-font-size: 17px;" +
+                "-fx-text-fill: #7a7060;");
+        VBox.setMargin(tagline, new javafx.geometry.Insets(0, 0, 12, 0));
+
+        Button menuBtn = createMenuButton("MAIN MENU");
+        menuBtn.setOnAction(e -> {
+            onExit();
+            sceneManager.shutdownNetwork();
+            sceneManager.showMenu();
+        });
+
+        content.getChildren().addAll(crown, victoryLabel, youWinLabel, winnerNameLabel, divider, tagline, menuBtn);
+
+        // Entrance scale-in animation
+        content.setScaleX(0.85);
+        content.setScaleY(0.85);
+        content.setOpacity(0);
+        winnerOverlay.visibleProperty().addListener((obs, wasVisible, nowVisible) -> {
+            if (nowVisible) {
+                javafx.animation.Timeline entrance = new javafx.animation.Timeline(
+                    new javafx.animation.KeyFrame(javafx.util.Duration.ZERO,
+                        new javafx.animation.KeyValue(content.opacityProperty(), 0),
+                        new javafx.animation.KeyValue(content.scaleXProperty(), 0.85),
+                        new javafx.animation.KeyValue(content.scaleYProperty(), 0.85)),
+                    new javafx.animation.KeyFrame(javafx.util.Duration.seconds(0.7),
+                        new javafx.animation.KeyValue(content.opacityProperty(), 1),
+                        new javafx.animation.KeyValue(content.scaleXProperty(), 1.0),
+                        new javafx.animation.KeyValue(content.scaleYProperty(), 1.0))
+                );
+                entrance.play();
+            }
+        });
+
+        winnerOverlay.getChildren().add(content);
+        root.getChildren().add(winnerOverlay);
+    }
+
     private Button createMenuButton(String text) {
         Button btn = new Button(text);
         btn.setMinWidth(220);
@@ -1884,12 +2035,21 @@ public class GameArena {
     }
 
     private void startArenaBgmIfNeeded() {
-        if (arenaBgmStarted || !shouldPlayArenaBgm()) {
+        if (!shouldPlayArenaBgm())
             return;
-        }
+        // Choose track by round: 1-2 → TimerRound, 3+ → SafezoneRound
+        String track = (roundNumber <= 2) ? "/audio/TimerRound.mp3" : "/audio/SafezoneRound.mp3";
         if (sceneManager != null && sceneManager.getAudioManager() != null) {
-            sceneManager.getAudioManager().playBGM("/audio/GameMusic.mp3");
-            arenaBgmStarted = true;
+            // If we haven't started yet, or the round just crossed the boundary (2→3)
+            // so we need to switch tracks.
+            if (!arenaBgmStarted) {
+                sceneManager.getAudioManager().playBGM(track);
+                arenaBgmStarted = true;
+            } else {
+                // Check if the current track matches the desired track; if not, switch.
+                // AudioManager.playBGM is idempotent when the same path is already playing.
+                sceneManager.getAudioManager().playBGM(track);
+            }
         }
     }
 

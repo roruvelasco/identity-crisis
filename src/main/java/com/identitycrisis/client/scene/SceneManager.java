@@ -207,8 +207,9 @@ public class SceneManager {
 
         // Background Music Control
         if ("gamearena".equals(key)) {
-            // Game music: loop indefinitely until the player leaves the arena
-            audioManager.playBGM("/audio/GameMusic.mp3");
+            // Arena BGM is driven per-round by GameArena.startArenaBgmIfNeeded().
+            // Stop whatever was playing (menu/lobby) so GameArena can take over.
+            audioManager.stopBGM();
         } else if ("initialloading".equals(key) || "loading".equals(key)) {
             audioManager.stopBGM();
         } else {
