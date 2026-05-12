@@ -277,38 +277,27 @@ public class MenuScene {
             }
         } catch (Exception ignored) {}
 
-        // Title image
-        try (var titleIs = getClass().getResourceAsStream("/title.png")) {
-            if (titleIs != null) {
-                ImageView titleView = new ImageView(new Image(titleIs));
-                // Responsive width: 55% of stage width, capped at 560px, min 280px
-                titleView.fitWidthProperty().bind(
-                    javafx.beans.binding.Bindings.createDoubleBinding(
-                        () -> Math.max(280, Math.min(560, root.widthProperty().get() * 0.55)),
-                        root.widthProperty()
-                    )
-                );
-                titleView.setPreserveRatio(true);
-                titleView.setSmooth(true);
-
-                DropShadow titleGlow = new DropShadow();
-                titleGlow.setColor(Color.rgb(201, 168, 76, 0.65));
-                titleGlow.setRadius(36);
-                titleGlow.setSpread(0.18);
-                titleView.setEffect(titleGlow);
-
-                // Subtle floating animation (same as logo)
-                TranslateTransition float2 = new TranslateTransition(Duration.seconds(3.0), titleView);
-                float2.setFromY(-3);
-                float2.setToY(3);
-                float2.setAutoReverse(true);
-                float2.setCycleCount(Animation.INDEFINITE);
-                float2.play();
-
-                VBox.setMargin(titleView, new Insets(0, 0, 10, 0));
-                logoArea.getChildren().add(titleView);
-            }
-        } catch (Exception ignored) {}
+        // Title - scale font size based on stage height for fullscreen responsiveness
+        Text title = new Text("Identity Crisis");
+        // Bind font size to 8% of stage height, with min 48px and max 84px
+        title.styleProperty().bind(
+            javafx.beans.binding.Bindings.createStringBinding(
+                () -> String.format(
+                    "-fx-font-family: 'Cinzel Decorative', serif;" +
+                    "-fx-font-size: %.0fpx;" +
+                    "-fx-font-weight: 700;" +
+                    "-fx-fill: %s;",
+                    Math.max(48, Math.min(84, root.heightProperty().get() * 0.08)),
+                    TEXT_PARCHMENT
+                ),
+                root.heightProperty()
+            )
+        );
+        DropShadow shadow = new DropShadow();
+        shadow.setColor(Color.rgb(201, 168, 76, 0.6));
+        shadow.setRadius(40);
+        shadow.setSpread(0.2);
+        title.setEffect(shadow);
 
         // Gold divider line - scale width with screen
         HBox divider = new HBox();
@@ -344,7 +333,7 @@ public class MenuScene {
         );
         VBox.setMargin(tagline, new Insets(12, 0, 0, 0));
 
-        logoArea.getChildren().addAll(dividerWithDiamond, tagline);
+        logoArea.getChildren().addAll(title, dividerWithDiamond, tagline);
         return logoArea;
     }
 

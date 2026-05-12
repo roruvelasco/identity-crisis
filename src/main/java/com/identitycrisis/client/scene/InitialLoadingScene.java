@@ -120,6 +120,17 @@ public class InitialLoadingScene {
         Group logoIcon = createCrest();
         VBox.setMargin(logoIcon, new Insets(0, 0, 20, 0));
 
+        // Title
+        Label title = new Label("Identity Crisis");
+        title.setStyle(
+            "-fx-font-family: 'Cinzel Decorative', serif;" +
+            "-fx-font-size: 42px;" +
+            "-fx-font-weight: 700;" +
+            "-fx-text-fill: " + TEXT_PARCHMENT + ";"
+        );
+        title.setEffect(new javafx.scene.effect.DropShadow(30, Color.rgb(201, 168, 76, 0.5)));
+        VBox.setMargin(title, new Insets(0, 0, 8, 0));
+
         // Subtitle
         Label subtitle = new Label("Preparing the arena...");
         subtitle.setStyle(
@@ -145,7 +156,7 @@ public class InitialLoadingScene {
         );
         VBox.setMargin(statusLabel, new Insets(4, 0, 0, 0));
 
-        content.getChildren().addAll(logoIcon, subtitle, barContainer, statusLabel);
+        content.getChildren().addAll(logoIcon, title, subtitle, barContainer, statusLabel);
         return content;
     }
 
