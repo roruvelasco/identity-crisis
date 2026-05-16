@@ -8,7 +8,6 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.geometry.*;
 import javafx.animation.*;
-import javafx.animation.TranslateTransition;
 import javafx.util.Duration;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.LinearGradient;
@@ -100,7 +99,8 @@ public class MenuScene {
 
         // Vignette overlay - fill entire root
         StackPane vignette = new StackPane();
-        vignette.setStyle("-fx-background-color: radial-gradient(center 50% 50%, radius 100%, transparent 30%, rgba(0,0,0,0.7) 100%);");
+        vignette.setStyle(
+                "-fx-background-color: radial-gradient(center 50% 50%, radius 100%, transparent 30%, rgba(0,0,0,0.7) 100%);");
         vignette.setMouseTransparent(true);
         // Bind vignette to fill root
         vignette.prefWidthProperty().bind(root.widthProperty());
@@ -110,9 +110,9 @@ public class MenuScene {
         // Bottom gradient - use percent-based binding
         VBox bottomGradient = new VBox();
         LinearGradient grad = new LinearGradient(0, 1, 0, 0, true, CycleMethod.NO_CYCLE,
-            new Stop(0, Color.rgb(8, 8, 12, 0.97)),
-            new Stop(0.5, Color.rgb(8, 8, 12, 0.8)),
-            new Stop(1, Color.TRANSPARENT));
+                new Stop(0, Color.rgb(8, 8, 12, 0.97)),
+                new Stop(0.5, Color.rgb(8, 8, 12, 0.8)),
+                new Stop(1, Color.TRANSPARENT));
         bottomGradient.setBackground(new Background(new BackgroundFill(grad, null, null)));
         bottomGradient.setMouseTransparent(true);
         // Bind to 55% of root height
@@ -126,7 +126,8 @@ public class MenuScene {
         // Left torch glow - use percent-based positioning
         Pane leftGlow = new Pane();
         leftGlow.setPrefSize(120, 200);
-        leftGlow.setStyle("-fx-background-color: radial-gradient(center 50% 50%, radius 50%, rgba(232, 116, 60, 0.15), transparent 70%);");
+        leftGlow.setStyle(
+                "-fx-background-color: radial-gradient(center 50% 50%, radius 50%, rgba(232, 116, 60, 0.15), transparent 70%);");
         leftGlow.setMouseTransparent(true);
         root.getChildren().add(leftGlow);
         StackPane.setAlignment(leftGlow, Pos.TOP_LEFT);
@@ -136,9 +137,8 @@ public class MenuScene {
 
         // Animate left glow
         Timeline leftFlicker = new Timeline(
-            new KeyFrame(Duration.ZERO, new KeyValue(leftGlow.opacityProperty(), 0.7)),
-            new KeyFrame(Duration.seconds(1.5), new KeyValue(leftGlow.opacityProperty(), 1.0))
-        );
+                new KeyFrame(Duration.ZERO, new KeyValue(leftGlow.opacityProperty(), 0.7)),
+                new KeyFrame(Duration.seconds(1.5), new KeyValue(leftGlow.opacityProperty(), 1.0)));
         leftFlicker.setAutoReverse(true);
         leftFlicker.setCycleCount(Animation.INDEFINITE);
         leftFlicker.play();
@@ -146,7 +146,8 @@ public class MenuScene {
         // Right torch glow - use percent-based positioning
         Pane rightGlow = new Pane();
         rightGlow.setPrefSize(120, 200);
-        rightGlow.setStyle("-fx-background-color: radial-gradient(center 50% 50%, radius 50%, rgba(232, 116, 60, 0.12), transparent 70%);");
+        rightGlow.setStyle(
+                "-fx-background-color: radial-gradient(center 50% 50%, radius 50%, rgba(232, 116, 60, 0.12), transparent 70%);");
         rightGlow.setMouseTransparent(true);
         root.getChildren().add(rightGlow);
         StackPane.setAlignment(rightGlow, Pos.TOP_RIGHT);
@@ -156,9 +157,8 @@ public class MenuScene {
 
         // Animate right glow
         Timeline rightFlicker = new Timeline(
-            new KeyFrame(Duration.ZERO, new KeyValue(rightGlow.opacityProperty(), 0.7)),
-            new KeyFrame(Duration.seconds(1.8), new KeyValue(rightGlow.opacityProperty(), 1.0))
-        );
+                new KeyFrame(Duration.ZERO, new KeyValue(rightGlow.opacityProperty(), 0.7)),
+                new KeyFrame(Duration.seconds(1.8), new KeyValue(rightGlow.opacityProperty(), 1.0)));
         rightFlicker.setAutoReverse(true);
         rightFlicker.setCycleCount(Animation.INDEFINITE);
         rightFlicker.play();
@@ -174,21 +174,18 @@ public class MenuScene {
             // Bind position to root size for fullscreen responsiveness
             final int idx = i;
             particle.translateXProperty().bind(root.widthProperty().multiply(
-                isLeft ? (0.08 + idx * 0.005 - 0.5) : (0.90 - (idx - 2) * 0.005 - 0.5)
-            ));
+                    isLeft ? (0.08 + idx * 0.005 - 0.5) : (0.90 - (idx - 2) * 0.005 - 0.5)));
             particle.translateYProperty().bind(root.heightProperty().multiply(
-                isLeft ? (0.32 - idx * 0.02 - 0.5) : (0.28 - (idx - 2) * 0.02 - 0.5)
-            ));
+                    isLeft ? (0.32 - idx * 0.02 - 0.5) : (0.28 - (idx - 2) * 0.02 - 0.5)));
 
             // Flicker animation - adjust Y by fixed pixel amount, not bound value
             Timeline flicker = new Timeline(
-                new KeyFrame(Duration.ZERO,
-                    new KeyValue(particle.opacityProperty(), 0)),
-                new KeyFrame(Duration.seconds(0.4),
-                    new KeyValue(particle.opacityProperty(), 0.8)),
-                new KeyFrame(Duration.seconds(2.0),
-                    new KeyValue(particle.opacityProperty(), 0))
-            );
+                    new KeyFrame(Duration.ZERO,
+                            new KeyValue(particle.opacityProperty(), 0)),
+                    new KeyFrame(Duration.seconds(0.4),
+                            new KeyValue(particle.opacityProperty(), 0.8)),
+                    new KeyFrame(Duration.seconds(2.0),
+                            new KeyValue(particle.opacityProperty(), 0)));
             // Add translateY animation separately to avoid binding conflicts
             flicker.setOnFinished(e -> {
                 // Reset animation - will use current bound position
@@ -211,15 +208,14 @@ public class MenuScene {
         // Player badge
         Label playerBadge = new Label("⚔ 4+ PLAYERS  ·  ARENA BATTLE");
         playerBadge.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 7px;" +
-            "-fx-text-fill: " + GOLD + ";" +
-            "-fx-background-color: rgba(0,0,0,0.6);" +
-            "-fx-border-color: " + GOLD_DARK + ";" +
-            "-fx-border-width: 1px;" +
-            "-fx-padding: 5px 10px;" +
-            "-fx-letter-spacing: 2px;"
-        );
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 7px;" +
+                        "-fx-text-fill: " + GOLD + ";" +
+                        "-fx-background-color: rgba(0,0,0,0.6);" +
+                        "-fx-border-color: " + GOLD_DARK + ";" +
+                        "-fx-border-width: 1px;" +
+                        "-fx-padding: 5px 10px;" +
+                        "-fx-letter-spacing: 2px;");
         playerBadge.setOpacity(0.8);
         VBox.setMargin(playerBadge, new Insets(0, 0, 20, 0));
 
@@ -233,13 +229,12 @@ public class MenuScene {
         content.setOpacity(0);
         content.setTranslateY(20);
         Timeline entrance = new Timeline(
-            new KeyFrame(Duration.seconds(0.3),
-                new KeyValue(content.opacityProperty(), 0),
-                new KeyValue(content.translateYProperty(), 20)),
-            new KeyFrame(Duration.seconds(1.0),
-                new KeyValue(content.opacityProperty(), 1),
-                new KeyValue(content.translateYProperty(), 0))
-        );
+                new KeyFrame(Duration.seconds(0.3),
+                        new KeyValue(content.opacityProperty(), 0),
+                        new KeyValue(content.translateYProperty(), 20)),
+                new KeyFrame(Duration.seconds(1.0),
+                        new KeyValue(content.opacityProperty(), 1),
+                        new KeyValue(content.translateYProperty(), 0)));
         entrance.play();
 
         return content;
@@ -275,29 +270,40 @@ public class MenuScene {
                 VBox.setMargin(logoView, new Insets(0, 0, 10, 0));
                 logoArea.getChildren().add(logoView);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
 
-        // Title - scale font size based on stage height for fullscreen responsiveness
-        Text title = new Text("Identity Crisis");
-        // Bind font size to 8% of stage height, with min 48px and max 84px
-        title.styleProperty().bind(
-            javafx.beans.binding.Bindings.createStringBinding(
-                () -> String.format(
-                    "-fx-font-family: 'Cinzel Decorative', serif;" +
-                    "-fx-font-size: %.0fpx;" +
-                    "-fx-font-weight: 700;" +
-                    "-fx-fill: %s;",
-                    Math.max(48, Math.min(84, root.heightProperty().get() * 0.08)),
-                    TEXT_PARCHMENT
-                ),
-                root.heightProperty()
-            )
-        );
-        DropShadow shadow = new DropShadow();
-        shadow.setColor(Color.rgb(201, 168, 76, 0.6));
-        shadow.setRadius(40);
-        shadow.setSpread(0.2);
-        title.setEffect(shadow);
+        // Title image
+        try (var titleIs = getClass().getResourceAsStream("/title.png")) {
+            if (titleIs != null) {
+                ImageView titleView = new ImageView(new Image(titleIs));
+                // Responsive width: 55% of stage width, capped at 560px, min 280px
+                titleView.fitWidthProperty().bind(
+                        javafx.beans.binding.Bindings.createDoubleBinding(
+                                () -> Math.max(280, Math.min(560, root.widthProperty().get() * 0.55)),
+                                root.widthProperty()));
+                titleView.setPreserveRatio(true);
+                titleView.setSmooth(true);
+
+                DropShadow titleGlow = new DropShadow();
+                titleGlow.setColor(Color.rgb(201, 168, 76, 0.65));
+                titleGlow.setRadius(36);
+                titleGlow.setSpread(0.18);
+                titleView.setEffect(titleGlow);
+
+                // Subtle floating animation (same as logo)
+                TranslateTransition float2 = new TranslateTransition(Duration.seconds(3.0), titleView);
+                float2.setFromY(-3);
+                float2.setToY(3);
+                float2.setAutoReverse(true);
+                float2.setCycleCount(Animation.INDEFINITE);
+                float2.play();
+
+                VBox.setMargin(titleView, new Insets(0, 0, 10, 0));
+                logoArea.getChildren().add(titleView);
+            }
+        } catch (Exception ignored) {
+        }
 
         // Gold divider line - scale width with screen
         HBox divider = new HBox();
@@ -318,22 +324,19 @@ public class MenuScene {
         // Tagline - scale font size slightly
         Text tagline = new Text("Who will survive the arena?");
         tagline.styleProperty().bind(
-            javafx.beans.binding.Bindings.createStringBinding(
-                () -> String.format(
-                    "-fx-font-family: 'Crimson Pro', serif;" +
-                    "-fx-font-style: italic;" +
-                    "-fx-font-size: %.0fpx;" +
-                    "-fx-fill: %s;" +
-                    "-fx-letter-spacing: 2px;",
-                    Math.max(13, Math.min(18, root.heightProperty().get() * 0.018)),
-                    TEXT_MUTED
-                ),
-                root.heightProperty()
-            )
-        );
+                javafx.beans.binding.Bindings.createStringBinding(
+                        () -> String.format(
+                                "-fx-font-family: 'Crimson Pro', serif;" +
+                                        "-fx-font-style: italic;" +
+                                        "-fx-font-size: %.0fpx;" +
+                                        "-fx-fill: %s;" +
+                                        "-fx-letter-spacing: 2px;",
+                                Math.max(13, Math.min(18, root.heightProperty().get() * 0.018)),
+                                TEXT_MUTED),
+                        root.heightProperty()));
         VBox.setMargin(tagline, new Insets(12, 0, 0, 0));
 
-        logoArea.getChildren().addAll(title, dividerWithDiamond, tagline);
+        logoArea.getChildren().addAll(tagline);
         return logoArea;
     }
 
@@ -372,42 +375,39 @@ public class MenuScene {
         String textColor = isPlayButton ? GOLD_LIGHT : TEXT_PARCHMENT;
 
         btn.setStyle(
-            "-fx-font-family: 'Cinzel', serif;" +
-            "-fx-font-size: " + (isPlayButton ? "15px" : "14px") + ";" +
-            "-fx-font-weight: 700;" +
-            "-fx-text-fill: " + textColor + ";" +
-            "-fx-background-color: " + bgColor + ";" +
-            "-fx-border-color: " + borderColor + ";" +
-            "-fx-border-width: 2px;" +
-            "-fx-cursor: hand;"
-        );
+                "-fx-font-family: 'Cinzel', serif;" +
+                        "-fx-font-size: " + (isPlayButton ? "15px" : "14px") + ";" +
+                        "-fx-font-weight: 700;" +
+                        "-fx-text-fill: " + textColor + ";" +
+                        "-fx-background-color: " + bgColor + ";" +
+                        "-fx-border-color: " + borderColor + ";" +
+                        "-fx-border-width: 2px;" +
+                        "-fx-cursor: hand;");
 
         // Hover effects
         btn.setOnMouseEntered(e -> {
             String hoverBg = isPlayButton ? "#5c4920" : "#4a567a";
             btn.setStyle(
-                "-fx-font-family: 'Cinzel', serif;" +
-                "-fx-font-size: " + (isPlayButton ? "15px" : "14px") + ";" +
-                "-fx-font-weight: 700;" +
-                "-fx-text-fill: white;" +
-                "-fx-background-color: " + hoverBg + ";" +
-                "-fx-border-color: " + borderColor + ";" +
-                "-fx-border-width: 2px;" +
-                "-fx-cursor: hand;"
-            );
+                    "-fx-font-family: 'Cinzel', serif;" +
+                            "-fx-font-size: " + (isPlayButton ? "15px" : "14px") + ";" +
+                            "-fx-font-weight: 700;" +
+                            "-fx-text-fill: white;" +
+                            "-fx-background-color: " + hoverBg + ";" +
+                            "-fx-border-color: " + borderColor + ";" +
+                            "-fx-border-width: 2px;" +
+                            "-fx-cursor: hand;");
         });
 
         btn.setOnMouseExited(e -> {
             btn.setStyle(
-                "-fx-font-family: 'Cinzel', serif;" +
-                "-fx-font-size: " + (isPlayButton ? "15px" : "14px") + ";" +
-                "-fx-font-weight: 700;" +
-                "-fx-text-fill: " + textColor + ";" +
-                "-fx-background-color: " + bgColor + ";" +
-                "-fx-border-color: " + borderColor + ";" +
-                "-fx-border-width: 2px;" +
-                "-fx-cursor: hand;"
-            );
+                    "-fx-font-family: 'Cinzel', serif;" +
+                            "-fx-font-size: " + (isPlayButton ? "15px" : "14px") + ";" +
+                            "-fx-font-weight: 700;" +
+                            "-fx-text-fill: " + textColor + ";" +
+                            "-fx-background-color: " + bgColor + ";" +
+                            "-fx-border-color: " + borderColor + ";" +
+                            "-fx-border-width: 2px;" +
+                            "-fx-cursor: hand;");
         });
 
         btn.setOnMousePressed(e -> {
@@ -437,42 +437,39 @@ public class MenuScene {
         String textColor = "#e8a4a4";
 
         btn.setStyle(
-            "-fx-font-family: 'Cinzel', serif;" +
-            "-fx-font-size: 14px;" +
-            "-fx-font-weight: 700;" +
-            "-fx-text-fill: " + textColor + ";" +
-            "-fx-background-color: " + bgColor + ";" +
-            "-fx-border-color: " + borderColor + ";" +
-            "-fx-border-width: 2px;" +
-            "-fx-cursor: hand;"
-        );
+                "-fx-font-family: 'Cinzel', serif;" +
+                        "-fx-font-size: 14px;" +
+                        "-fx-font-weight: 700;" +
+                        "-fx-text-fill: " + textColor + ";" +
+                        "-fx-background-color: " + bgColor + ";" +
+                        "-fx-border-color: " + borderColor + ";" +
+                        "-fx-border-width: 2px;" +
+                        "-fx-cursor: hand;");
 
         // Hover effects
         btn.setOnMouseEntered(e -> {
             String hoverBg = "#702020";
             btn.setStyle(
-                "-fx-font-family: 'Cinzel', serif;" +
-                "-fx-font-size: 14px;" +
-                "-fx-font-weight: 700;" +
-                "-fx-text-fill: white;" +
-                "-fx-background-color: " + hoverBg + ";" +
-                "-fx-border-color: " + borderColor + ";" +
-                "-fx-border-width: 2px;" +
-                "-fx-cursor: hand;"
-            );
+                    "-fx-font-family: 'Cinzel', serif;" +
+                            "-fx-font-size: 14px;" +
+                            "-fx-font-weight: 700;" +
+                            "-fx-text-fill: white;" +
+                            "-fx-background-color: " + hoverBg + ";" +
+                            "-fx-border-color: " + borderColor + ";" +
+                            "-fx-border-width: 2px;" +
+                            "-fx-cursor: hand;");
         });
 
         btn.setOnMouseExited(e -> {
             btn.setStyle(
-                "-fx-font-family: 'Cinzel', serif;" +
-                "-fx-font-size: 14px;" +
-                "-fx-font-weight: 700;" +
-                "-fx-text-fill: " + textColor + ";" +
-                "-fx-background-color: " + bgColor + ";" +
-                "-fx-border-color: " + borderColor + ";" +
-                "-fx-border-width: 2px;" +
-                "-fx-cursor: hand;"
-            );
+                    "-fx-font-family: 'Cinzel', serif;" +
+                            "-fx-font-size: 14px;" +
+                            "-fx-font-weight: 700;" +
+                            "-fx-text-fill: " + textColor + ";" +
+                            "-fx-background-color: " + bgColor + ";" +
+                            "-fx-border-color: " + borderColor + ";" +
+                            "-fx-border-width: 2px;" +
+                            "-fx-cursor: hand;");
         });
 
         btn.setOnMousePressed(e -> {
@@ -494,11 +491,10 @@ public class MenuScene {
         // Course tag (bottom left)
         Label courseTag = new Label("CMSC 137 · AY 2025-2026");
         courseTag.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 7px;" +
-            "-fx-text-fill: " + TEXT_MUTED + ";" +
-            "-fx-opacity: 0.5;"
-        );
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 7px;" +
+                        "-fx-text-fill: " + TEXT_MUTED + ";" +
+                        "-fx-opacity: 0.5;");
         StackPane.setAlignment(courseTag, Pos.BOTTOM_LEFT);
         // Use percent-based margins for fullscreen
         courseTag.translateXProperty().bind(root.widthProperty().multiply(0.02));
@@ -508,11 +504,10 @@ public class MenuScene {
         // Version tag (bottom right)
         Label versionTag = new Label("v1.0.0");
         versionTag.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 7px;" +
-            "-fx-text-fill: " + TEXT_MUTED + ";" +
-            "-fx-opacity: 0.5;"
-        );
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 7px;" +
+                        "-fx-text-fill: " + TEXT_MUTED + ";" +
+                        "-fx-opacity: 0.5;");
         StackPane.setAlignment(versionTag, Pos.BOTTOM_RIGHT);
         // Use percent-based margins for fullscreen
         versionTag.translateXProperty().bind(root.widthProperty().multiply(-0.02));
@@ -526,37 +521,34 @@ public class MenuScene {
         fullscreenBtn.setMinSize(32, 32);
         fullscreenBtn.setMaxSize(32, 32);
         fullscreenBtn.setStyle(
-            "-fx-font-family: 'Press Start 2P', monospace;" +
-            "-fx-font-size: 12px;" +
-            "-fx-text-fill: " + GOLD + ";" +
-            "-fx-background-color: " + STONE_MID + ";" +
-            "-fx-border-color: " + GOLD_DARK + ";" +
-            "-fx-border-width: 1px;" +
-            "-fx-cursor: hand;"
-        );
+                "-fx-font-family: 'Press Start 2P', monospace;" +
+                        "-fx-font-size: 12px;" +
+                        "-fx-text-fill: " + GOLD + ";" +
+                        "-fx-background-color: " + STONE_MID + ";" +
+                        "-fx-border-color: " + GOLD_DARK + ";" +
+                        "-fx-border-width: 1px;" +
+                        "-fx-cursor: hand;");
 
         fullscreenBtn.setOnMouseEntered(e -> {
             fullscreenBtn.setStyle(
-                "-fx-font-family: 'Press Start 2P', monospace;" +
-                "-fx-font-size: 12px;" +
-                "-fx-text-fill: " + GOLD + ";" +
-                "-fx-background-color: rgba(201, 168, 76, 0.1);" +
-                "-fx-border-color: " + GOLD + ";" +
-                "-fx-border-width: 1px;" +
-                "-fx-cursor: hand;"
-            );
+                    "-fx-font-family: 'Press Start 2P', monospace;" +
+                            "-fx-font-size: 12px;" +
+                            "-fx-text-fill: " + GOLD + ";" +
+                            "-fx-background-color: rgba(201, 168, 76, 0.1);" +
+                            "-fx-border-color: " + GOLD + ";" +
+                            "-fx-border-width: 1px;" +
+                            "-fx-cursor: hand;");
         });
 
         fullscreenBtn.setOnMouseExited(e -> {
             fullscreenBtn.setStyle(
-                "-fx-font-family: 'Press Start 2P', monospace;" +
-                "-fx-font-size: 12px;" +
-                "-fx-text-fill: " + GOLD + ";" +
-                "-fx-background-color: " + STONE_MID + ";" +
-                "-fx-border-color: " + GOLD_DARK + ";" +
-                "-fx-border-width: 1px;" +
-                "-fx-cursor: hand;"
-            );
+                    "-fx-font-family: 'Press Start 2P', monospace;" +
+                            "-fx-font-size: 12px;" +
+                            "-fx-text-fill: " + GOLD + ";" +
+                            "-fx-background-color: " + STONE_MID + ";" +
+                            "-fx-border-color: " + GOLD_DARK + ";" +
+                            "-fx-border-width: 1px;" +
+                            "-fx-cursor: hand;");
         });
 
         fullscreenBtn.setOnAction(e -> sceneManager.toggleFullscreen());
@@ -568,10 +560,10 @@ public class MenuScene {
 
     private void addMuteButton(StackPane root) {
         var audioManager = sceneManager.getAudioManager();
-        
+
         Image onIcon = new Image(getClass().getResourceAsStream("/sprites/ui/volume_on.png"));
         Image offIcon = new Image(getClass().getResourceAsStream("/sprites/ui/volume_off.png"));
-        
+
         ImageView iconView = new ImageView(audioManager.isMuted() ? offIcon : onIcon);
         iconView.setFitWidth(18);
         iconView.setFitHeight(18);
@@ -597,24 +589,23 @@ public class MenuScene {
         root.getChildren().add(muteBtn);
     }
 
-
     private String muteButtonStyle(boolean hover) {
         return "-fx-font-family: 'Segoe UI Symbol', 'Press Start 2P', monospace;" +
-               "-fx-font-size: 14px;" +
-               "-fx-text-fill: " + GOLD + ";" +
-               "-fx-background-color: " + (hover ? "rgba(201,168,76,0.1)" : STONE_MID) + ";" +
-               "-fx-border-color: " + (hover ? GOLD : GOLD_DARK) + ";" +
-               "-fx-border-width: 1px;" +
-               "-fx-cursor: hand;";
+                "-fx-font-size: 14px;" +
+                "-fx-text-fill: " + GOLD + ";" +
+                "-fx-background-color: " + (hover ? "rgba(201,168,76,0.1)" : STONE_MID) + ";" +
+                "-fx-border-color: " + (hover ? GOLD : GOLD_DARK) + ";" +
+                "-fx-border-width: 1px;" +
+                "-fx-cursor: hand;";
     }
-
 
     private void addScanlines(StackPane root) {
         Pane scanlines = new Pane();
         // Bind to root size for fullscreen
         scanlines.prefWidthProperty().bind(root.widthProperty());
         scanlines.prefHeightProperty().bind(root.heightProperty());
-        // Use semi-transparent overlay instead of repeating-linear-gradient (not supported in JavaFX)
+        // Use semi-transparent overlay instead of repeating-linear-gradient (not
+        // supported in JavaFX)
         scanlines.setStyle("-fx-background-color: rgba(0,0,0,0.02);");
         scanlines.setMouseTransparent(true);
         root.getChildren().add(scanlines);

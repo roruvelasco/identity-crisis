@@ -168,7 +168,6 @@ public class GameArena {
      */
     private int lastObservedServerRound;
 
-
     private int offlineActiveZoneId = -1;
     /** {@link #roundNumber} at the moment the current offline zone was picked. */
     private int offlineActiveZoneRound = -1;
@@ -205,8 +204,11 @@ public class GameArena {
     private javafx.scene.control.Label confirmLabel;
     private Runnable confirmAction;
     private Runnable confirmNoAction;
+    private StackPane winnerOverlay;
     private StackPane gameOverOverlay;
+    private Label winnerNameLabel;
     private Label gameOverWinnerLabel;
+    private boolean winnerShown;
     private boolean gameOverShown;
     private boolean hostDisconnectPromptShown;
 
@@ -240,20 +242,21 @@ public class GameArena {
     // top-right for 3 seconds whenever a new chaos event activates.
     // Images are loaded from /sprites/ui/toasts/*.png in createScene().
     //
-    /** Toast images indexed by {@code ChaosEventType.ordinal() - 1} (NONE has no toast). */
+    /**
+     * Toast images indexed by {@code ChaosEventType.ordinal() - 1} (NONE has no
+     * toast).
+     */
     private Image[] toastImages;
     /** Font pre-loaded for the toast label. */
     private Font fontToast;
     /** Last effective chaos type seen — used for rising-edge detection. */
-    private com.identitycrisis.shared.model.ChaosEventType lastToastChaos =
-            com.identitycrisis.shared.model.ChaosEventType.NONE;
+    private com.identitycrisis.shared.model.ChaosEventType lastToastChaos = com.identitycrisis.shared.model.ChaosEventType.NONE;
     /** True while the toast is visible. */
     private boolean toastActive = false;
     /** Counts down from 3.0 → 0.0 while the toast is visible. */
-    private double  toastTimer  = 0.0;
+    private double toastTimer = 0.0;
     /** Which event the current toast is announcing. */
-    private com.identitycrisis.shared.model.ChaosEventType toastEventType =
-            com.identitycrisis.shared.model.ChaosEventType.NONE;
+    private com.identitycrisis.shared.model.ChaosEventType toastEventType = com.identitycrisis.shared.model.ChaosEventType.NONE;
 
     /** Per-remote-player animation state (keyed by playerId). */
     private final java.util.Map<Integer, RemotePlayerAnim> remoteAnims = new java.util.HashMap<>();
@@ -291,6 +294,7 @@ public class GameArena {
 
         // Pause Overlay (Initially hidden)
         createPauseOverlay(root);
+        createWinnerOverlay(root);
         createGameOverOverlay(root);
 
         scene = new Scene(root, GameConfig.WINDOW_WIDTH, GameConfig.WINDOW_HEIGHT);
@@ -316,16 +320,18 @@ public class GameArena {
         }
 
         // Pre-load the 3 chaos-event toast PNGs (96×32 px each, indexed by
-        // ChaosEventType.ordinal()-1: REVERSED_CONTROLS=0, CONTROL_SWAP=1, FAKE_SAFE_ZONES=2).
+        // ChaosEventType.ordinal()-1: REVERSED_CONTROLS=0, CONTROL_SWAP=1,
+        // FAKE_SAFE_ZONES=2).
         String[] toastPaths = {
-            "/sprites/ui/toasts/toast_reverseControls.png",
-            "/sprites/ui/toasts/toast_swapLocation.png",
-            "/sprites/ui/toasts/toast_fakeSafezone.png"
+                "/sprites/ui/toasts/toast_reverseControls.png",
+                "/sprites/ui/toasts/toast_swapLocation.png",
+                "/sprites/ui/toasts/toast_fakeSafezone.png"
         };
         toastImages = new Image[toastPaths.length];
         for (int i = 0; i < toastPaths.length; i++) {
             try (InputStream ts = getClass().getResourceAsStream(toastPaths[i])) {
-                if (ts != null) toastImages[i] = new Image(ts);
+                if (ts != null)
+                    toastImages[i] = new Image(ts);
             } catch (Exception e) {
                 System.err.println("[GameArena] Failed to load toast image: " + toastPaths[i]);
             }
@@ -395,8 +401,8 @@ public class GameArena {
         lastObservedServerRound = 0;
 
         // Reset toast so no stale notification bleeds in from a previous session
-        toastActive    = false;
-        toastTimer     = 0;
+        toastActive = false;
+        toastTimer = 0;
         lastToastChaos = com.identitycrisis.shared.model.ChaosEventType.NONE;
         toastEventType = com.identitycrisis.shared.model.ChaosEventType.NONE;
         resetLocalChaosCycle();
@@ -408,10 +414,13 @@ public class GameArena {
 
         isPaused = false;
         arenaBgmStarted = false;
+        winnerShown = false;
         gameOverShown = false;
         hostDisconnectPromptShown = false;
         if (pauseOverlay != null)
             pauseOverlay.setVisible(false);
+        if (winnerOverlay != null)
+            winnerOverlay.setVisible(false);
         if (gameOverOverlay != null)
             gameOverOverlay.setVisible(false);
 
@@ -564,7 +573,7 @@ public class GameArena {
         boolean connected = client != null && client.isConnected();
         if (connected) {
             client.sendInput(input.up(), input.down(), input.left(), input.right(),
-                             input.carry(), input.throwAction(), input.release());
+                    input.carry(), input.throwAction(), input.release());
         }
 
         if (connected && syncNetworkedPlayerState(dt)) {
@@ -639,9 +648,11 @@ public class GameArena {
     }
 
     private boolean syncNetworkedPlayerState(double dt) {
-        if (sceneManager == null) return false;
+        if (sceneManager == null)
+            return false;
         com.identitycrisis.client.game.LocalGameState lgs = sceneManager.getLocalGameState();
-        if (lgs == null || !lgs.hasReceivedSnapshot() || lgs.getPlayers() == null) return false;
+        if (lgs == null || !lgs.hasReceivedSnapshot() || lgs.getPlayers() == null)
+            return false;
 
         int myId = lgs.getControlledPlayerId() > 0 ? lgs.getControlledPlayerId() : lgs.getMyPlayerId();
         for (Player p : lgs.getPlayers()) {
@@ -652,8 +663,10 @@ public class GameArena {
                 playerY = p.getPosition().y();
                 isMoving = p.getVelocity().magnitude() > GameConfig.VELOCITY_STOP_THRESHOLD
                         || Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1;
-                if (p.getFacingDirection() == 3 || dx < -0.1) facingLeft = true;
-                if (p.getFacingDirection() == 1 || dx > 0.1) facingLeft = false;
+                if (p.getFacingDirection() == 3 || dx < -0.1)
+                    facingLeft = true;
+                if (p.getFacingDirection() == 1 || dx > 0.1)
+                    facingLeft = false;
                 animTimer += dt;
                 if (animTimer >= FRAME_DURATION) {
                     animTimer -= FRAME_DURATION;
@@ -668,8 +681,10 @@ public class GameArena {
                 double dy = ra.hasLastPosition ? p.getPosition().y() - ra.lastY : 0;
                 ra.isMoving = p.getVelocity().magnitude() > GameConfig.VELOCITY_STOP_THRESHOLD
                         || Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1;
-                if (p.getFacingDirection() == 3 || dx < -0.1) ra.facingLeft = true;
-                if (p.getFacingDirection() == 1 || dx > 0.1) ra.facingLeft = false;
+                if (p.getFacingDirection() == 3 || dx < -0.1)
+                    ra.facingLeft = true;
+                if (p.getFacingDirection() == 1 || dx > 0.1)
+                    ra.facingLeft = false;
                 ra.lastX = p.getPosition().x();
                 ra.lastY = p.getPosition().y();
                 ra.hasLastPosition = true;
@@ -779,8 +794,8 @@ public class GameArena {
         }
         // Rising edge: a new or changed event
         if (effectiveChaos != ChaosEventType.NONE && effectiveChaos != lastToastChaos) {
-            toastActive    = true;
-            toastTimer     = 3.0;
+            toastActive = true;
+            toastTimer = 3.0;
             toastEventType = effectiveChaos;
         }
         lastToastChaos = effectiveChaos;
@@ -788,13 +803,13 @@ public class GameArena {
             toastTimer -= dt;
             if (toastTimer <= 0) {
                 toastActive = false;
-                toastTimer  = 0;
+                toastTimer = 0;
             }
         }
     }
 
     private boolean syncGameOverFromServer() {
-        if (gameOverShown)
+        if (gameOverShown || winnerShown)
             return true;
         if (sceneManager == null)
             return false;
@@ -806,9 +821,16 @@ public class GameArena {
         if (!over)
             return false;
         String winnerName = lgs.getWinnerName();
-        showGameOverOverlay(winnerName == null || winnerName.isBlank() || "None".equalsIgnoreCase(winnerName)
-                ? "Winner: None"
-                : "Winner: " + winnerName);
+        boolean noWinner = winnerName == null || winnerName.isBlank() || "None".equalsIgnoreCase(winnerName);
+        // Determine if the local player is the winner
+        int myId = lgs.getControlledPlayerId() > 0 ? lgs.getControlledPlayerId() : lgs.getMyPlayerId();
+        boolean localPlayerWon = !noWinner && (lgs.getWinnerPlayerId() == myId);
+
+        if (localPlayerWon) {
+            showWinnerOverlay(winnerName);
+        } else {
+            showGameOverOverlay(noWinner ? "Winner: None" : "Winner: " + winnerName);
+        }
         return true;
     }
 
@@ -821,6 +843,27 @@ public class GameArena {
             gameOverWinnerLabel.setText(resultText);
         if (gameOverOverlay != null)
             gameOverOverlay.setVisible(true);
+        // Stop arena BGM and play loss music
+        if (sceneManager != null && sceneManager.getAudioManager() != null) {
+            sceneManager.getAudioManager().stopBGM();
+            sceneManager.getAudioManager().playBGM("/audio/GameLose.mp3");
+        }
+    }
+
+    private void showWinnerOverlay(String winnerName) {
+        winnerShown = true;
+        isPaused = false;
+        if (pauseOverlay != null)
+            pauseOverlay.setVisible(false);
+        if (winnerNameLabel != null)
+            winnerNameLabel.setText(winnerName);
+        if (winnerOverlay != null)
+            winnerOverlay.setVisible(true);
+        // Stop arena BGM and play victory music
+        if (sceneManager != null && sceneManager.getAudioManager() != null) {
+            sceneManager.getAudioManager().stopBGM();
+            sceneManager.getAudioManager().playBGM("/audio/GameWin.mp3");
+        }
     }
 
     private void activateNextLocalChaos(ChaosEventType previous) {
@@ -986,9 +1029,9 @@ public class GameArena {
         if (mapManager == null)
             return false;
         // Hitbox corners in world-pixel space — no screen-scale multiplication needed.
-        double left   = cx + HIT_OFS_X - HIT_HALF_W;
-        double right  = cx + HIT_OFS_X + HIT_HALF_W;
-        double top    = cy + HIT_OFS_Y - HIT_HALF_H;
+        double left = cx + HIT_OFS_X - HIT_HALF_W;
+        double right = cx + HIT_OFS_X + HIT_HALF_W;
+        double top = cy + HIT_OFS_Y - HIT_HALF_H;
         double bottom = cy + HIT_OFS_Y + HIT_HALF_H;
         if (left < 0 || top < 0 || right >= mapManager.getWorldWidth() || bottom >= mapManager.getWorldHeight()) {
             return true;
@@ -1065,8 +1108,8 @@ public class GameArena {
     }
 
     private void drawCarriedReleasePrompt(GraphicsContext gc, double viewW, double viewH) {
-        com.identitycrisis.client.game.LocalGameState lgs =
-                (sceneManager != null) ? sceneManager.getLocalGameState() : null;
+        com.identitycrisis.client.game.LocalGameState lgs = (sceneManager != null) ? sceneManager.getLocalGameState()
+                : null;
         if (lgs == null || !lgs.hasReceivedSnapshot() || lgs.getPlayers() == null) {
             return;
         }
@@ -1108,37 +1151,40 @@ public class GameArena {
     /**
      * Draws the chaos-event toast in the top-right corner.
      *
-     * <p>The toast PNG (96×32 native) is rendered at 3× (288×96 screen px) with
+     * <p>
+     * The toast PNG (96×32 native) is rendered at 3× (288×96 screen px) with
      * nearest-neighbour upscaling for a crisp pixel-art look. The chaos event
      * name is drawn centred inside the dark right-panel area of the image.
      *
-     * <p>Animation: slides in from the right over 0.3 s (ease-out quadratic) and
+     * <p>
+     * Animation: slides in from the right over 0.3 s (ease-out quadratic) and
      * slides back out over the last 0.3 s (ease-in quadratic). Total: 3 seconds.
      */
     private void drawToast(GraphicsContext gc, double viewW, double viewH) {
         // Null + NONE guard — defensive against race conditions on the volatile fields
         if (!toastActive || toastEventType == null
-                || toastEventType == com.identitycrisis.shared.model.ChaosEventType.NONE) return;
+                || toastEventType == com.identitycrisis.shared.model.ChaosEventType.NONE)
+            return;
 
-        final double W        = 288;  // 96 native × 3
-        final double H        = 96;   // 32 native × 3
-        final double PAD      = 16;
+        final double W = 288; // 96 native × 3
+        final double H = 96; // 32 native × 3
+        final double PAD = 16;
         final double ANIM_DUR = 0.3;
         final double DURATION = 3.0;
 
         // ── Slide animation ──────────────────────────────────────────────
         double finalX = viewW - W - PAD;
-        double drawY  = PAD;
+        double drawY = PAD;
         double drawX;
         double elapsed = DURATION - toastTimer;
 
         if (elapsed < ANIM_DUR) {
-            double t  = elapsed / ANIM_DUR;
-            double et = 1.0 - (1.0 - t) * (1.0 - t);   // ease-out
+            double t = elapsed / ANIM_DUR;
+            double et = 1.0 - (1.0 - t) * (1.0 - t); // ease-out
             drawX = viewW - et * (W + PAD);
         } else if (toastTimer < ANIM_DUR) {
-            double t  = 1.0 - (toastTimer / ANIM_DUR);
-            double et = t * t;                            // ease-in
+            double t = 1.0 - (toastTimer / ANIM_DUR);
+            double et = t * t; // ease-in
             drawX = finalX + et * (W + PAD);
         } else {
             drawX = finalX;
@@ -1163,16 +1209,16 @@ public class GameArena {
 
         // ── 2. Event name text centred in the dark right panel ───────────
         // Native panel: x 30–86 (56 px) → 3× = +90..+258 (168 px wide)
-        //               y 10–24 (14 px) → 3× = +30..+72  (42 px tall)
+        // y 10–24 (14 px) → 3× = +30..+72 (42 px tall)
         String label = switch (toastEventType) {
             case REVERSED_CONTROLS -> "REVERSED!";
-            case CONTROL_SWAP      -> "PLAYER SWAP!";
-            case FAKE_SAFE_ZONES   -> "FAKE ZONES!";
-            default                -> "";
+            case CONTROL_SWAP -> "PLAYER SWAP!";
+            case FAKE_SAFE_ZONES -> "FAKE ZONES!";
+            default -> "";
         };
         if (!label.isEmpty()) {
-            double textCX = drawX + 90 + 84;  // midpoint of 168-px panel (90 + 84 = 174)
-            double textCY = drawY + 51;        // midpoint of panel (30 + 21) + font baseline
+            double textCX = drawX + 90 + 84; // midpoint of 168-px panel (90 + 84 = 174)
+            double textCY = drawY + 51; // midpoint of panel (30 + 21) + font baseline
             Font tf = (fontToast != null) ? fontToast : loadFont("Press Start 2P", 7);
             gc.setFont(tf);
             gc.setTextAlign(javafx.scene.text.TextAlignment.CENTER);
@@ -1188,9 +1234,9 @@ public class GameArena {
     // ── Player rendering ─────────────────────────────────────────────────────
 
     private void drawPlayerSprite(GraphicsContext gc, double viewW, double viewH,
-                                  double worldX, double worldY,
-                                  int spriteIdx, int frame, boolean moving,
-                                  boolean left, String displayName) {
+            double worldX, double worldY,
+            int spriteIdx, int frame, boolean moving,
+            boolean left, String displayName) {
         double screenX, screenY, displaySize;
         if (mapManager != null && mapManager.getWorldWidth() > 0) {
             double scale = mapManager.getScale(viewW, viewH);
@@ -1203,7 +1249,7 @@ public class GameArena {
             displaySize = SPRITE_NATIVE * 3.0;
         }
         String key = moving ? "player_" + spriteIdx + "_walk"
-                            : "player_" + spriteIdx + "_idle";
+                : "player_" + spriteIdx + "_idle";
         Image sheet = spriteManager.get(key);
         int maxFrames = moving ? WALK_FRAMES : IDLE_FRAMES;
         int f = Math.min(frame, maxFrames - 1);
@@ -1218,10 +1264,10 @@ public class GameArena {
                 gc.translate(drawX + displaySize, drawY);
                 gc.scale(-1, 1);
                 gc.drawImage(sheet, srcX, 0, SPRITE_NATIVE, SPRITE_NATIVE,
-                             0, 0, displaySize, displaySize);
+                        0, 0, displaySize, displaySize);
             } else {
                 gc.drawImage(sheet, srcX, 0, SPRITE_NATIVE, SPRITE_NATIVE,
-                             drawX, drawY, displaySize, displaySize);
+                        drawX, drawY, displaySize, displaySize);
             }
             gc.restore();
         } else {
@@ -1241,12 +1287,13 @@ public class GameArena {
     }
 
     private void drawAllPlayers(GraphicsContext gc, double viewW, double viewH) {
-        com.identitycrisis.client.game.LocalGameState lgs =
-                (sceneManager != null) ? sceneManager.getLocalGameState() : null;
+        com.identitycrisis.client.game.LocalGameState lgs = (sceneManager != null) ? sceneManager.getLocalGameState()
+                : null;
         if (lgs != null && lgs.hasReceivedSnapshot() && lgs.getPlayers() != null) {
             int myId = lgs.getControlledPlayerId() > 0 ? lgs.getControlledPlayerId() : lgs.getMyPlayerId();
             for (Player p : lgs.getPlayers()) {
-                if (p.getState() == PlayerState.ELIMINATED) continue;
+                if (p.getState() == PlayerState.ELIMINATED)
+                    continue;
                 int spriteIdx = ((p.getPlayerId() - 1) % 8) + 1;
                 if (p.getPlayerId() == myId) {
                     drawPlayerSprite(gc, viewW, viewH,
@@ -1254,7 +1301,8 @@ public class GameArena {
                             animFrame, isMoving, facingLeft, p.getDisplayName());
                 } else {
                     RemotePlayerAnim ra = remoteAnims.get(p.getPlayerId());
-                    if (ra == null) ra = new RemotePlayerAnim();
+                    if (ra == null)
+                        ra = new RemotePlayerAnim();
                     drawPlayerSprite(gc, viewW, viewH,
                             p.getPosition().x(), p.getPosition().y(),
                             spriteIdx, ra.animFrame, ra.isMoving, ra.facingLeft,
@@ -1268,8 +1316,8 @@ public class GameArena {
     }
 
     private boolean isGameInProgress() {
-        com.identitycrisis.client.game.LocalGameState lgs =
-                (sceneManager != null) ? sceneManager.getLocalGameState() : null;
+        com.identitycrisis.client.game.LocalGameState lgs = (sceneManager != null) ? sceneManager.getLocalGameState()
+                : null;
         return lgs != null && lgs.hasReceivedSnapshot();
     }
 
@@ -1799,6 +1847,119 @@ public class GameArena {
         root.getChildren().add(pauseOverlay);
     }
 
+    private void createWinnerOverlay(StackPane root) {
+        winnerOverlay = new StackPane();
+        winnerOverlay.setVisible(false);
+        // Deep dark background with a golden tint — evokes royalty
+        winnerOverlay.setStyle("-fx-background-color: rgba(5, 10, 5, 0.88);");
+
+        // Shimmer radial glow behind the content
+        javafx.scene.layout.Pane goldGlow = new javafx.scene.layout.Pane();
+        goldGlow.setStyle("-fx-background-color: radial-gradient(center 50% 42%, radius 55%, " +
+                "rgba(201,168,76,0.22), transparent 70%);");
+        goldGlow.setMouseTransparent(true);
+        goldGlow.prefWidthProperty().bind(root.widthProperty());
+        goldGlow.prefHeightProperty().bind(root.heightProperty());
+        winnerOverlay.getChildren().add(goldGlow);
+
+        // Pulsing glow animation
+        javafx.animation.Timeline glowPulse = new javafx.animation.Timeline(
+                new javafx.animation.KeyFrame(javafx.util.Duration.ZERO,
+                        new javafx.animation.KeyValue(goldGlow.opacityProperty(), 0.7)),
+                new javafx.animation.KeyFrame(javafx.util.Duration.seconds(1.8),
+                        new javafx.animation.KeyValue(goldGlow.opacityProperty(), 1.0)));
+        glowPulse.setAutoReverse(true);
+        glowPulse.setCycleCount(javafx.animation.Animation.INDEFINITE);
+        glowPulse.play();
+
+        VBox content = new VBox(18);
+        content.setAlignment(javafx.geometry.Pos.CENTER);
+        content.setMaxWidth(640);
+
+        // Crown emoji — big, festive
+        Label crown = new Label("\uD83D\uDC51");
+        crown.setStyle("-fx-font-size: 72px;");
+        // Floating crown animation
+        javafx.animation.TranslateTransition crownFloat = new javafx.animation.TranslateTransition(
+                javafx.util.Duration.seconds(1.8), crown);
+        crownFloat.setFromY(-6);
+        crownFloat.setToY(6);
+        crownFloat.setAutoReverse(true);
+        crownFloat.setCycleCount(javafx.animation.Animation.INDEFINITE);
+        crownFloat.play();
+        VBox.setMargin(crown, new javafx.geometry.Insets(0, 0, 4, 0));
+
+        // "VICTORY" header
+        Label victoryLabel = new Label("VICTORY");
+        victoryLabel.setStyle("-fx-font-family: 'Press Start 2P', monospace;" +
+                "-fx-font-size: 11px;" +
+                "-fx-text-fill: #c9a84c;" +
+                "-fx-letter-spacing: 8px;");
+        victoryLabel.setOpacity(0.9);
+
+        // Big title: "YOU WIN!"
+        Label youWinLabel = new Label("YOU WIN!");
+        youWinLabel.setStyle("-fx-font-family: 'Cinzel Decorative', serif;" +
+                "-fx-font-size: 54px;" +
+                "-fx-font-weight: 700;" +
+                "-fx-text-fill: #e8c86a;" +
+                "-fx-effect: dropshadow(gaussian, rgba(201,168,76,0.9), 36, 0.5, 0, 0);");
+
+        // Winner name
+        winnerNameLabel = new Label("");
+        winnerNameLabel.setStyle("-fx-font-family: 'Press Start 2P', monospace;" +
+                "-fx-font-size: 13px;" +
+                "-fx-text-fill: #e8dfc4;" +
+                "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 8, 0.25, 0, 2);");
+
+        // Gold divider
+        javafx.scene.layout.HBox divider = new javafx.scene.layout.HBox();
+        divider.setPrefWidth(320);
+        divider.setPrefHeight(1);
+        divider.setStyle("-fx-background-color: linear-gradient(to right, transparent, #c9a84c, transparent);");
+        divider.setAlignment(javafx.geometry.Pos.CENTER);
+        VBox.setMargin(divider, new javafx.geometry.Insets(8, 0, 8, 0));
+
+        // Tagline
+        Label tagline = new Label("Last one standing in the arena!");
+        tagline.setStyle("-fx-font-family: 'Crimson Pro', serif;" +
+                "-fx-font-style: italic;" +
+                "-fx-font-size: 17px;" +
+                "-fx-text-fill: #7a7060;");
+        VBox.setMargin(tagline, new javafx.geometry.Insets(0, 0, 12, 0));
+
+        Button menuBtn = createMenuButton("MAIN MENU");
+        menuBtn.setOnAction(e -> {
+            onExit();
+            sceneManager.shutdownNetwork();
+            sceneManager.showMenu();
+        });
+
+        content.getChildren().addAll(crown, victoryLabel, youWinLabel, winnerNameLabel, divider, tagline, menuBtn);
+
+        // Entrance scale-in animation
+        content.setScaleX(0.85);
+        content.setScaleY(0.85);
+        content.setOpacity(0);
+        winnerOverlay.visibleProperty().addListener((obs, wasVisible, nowVisible) -> {
+            if (nowVisible) {
+                javafx.animation.Timeline entrance = new javafx.animation.Timeline(
+                        new javafx.animation.KeyFrame(javafx.util.Duration.ZERO,
+                                new javafx.animation.KeyValue(content.opacityProperty(), 0),
+                                new javafx.animation.KeyValue(content.scaleXProperty(), 0.85),
+                                new javafx.animation.KeyValue(content.scaleYProperty(), 0.85)),
+                        new javafx.animation.KeyFrame(javafx.util.Duration.seconds(0.7),
+                                new javafx.animation.KeyValue(content.opacityProperty(), 1),
+                                new javafx.animation.KeyValue(content.scaleXProperty(), 1.0),
+                                new javafx.animation.KeyValue(content.scaleYProperty(), 1.0)));
+                entrance.play();
+            }
+        });
+
+        winnerOverlay.getChildren().add(content);
+        root.getChildren().add(winnerOverlay);
+    }
+
     private void createGameOverOverlay(StackPane root) {
         gameOverOverlay = new StackPane();
         gameOverOverlay.setVisible(false);
@@ -1837,7 +1998,8 @@ public class GameArena {
                 logoView.setEffect(logoGlow);
                 content.getChildren().add(logoView);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
 
         Label title = new Label("GAME OVER");
         title.setStyle("-fx-font-family: 'Press Start 2P', monospace;" +
@@ -1910,12 +2072,22 @@ public class GameArena {
     }
 
     private void startArenaBgmIfNeeded() {
-        if (arenaBgmStarted || !shouldPlayArenaBgm()) {
+        if (!shouldPlayArenaBgm()) {
             return;
         }
+        // Choose track by round: 1-2 → TimerRound, 3+ → SafezoneRound
+        String track = (roundNumber <= 2) ? "/audio/TimerRound.mp3" : "/audio/SafezoneRound.mp3";
         if (sceneManager != null && sceneManager.getAudioManager() != null) {
-            sceneManager.getAudioManager().playBGM("/audio/GameMusic.mp3");
-            arenaBgmStarted = true;
+            // If we haven't started yet, or the round just crossed the boundary (2→3)
+            // so we need to switch tracks.
+            if (!arenaBgmStarted) {
+                sceneManager.getAudioManager().playBGM(track);
+                arenaBgmStarted = true;
+            } else {
+                // Check if the current track matches the desired track; if not, switch.
+                // AudioManager.playBGM is idempotent when the same path is already playing.
+                sceneManager.getAudioManager().playBGM(track);
+            }
         }
     }
 

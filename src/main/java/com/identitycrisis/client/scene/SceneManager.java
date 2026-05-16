@@ -16,7 +16,6 @@ import com.identitycrisis.shared.model.GameConfig;
 import javafx.scene.Parent;
 import com.identitycrisis.client.audio.AudioManager;
 
-
 /** Manages transitions between scenes by swapping Stage's Scene. */
 public class SceneManager {
 
@@ -26,13 +25,13 @@ public class SceneManager {
     private InputManager inputManager;
     private AudioManager audioManager;
 
-
     // Single permanent scene — the Stage's scene is set ONCE and never swapped.
     // Content is changed via permanentScene.setRoot() so fullscreen is never reset.
     private final Scene permanentScene;
 
     // Cached root nodes (Parent) for each named screen.
-    // createScene() is called once; the root is extracted and the temp Scene discarded.
+    // createScene() is called once; the root is extracted and the temp Scene
+    // discarded.
     private final Map<String, Parent> roots = new HashMap<>();
     private String currentSceneKey;
 
@@ -63,7 +62,8 @@ public class SceneManager {
         this.primaryStage.setOnCloseRequest(e -> shutdownNetwork());
 
         // Create the one permanent Scene. Its root is swapped via setRoot() on every
-        // navigation so the Stage's scene property never changes — fullscreen is preserved.
+        // navigation so the Stage's scene property never changes — fullscreen is
+        // preserved.
         StackPane placeholder = new StackPane();
         placeholder.setStyle("-fx-background-color: #0d0d14;");
         permanentScene = new Scene(placeholder,
@@ -72,21 +72,27 @@ public class SceneManager {
         // Attach global CSS once.
         try {
             var css = getClass().getResource("/styles/global.css");
-            if (css != null) permanentScene.getStylesheets().add(css.toExternalForm());
-        } catch (Exception ignored) {}
+            if (css != null)
+                permanentScene.getStylesheets().add(css.toExternalForm());
+        } catch (Exception ignored) {
+        }
 
         // F11 / ESCAPE fullscreen toggle — addEventFilter so InputManager's
         // addEventHandler is not overridden.
         permanentScene.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
             switch (event.getCode()) {
-                case F11  -> { toggleFullscreen(); event.consume(); }
+                case F11 -> {
+                    toggleFullscreen();
+                    event.consume();
+                }
                 case ESCAPE -> {
                     if (primaryStage.isFullScreen()) {
                         primaryStage.setFullScreen(false);
                         event.consume();
                     }
                 }
-                default -> {}
+                default -> {
+                }
             }
         });
 
@@ -125,7 +131,7 @@ public class SceneManager {
             embeddedServer = null;
         }
         roomCode = null;
-        isHost   = false;
+        isHost = false;
     }
 
     public void handleServerDisconnected() {
@@ -207,7 +213,8 @@ public class SceneManager {
      * The Stage's scene is never changed so JavaFX never resets fullscreen.
      *
      * @param key     cache key for this screen's root
-     * @param creator called once on first use to build the Scene (root extracted, Scene discarded)
+     * @param creator called once on first use to build the Scene (root extracted,
+     *                Scene discarded)
      */
     private void swapRoot(String key, java.util.function.Supplier<Scene> creator) {
         Parent root = roots.computeIfAbsent(key, k -> {
@@ -221,8 +228,9 @@ public class SceneManager {
 
         // Background Music Control
         if ("gamearena".equals(key)) {
-            // Game music: loop indefinitely until the player leaves the arena
-            audioManager.playBGM("/audio/GameMusic.mp3");
+            // Arena BGM is driven per-round by GameArena.startArenaBgmIfNeeded().
+            // Stop whatever was playing (menu/lobby) so GameArena can take over.
+            audioManager.stopBGM();
         } else if ("initialloading".equals(key) || "loading".equals(key)) {
             audioManager.stopBGM();
         } else {
@@ -230,13 +238,14 @@ public class SceneManager {
             audioManager.playBGM("/audio/bgmusic.wav");
         }
 
-
         permanentScene.setRoot(root);
         currentSceneKey = key;
     }
 
-
-    /** Toggle fullscreen on the primary stage. Can be triggered by F11 or the HUD button. */
+    /**
+     * Toggle fullscreen on the primary stage. Can be triggered by F11 or the HUD
+     * button.
+     */
     public void toggleFullscreen() {
         primaryStage.setFullScreen(!primaryStage.isFullScreen());
     }
@@ -278,20 +287,39 @@ public class SceneManager {
         return audioManager;
     }
 
-
     // ── Room / host lifecycle ──────────────────────────────────────────────
 
-    public EmbeddedServer getEmbeddedServer() { return embeddedServer; }
-    public void setEmbeddedServer(EmbeddedServer s) { this.embeddedServer = s; }
+    public EmbeddedServer getEmbeddedServer() {
+        return embeddedServer;
+    }
 
-    public String getRoomCode() { return roomCode; }
-    public void setRoomCode(String code) { this.roomCode = code; }
+    public void setEmbeddedServer(EmbeddedServer s) {
+        this.embeddedServer = s;
+    }
 
-    public boolean isHost() { return isHost; }
-    public void setHost(boolean host) { this.isHost = host; }
+    public String getRoomCode() {
+        return roomCode;
+    }
 
-    public String getMyDisplayName() { return myDisplayName; }
-    public void setMyDisplayName(String name) { this.myDisplayName = name; }
+    public void setRoomCode(String code) {
+        this.roomCode = code;
+    }
+
+    public boolean isHost() {
+        return isHost;
+    }
+
+    public void setHost(boolean host) {
+        this.isHost = host;
+    }
+
+    public String getMyDisplayName() {
+        return myDisplayName;
+    }
+
+    public void setMyDisplayName(String name) {
+        this.myDisplayName = name;
+    }
 
     public MenuScene getMenuScene() {
         return menuScene;
